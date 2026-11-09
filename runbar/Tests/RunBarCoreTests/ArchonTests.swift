@@ -1,22 +1,27 @@
 import XCTest
 @testable import RunBarCore
 
+/// This file's folder, the package's, and the repo the package sits in: the three folders
+/// these tests name.
+private let testFolder = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+private let packageFolder = testFolder.deletingLastPathComponent().deletingLastPathComponent()
+private let repoFolder = packageFolder.deletingLastPathComponent()
+
 /// The seam is the Archon CLI: these fixtures are trimmed copies of what
 /// `archon workflow runs --all --json` and `archon workflow get <id> --json --verbose`
 /// printed on this Mac on 2026-11-09, with the fields RunBar reads and nothing else.
-private func fixture(_ name: String) throws -> Data {
-    let url = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .appendingPathComponent("Fixtures")
-        .appendingPathComponent(name)
-    return try Data(contentsOf: url)
+private func fixturePath(_ name: String) -> String {
+    testFolder.appendingPathComponent("Fixtures").appendingPathComponent(name).path
 }
 
+private func fixture(_ name: String) throws -> Data {
+    try Data(contentsOf: URL(fileURLWithPath: fixturePath(name)))
+}
 
 /// One temporary Mac: a Profile naming an Archon home under it, one project folder, and a
 /// stub `archon` at the home's binary path that writes down how it was called and prints
 /// the fixture it is given. The stub stands for the CLI, the one edge these tests reach
-/// past: everything inside RunBar runs for real.
+/// past: everything inside RunBar runs for real. A test removes the folder when it ends.
 private func macWithStubArchon(
     printing fixture: String, failing said: String? = nil
 ) throws -> (home: URL, log: URL) {
@@ -98,9 +103,8 @@ final class ArchonTests: XCTestCase {
     }
 
     func testRunsArePolledFromArchonInThisMacsHomeFromAProjectFolder() throws {
-        let fixturePath = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().appendingPathComponent("Fixtures/runs.json").path
-        let (home, log) = try macWithStubArchon(printing: fixturePath)
+        let (home, log) = try macWithStubArchon(printing: fixturePath("runs.json"))
+        defer { try? FileManager.default.removeItem(at: home) }
 
         let runs = try ArchonHome(home: home).activeRuns()
 
@@ -111,9 +115,8 @@ final class ArchonTests: XCTestCase {
     }
 
     func testAnExpandedWorkflowAsksForThatRunsOwnNodes() throws {
-        let fixturePath = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().appendingPathComponent("Fixtures/get.json").path
-        let (home, log) = try macWithStubArchon(printing: fixturePath)
+        let (home, log) = try macWithStubArchon(printing: fixturePath("get.json"))
+        defer { try? FileManager.default.removeItem(at: home) }
 
         let nodes = try ArchonHome(home: home).nodes(of: "56aade6ad504848e67c42df45824e4f1")
 
@@ -124,17 +127,11 @@ final class ArchonTests: XCTestCase {
     }
 
     func testTheRunsAreReadFromTheHomeTheShippedProfileNames() throws {
-        let fixturePath = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().appendingPathComponent("Fixtures/runs.json").path
-        let (home, log) = try macWithStubArchon(printing: fixturePath)
+        let (home, log) = try macWithStubArchon(printing: fixturePath("runs.json"))
+        defer { try? FileManager.default.removeItem(at: home) }
         // The example Profile this repo ships: comments, quoted values and $HOME, exactly
         // as the Mac's own Profile is written.
-        let shipped = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("config/profile")
+        let shipped = repoFolder.appendingPathComponent("config/profile")
         try String(contentsOf: shipped, encoding: .utf8).write(
             to: home.appendingPathComponent(".config/factory/profile"),
             atomically: true, encoding: .utf8
@@ -157,6 +154,7 @@ final class ArchonTests: XCTestCase {
         let (home, _) = try macWithStubArchon(
             printing: "", failing: "Error: Not in a git repository."
         )
+        defer { try? FileManager.default.removeItem(at: home) }
 
         XCTAssertThrowsError(try ArchonHome(home: home).activeRuns()) { error in
             XCTAssertEqual(error.localizedDescription, "Error: Not in a git repository.")

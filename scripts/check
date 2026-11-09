@@ -13,7 +13,7 @@ tests=$(find tests -name '*.test.ts' -o -name '*.test.mjs' 2>/dev/null | sort)
 if command -v swift >/dev/null 2>&1; then
 	swift test -q --package-path runbar --scratch-path "${RUNBAR_BUILD:-$HOME/.local/share/factory/runbar}"
 fi
-for f in $(grep -lE '^#!/bin/(ba)?sh' bin/* project-manager/* scripts/* 2>/dev/null); do
+for f in $(grep -lE '^#!/bin/(ba)?sh' bin/* project-manager/* scripts/* runbar/* 2>/dev/null); do
 	case "$(head -1 "$f")" in *bash*) bash -n "$f" ;; *) sh -n "$f" ;; esac
 done
 echo "check passed"

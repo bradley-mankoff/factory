@@ -7,7 +7,7 @@
   GLOSSARY.md  — The Factory's words: Agent, Scout, Workflow library, Bead, Run…
   docs/adr/  — Architecture decisions for the Factory
     001-keep-factoryclaw-on-openclaw-telegram.md  — Keep FactoryClaw on OpenClaw plus Telegram, trial pi plus Ovis beside it (fac-km9)
-  scripts/check  — The Factory's check, FACTORY_CHECK for Runs on this repo: tests under tests/, then a syntax check of the shell scripts
+  scripts/check  — The Factory's check, FACTORY_CHECK for Runs on this repo: tests under tests/, RunBar's Swift tests, then a syntax check of every shell script, runbar/install.sh included
   scripts/install.sh  — Installs the Factory, or sets up one project for it, following the Mac's Profile; its top holds the one version set: Archon 0.12.1, pi 1.3.0, pi-claude-bridge 0.9.3
   scripts/install-workflows  — Copies workflows/factory/ into a Workflow library's factory/, replacing that group only and leaving the person's own groups alone (fac-qpv.6.2)
   tests/  — The Factory's tests, run by scripts/check

@@ -50,7 +50,7 @@ struct RunsView: View {
                     Text(node(run))
                         .font(.caption)
                         .monospacedDigit()
-                        .foregroundColor(color(state: run.status))
+                        .foregroundColor(presentation(run.status).color)
                 }
                 .contentShape(Rectangle())
             }
@@ -66,11 +66,12 @@ struct RunsView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     } else if let nodes {
                         ForEach(nodes) { node in
+                            let shown = presentation(node.state)
                             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                Text(glyph(state: node.state))
+                                Text(shown.glyph)
                                     .font(.caption2)
                                     .frame(width: 10)
-                                    .foregroundColor(color(state: node.state))
+                                    .foregroundColor(shown.color)
                                 Text(node.id)
                                     .font(.caption)
                                     .bold(node.isCurrent)
@@ -116,22 +117,15 @@ struct RunsView: View {
         return "Updated \(secs / 60)m ago"
     }
 
-    private func glyph(state: String) -> String {
+    /// A state's mark and colour in the menu, in one table: a state Archon adds is one line
+    /// here and nothing else.
+    private func presentation(_ state: String) -> (glyph: String, color: Color) {
         switch state {
-        case "completed": return "\u{2713}"
-        case "running": return "\u{25B6}"
-        case "failed": return "\u{2717}"
-        case "skipped", "cancelled": return "\u{2013}"
-        default: return "\u{00B7}"
-        }
-    }
-
-    private func color(state: String) -> Color {
-        switch state {
-        case "running": return .accentColor
-        case "completed": return .green
-        case "failed": return .red
-        default: return .secondary
+        case "completed": return ("\u{2713}", .green)
+        case "running": return ("\u{25B6}", .accentColor)
+        case "failed": return ("\u{2717}", .red)
+        case "skipped", "cancelled": return ("\u{2013}", .secondary)
+        default: return ("\u{00B7}", .secondary)
         }
     }
 }

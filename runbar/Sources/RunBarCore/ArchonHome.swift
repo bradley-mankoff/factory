@@ -80,9 +80,8 @@ public struct ArchonHome {
             throw Archon.Failure("no Profile at \(profilePath.path); scripts/install.sh puts one there")
         }
         var settings: [String: String] = [:]
-        for raw in text.split(separator: "\n") {
-            let line = raw.trimmingCharacters(in: .whitespaces)
-            guard !line.isEmpty, !line.hasPrefix("#"), let equals = line.firstIndex(of: "=") else { continue }
+        for line in contentLines(of: text) {
+            guard let equals = line.firstIndex(of: "=") else { continue }
             let key = line[..<equals]
                 .replacingOccurrences(of: "export ", with: "")
                 .trimmingCharacters(in: .whitespaces)
@@ -102,9 +101,7 @@ public struct ArchonHome {
     private func projectFolder() throws -> URL {
         let path = home.appendingPathComponent(".config/factory/projects")
         let text = (try? String(contentsOf: path, encoding: .utf8)) ?? ""
-        for raw in text.split(separator: "\n") {
-            let folder = raw.trimmingCharacters(in: .whitespaces)
-            guard !folder.isEmpty, !folder.hasPrefix("#") else { continue }
+        for folder in contentLines(of: text) {
             var isFolder: ObjCBool = false
             if FileManager.default.fileExists(atPath: folder, isDirectory: &isFolder), isFolder.boolValue {
                 return URL(fileURLWithPath: folder)
@@ -113,5 +110,13 @@ public struct ArchonHome {
         throw Archon.Failure(
             "no project folder in \(path.path), so Archon cannot tell which project this is; add one with scripts/install.sh <repo>"
         )
+    }
+
+    /// The lines of a file under ~/.config/factory that carry a setting: trimmed, with the
+    /// blank lines and comments install writes beside them dropped.
+    private func contentLines(of text: String) -> [String] {
+        text.split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && !$0.hasPrefix("#") }
     }
 }

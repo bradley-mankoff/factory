@@ -14,6 +14,11 @@ let package = Package(
     targets: [
         .target(name: "RunBarCore", path: "Sources/RunBarCore"),
         .executableTarget(name: "RunBar", dependencies: ["RunBarCore"], path: "Sources/RunBar"),
-        .testTarget(name: "RunBarCoreTests", dependencies: ["RunBarCore"], path: "Tests/RunBarCoreTests"),
+        .testTarget(
+            name: "RunBarCoreTests", dependencies: ["RunBarCore"], path: "Tests/RunBarCoreTests",
+            // The fixtures are read from the source tree by #filePath, so the test target
+            // excludes them instead of copying them into the bundle.
+            exclude: ["Fixtures"]
+        ),
     ]
 )

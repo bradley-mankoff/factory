@@ -15,29 +15,33 @@ const label = "com.bradley-mankoff.runbar";
 
 test("install builds RunBar, puts it in ~/Applications and opens it at login", () => {
 	const mac = makeMac();
-	const result = mac.install();
-	assert.equal(result.status, 0, result.stderr || result.stdout);
+	try {
+		const result = mac.install();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
 
-	// The app bundle, signed ad hoc, with no Dock icon: the menu bar item is the app.
-	const app = join(mac.home, "Applications", "RunBar.app");
-	const info = readFileSync(join(app, "Contents", "Info.plist"), "utf8");
-	assert.match(info, /<key>CFBundleIdentifier<\/key><string>com\.bradley-mankoff\.runbar<\/string>/);
-	assert.match(info, /<key>LSUIElement<\/key><true\/>/);
-	assert.ok(existsSync(join(app, "Contents", "MacOS", "RunBar")), "the built app is in the bundle");
-	assert.match(logOf(mac.logs.codesign), new RegExp(`--sign - ${app}$`, "m"));
+		// The app bundle, signed ad hoc, with no Dock icon: the menu bar item is the app.
+		const app = join(mac.home, "Applications", "RunBar.app");
+		const info = readFileSync(join(app, "Contents", "Info.plist"), "utf8");
+		assert.match(info, /<key>CFBundleIdentifier<\/key><string>com\.bradley-mankoff\.runbar<\/string>/);
+		assert.match(info, /<key>LSUIElement<\/key><true\/>/);
+		assert.ok(existsSync(join(app, "Contents", "MacOS", "RunBar")), "the built app is in the bundle");
+		assert.match(logOf(mac.logs.codesign), new RegExp(`--sign - ${app}$`, "m"));
 
-	// Built from this repo, with its products outside the checkout, which the Factory's
-	// size count reads whole.
-	assert.equal(
-		logOf(mac.logs.swift).trim(),
-		`build -c release --package-path ${root}/runbar --scratch-path ${mac.home}/.local/share/factory/runbar`
-	);
+		// Built from this repo, with its products outside the checkout, which the Factory's
+		// size count reads whole.
+		assert.equal(
+			logOf(mac.logs.swift).trim(),
+			`build -c release --package-path ${root}/runbar --scratch-path ${mac.home}/.local/share/factory/runbar`
+		);
 
-	// The login job opens the app and starts it again if it dies.
-	const job = readFileSync(join(mac.home, "Library", "LaunchAgents", `${label}.plist`), "utf8");
-	assert.match(job, new RegExp(`<string>${app}/Contents/MacOS/RunBar</string>`));
-	assert.match(job, /<key>RunAtLoad<\/key><true\/>/);
-	assert.match(logOf(mac.logs.launchctl), new RegExp(`bootstrap gui/\\d+ .*${label}\\.plist`));
+		// The login job opens the app and starts it again if it dies.
+		const job = readFileSync(join(mac.home, "Library", "LaunchAgents", `${label}.plist`), "utf8");
+		assert.match(job, new RegExp(`<string>${app}/Contents/MacOS/RunBar</string>`));
+		assert.match(job, /<key>RunAtLoad<\/key><true\/>/);
+		assert.match(logOf(mac.logs.launchctl), new RegExp(`bootstrap gui/\\d+ .*${label}\\.plist`));
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
 });
 
 test("a new RunBar binary restarts the login job, and the same one leaves it running", () => {
@@ -68,12 +72,16 @@ test("a new RunBar binary restarts the login job, and the same one leaves it run
 
 test("a Mac whose Swift toolchain cannot build RunBar still installs, and says so", () => {
 	const mac = makeMac();
-	mac.env.SWIFT_FAIL = "1";
+	try {
+		mac.env.SWIFT_FAIL = "1";
 
-	const result = mac.install();
+		const result = mac.install();
 
-	assert.equal(result.status, 0, result.stderr || result.stdout);
-	assert.equal(existsSync(join(mac.home, "Applications", "RunBar.app")), false, "no half-built app is left");
-	assert.equal(existsSync(join(mac.home, "Library", "LaunchAgents", `${label}.plist`)), false, "no job asks for an app that is not there");
-	assert.match(result.stderr, /RunBar did not install/, "install says the menu bar item is missing");
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+		assert.equal(existsSync(join(mac.home, "Applications", "RunBar.app")), false, "no half-built app is left");
+		assert.equal(existsSync(join(mac.home, "Library", "LaunchAgents", `${label}.plist`)), false, "no job asks for an app that is not there");
+		assert.match(result.stderr, /RunBar did not install/, "install says the menu bar item is missing");
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
 });

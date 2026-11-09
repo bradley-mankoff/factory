@@ -2,9 +2,8 @@
  * One temporary Mac, for the tests whose seam is installation: a HOME with the files a Mac
  * already has, and stand-ins on PATH for the commands scripts/install.sh calls outside the
  * Factory (OpenClaw, Archon, herdr, launchd, pi, npm, bdui, and the Swift toolchain and
- * codesign that build RunBar). A test reads back the files
- * install leaves on that Mac and the log each stand-in wrote; nothing looks inside
- * install.sh.
+ * codesign that build RunBar). A test reads back the files install leaves on that Mac and
+ * the log each stand-in wrote; nothing looks inside install.sh.
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
