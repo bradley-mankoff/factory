@@ -4,9 +4,10 @@
     claude-usage
 
 The Factory reads this for its warnings (fac-qpv.1.4): FactoryClaw runs it before a
-message that leads to a Run, and each build Workflow's first node runs it too. The plan's
-two windows, 5 hours and a week, are checked only when a Run is about to start, never
-during one. The line begins with one of:
+message that leads to a Run, and it is the only caller. No Workflow node runs it, because a
+Run's nodes move down their Chains when an account runs out. The plan's two windows, 5
+hours and a week, are checked only when a Run is about to start, never during one. The line
+begins with one of:
 
     Claude usage OK          more than 25% of 5 hours and more than 6% of the week left
     Claude usage is low      25% or less of 5 hours, or 6% or less of the week
