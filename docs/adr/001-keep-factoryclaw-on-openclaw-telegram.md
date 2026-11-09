@@ -23,7 +23,7 @@ The Human then narrowed the proposal to two changes only. First, use Ovis instea
 
 4. OpenClaw stays for personal work. PersonalClaw holds machine wide memory with cross conversation recall, plus voice transcription and Telegram. Moving only FactoryClaw would leave two phone apps and two notification channels.
 
-5. herdr-projects overlaps but does not dominate. Its finish line of commit plus catch up with main plus check plus draft pull request plus one second agent review plus human approval, per docs/how-work-gets-done.md, is weaker than the Factory split of spec review plus standards review on another model with bin/review-verdict, plus fixture tested Workflows pinned by library commit. Its Coordinator has no Epic, no Spec as Epic description, and no to-beads thin slices with blockers.
+5. herdr-projects overlaps but does not dominate. Its finish line of commit plus catch up with main plus check plus draft pull request plus one second agent review plus human approval, per docs/how-work-gets-done.md, is weaker than the Factory split of spec review plus standards review on another model, where a withheld review ends the Run with its findings on the Bead, plus fixture tested Workflows pinned by library commit. Its Coordinator has no Epic, no Spec as Epic description, and no to-beads thin slices with blockers.
 
 ## Trial that could reverse this
 
