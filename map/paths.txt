@@ -20,6 +20,7 @@
     land.test.ts  — bin/land against a real repo, a Run's worktree, a bare remote and a Profile the test writes: the squash landing squashes onto the Project Manager's branch and pushes it, main and develop never move, a protected or unnamed target is refused before anything moves, and the pull-request landing merges a pull request into main (fac-qpv.6.4, fac-qpv.6.7)
     node-prompts.test.ts  — bin/node-prompts' Flows marker, naming the node, Bead, folders and the project's FACTORY_CHECK (fac-qpv.3.1, fac-qpv.8.1)
     tell-pm.test.ts  — tell-pm: one dated line in the pane's Notice file, named by the pane the Run's message names first, with nothing typed into any pane (fac-qpv.2.1)
+    finish.test.ts  — bin/finish against a temporary home and a Run's artifacts: landed, held, no-commits, failed-checks and failed-node endings leave the Notice the Workflows left before, and a research Run keeps its own shape (fac-3fy)
     install-packages.test.ts  — install with a temporary HOME and a stand-in pi: each package goes into the pi folder that needs it, both pi folders link chains.json to the Profile's Chains, and install repairs nothing an earlier install left (fac-qpv.8.1)
   project-manager/  — The Project Manager's definition
     instructions.md  — Appended to pi's system prompt; under the worktree shape its Runs start from the worktree's branch with --base, pushed first (fac-qpv.6.5)
@@ -35,6 +36,7 @@
     claude-usage  — Says how much of the Claude plan is left, for FactoryClaw's warning before a Run; at 0% a Run carries on down its Chain (fac-qpv.1.4)
     node-prompts  — Prints prompts/ as JSON for a Workflow's prompts node, with a Flows marker per checked node when given the Workflow folder
     work-finished  — A build's node after its work node: comments the work node's failed checks on the Bead and fails, so the reviews do not run (fac-qpv.3.3)
+    finish  — Reads the notes a Run leaves in its artifacts — bin/land's landing and held, pi-flows' flows-failed.txt, a task's no-commits, a research Run's findings.md — composes the one Notice line and leaves it with tell-pm; every core Workflow's last node calls it with the Workflow's name (fac-3fy)
     land  — Lands a Run's commits the way the Profile says: a pull request into the base branch and its squash merge, or the commits squashed onto the base branch, checked again and pushed; refuses a protected or unnamed target before any git command moves one (fac-qpv.6.4)
     pm-pane  — Prints a project's pane name, pm-<folder>; start and install.sh both call it, so one rule names every pane
     tell-pm  — Appends a Run's one-line Notice, dated, to its Project Manager's Notice file, named by the pane the Run's message names first, and types nothing into any pane (fac-qpv.2.1)
