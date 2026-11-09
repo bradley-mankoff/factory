@@ -19,6 +19,7 @@
     core-names.test.ts  — the repo's files read as a stranger publishing them would: no work name anywhere outside the Beads database, and config/profile the one example Profile, whose comments give the other choices with placeholder names (fac-qpv.6.7)
     land.test.ts  — bin/land against a real repo, a Run's worktree, a bare remote and a Profile the test writes: the squash landing squashes onto the Project Manager's branch and pushes it, main and develop never move, a protected or unnamed target is refused before anything moves, and the pull-request landing merges a pull request into main (fac-qpv.6.4, fac-qpv.6.7)
     node-prompts.test.ts  — bin/node-prompts' Flows marker, naming the node, Bead, folders and the project's FACTORY_CHECK; its failure, naming the file, when a flows file names no node or a prompt asks for a marker no flows file produces; and every core Workflow's marker naming the node Archon runs (fac-qpv.3.1, fac-qpv.8.1, fac-wtw)
+    nodes-md.test.ts  — NODES.md beside the router: every node id the core Workflows declare has a snippet there, each snippet pasted into a copy of a Workflow that has its nodes passes archon workflow test, and the router and the Project Manager's instructions name the page (fac-60v.20.8)
     tell-pm.test.ts  — tell-pm: one dated line in the pane's Notice file, named by the pane the Run's message names first, with nothing typed into any pane (fac-qpv.2.1)
     finish.test.ts  — bin/finish against a temporary home and a Run's artifacts: landed, held, no-commits, failed-checks and failed-node endings leave the Notice the Workflows left before, and a research Run keeps its own shape (fac-3fy)
     install-packages.test.ts  — install with a temporary HOME and a stand-in pi: each package goes into the pi folder that needs it, both pi folders link chains.json to the Profile's Chains, and install repairs nothing an earlier install left (fac-qpv.8.1)
@@ -45,6 +46,7 @@
     board  — Starts the Beads board on the Profile's port from the first project with Beads and registers every project with it; the launchd job factory.bdui runs it at login (fac-qpv.7.3)
   workflows/factory/  — The core Workflows, which ship with the core: install copies the group into the Workflow library, replacing only that group (fac-qpv.6.2)
     README.md  — The router: what each core Workflow is for, when to pick it, and where a Workflow of your own goes
+    NODES.md  — The node library: every kind of node the core Workflows use, with its prompt, role, tools, Flows file and a YAML snippet to paste into a Workflow of your own (fac-60v.20.8)
     build/  — factory-build: work, checks, two reviews, the landing (bin/land)
     build-gated/  — factory-build-gated, a fork of build: adds a demo and a Human gate
     research/  — factory-research: two research agents and a combined findings file
@@ -138,6 +140,7 @@
     README.md  — How Archon reads this folder
     factory/  — The core Workflows, replaced whole by each install from this repo's workflows/factory/  [installed]
       README.md  — The router: what each core Workflow is for and when to pick it
+      NODES.md  — The node library, installed beside the router (fac-60v.20.8)
       build/  — factory-build: work, checks, two reviews, the landing (bin/land)
         build.yaml
         fixtures/approved.stubs.yaml
