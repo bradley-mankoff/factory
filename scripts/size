@@ -19,13 +19,10 @@ import os
 import subprocess
 import sys
 
-SKIP_DIRS = ("reference/", "tests/", ".beads/", ".agents/", "runbar/")
-# reference/, tests/, .beads/ and .agents/ are never the Factory. runbar/ is a judgment call
-# (the Human, 2026-11-09): the Archon workflow status bar is a convenience the Factory
-# uses, not something it depends on, like the usage bar, the herdr click-open and sidebar
-# plugins, micro, the markdown preview viewer and the click and paste conveniences. What
-# counts is this repo's own code, skills, docs and AGENTS.md files. fac-2na removes
-# runbar/ from this repo; until then it is skipped here.
+SKIP_DIRS = ("reference/", "tests/", ".beads/", ".agents/")
+# reference/, tests/, .beads/ and .agents/ are never the Factory: copied evidence, tests, the
+# Beads database and the Beads integration files bd init wrote. What counts is this repo's
+# own code, skills, docs and AGENTS.md files.
 C_LIKE = (".js", ".mjs", ".cjs", ".ts", ".swift")
 
 

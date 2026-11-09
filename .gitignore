@@ -5,5 +5,3 @@
 .beads-credential-key
 .beads/proxieddb/
 *.gate.lock*
-# Swift build products, which a build run by hand in runbar/ would leave
-.build/
