@@ -119,12 +119,10 @@ nodes:
     depends_on: [recheck]
     bash: '"$HOME/.local/share/factory/bin/land"'
 
+  # bin/finish reads how the Run ended from the notes in the Run's artifacts, never from a
+  # node's output: Archon refuses to splice a failed node's output, so that reference
+  # stopped this node exactly when the Project Manager most needed telling.
   - id: tell-project-manager
     depends_on: [land, work-finished, spec-withheld, standards-withheld]
     trigger_rule: all_done
-    # Reads how the landing ended from the note bin/land leaves in the Run's artifacts,
-    # not $land.output: Archon refuses to splice a failed node's output, so that
-    # reference stopped this node exactly when the Project Manager most needed telling.
-    bash: |
-      if [ -s "$ARTIFACTS_DIR/landing" ]; then how=$(cat "$ARTIFACTS_DIR/landing"); else how="ended without a landing; archon workflow get $WORKFLOW_ID names the node that failed"; fi
-      "$HOME/.local/share/factory/bin/tell-pm" "${ARGUMENTS%% · *}" "Run $WORKFLOW_ID (factory-build) for Bead $("$HOME/.local/share/factory/bin/bead" --id "$ARGUMENTS") $how."
+    bash: '"$HOME/.local/share/factory/bin/finish" factory-build'

@@ -8,8 +8,8 @@
 #   tell-pm "<pane>" "<line>"
 #
 # A Run's message is "<pane> · <bead id>": the pane name first is the whole address of a
-# Notice, so each Workflow's last node passes the message's first field, in full
-# "${ARGUMENTS%% · *}", and tell-pm looks nowhere else for a pane.
+# Notice, so bin/finish takes the message's first field, in full "${ARGUMENTS%% · *}", and
+# passes it here; tell-pm looks nowhere else for a pane.
 #
 # The line is dated so a Notice says when the Run ended, and it stays one line because
 # the package delivers one line as one Notice: a line break in the message becomes a

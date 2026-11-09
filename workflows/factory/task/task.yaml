@@ -43,16 +43,10 @@ nodes:
       [ -e "$ARTIFACTS_DIR/no-commits" ] && exit 0
       "$HOME/.local/share/factory/bin/land"
 
+  # bin/finish reads how the Run ended from the notes in the Run's artifacts, never from
+  # $land.output: Archon refuses to splice a failed node's output, and a failed landing is
+  # what the Project Manager most needs to hear about.
   - id: tell-project-manager
     depends_on: [land]
     trigger_rule: all_done
-    # How the landing ended comes from bin/land's note, never from $land.output: Archon
-    # refuses to splice a failed node's output, and a failed landing is what the Project
-    # Manager most needs to hear about.
-    bash: |
-      if [ -e "$ARTIFACTS_DIR/no-commits" ]; then
-        how="finished without changing files; its answer is the task node's output in archon workflow get $WORKFLOW_ID"
-      elif [ -s "$ARTIFACTS_DIR/landing" ]; then how=$(cat "$ARTIFACTS_DIR/landing")
-      else how="ended without a landing; archon workflow get $WORKFLOW_ID names the node that failed"
-      fi
-      "$HOME/.local/share/factory/bin/tell-pm" "${ARGUMENTS%% · *}" "Run $WORKFLOW_ID (factory-task) for Bead $("$HOME/.local/share/factory/bin/bead" --id "$ARGUMENTS") $how."
+    bash: '"$HOME/.local/share/factory/bin/finish" factory-task'

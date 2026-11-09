@@ -55,12 +55,10 @@ nodes:
       in at most five sentences, then where they agree, where they disagree and which
       evidence is stronger, and what is still unknown.
 
-  # Reads findings.md, not $combine.output: Archon refuses to splice a failed node's
-  # output, so that reference would stop this node exactly when the Project Manager
+  # bin/finish reads findings.md, not $combine.output: Archon refuses to splice a failed
+  # node's output, so that reference would stop this node exactly when the Project Manager
   # most needs telling.
   - id: tell-project-manager
     depends_on: [combine]
     trigger_rule: all_done
-    bash: |
-      if [ -s "$ARTIFACTS_DIR/findings.md" ]; then how="answered; the answer opens $ARTIFACTS_DIR/findings.md"; else how="ended without findings; archon workflow get $WORKFLOW_ID names the node that failed"; fi
-      "$HOME/.local/share/factory/bin/tell-pm" "${ARGUMENTS%% · *}" "Research Run $WORKFLOW_ID $how"
+    bash: '"$HOME/.local/share/factory/bin/finish" factory-research'
