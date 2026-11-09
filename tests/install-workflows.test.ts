@@ -73,7 +73,7 @@ test("install replaces the core Workflows and leaves the person's own group alon
 			assert.equal(existsSync(join(home, "workflows", "factory", name, `${name}.yaml`)), true, `${name} is installed`);
 			assert.ok(readdirSync(join(home, "workflows", "factory", name, "fixtures")).length > 0, `${name} has its fixtures`);
 		}
-		for (const flow of ["build/flows/work", "build-gated/flows/work", "research/flows/look_a", "research/flows/look_b", "research/flows/combine", "task/flows/task"]) {
+		for (const flow of ["build/flows/work", "build-gated/flows/work", "research/flows/look-a", "research/flows/look-b", "research/flows/combine", "task/flows/task"]) {
 			assert.equal(existsSync(join(home, "workflows", "factory", flow)), true, `${flow} is installed`);
 		}
 		for (const file of tree(coreGroup)) {
