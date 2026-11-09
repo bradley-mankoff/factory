@@ -1,0 +1,38 @@
+{
+  "id": "56aade6ad504848e67c42df45824e4f1",
+  "workflow_name": "factory-build",
+  "user_message": "pm-factory \u00b7 fac-s6f",
+  "status": "running",
+  "metadata": {
+    "terminal_graph": {
+      "node_ids": [
+        "bead",
+        "prompts",
+        "work",
+        "checks",
+        "work-finished",
+        "spec",
+        "standards",
+        "recheck",
+        "spec-withheld",
+        "standards-withheld",
+        "land",
+        "tell-project-manager"
+      ]
+    }
+  },
+  "nodes": [
+    {
+      "nodeId": "bead",
+      "state": "completed"
+    },
+    {
+      "nodeId": "prompts",
+      "state": "completed"
+    },
+    {
+      "nodeId": "work",
+      "state": "running"
+    }
+  ]
+}

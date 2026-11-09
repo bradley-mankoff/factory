@@ -1,9 +1,9 @@
 /**
  * One temporary Mac, for the tests whose seam is installation: a HOME with the files a Mac
  * already has, and stand-ins on PATH for the commands scripts/install.sh calls outside the
- * Factory (OpenClaw, Archon, herdr, launchd, pi, npm and bdui). A test reads back the files
- * install leaves on that Mac and the log each stand-in wrote; nothing looks inside
- * install.sh.
+ * Factory (OpenClaw, Archon, herdr, launchd, pi, npm, bdui, and the Swift toolchain and
+ * codesign that build RunBar). A test reads back the files install leaves on that Mac and
+ * the log each stand-in wrote; nothing looks inside install.sh.
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -46,7 +46,16 @@ export type Mac = {
 	home: string;
 	profile: string;
 	env: NodeJS.ProcessEnv;
-	logs: { openclaw: string; archon: string; launchctl: string; bdui: string; registered: string; pi: string };
+	logs: {
+		openclaw: string;
+		archon: string;
+		launchctl: string;
+		bdui: string;
+		registered: string;
+		pi: string;
+		swift: string;
+		codesign: string;
+	};
 	install: () => { status: number | null; stdout: string; stderr: string };
 };
 
@@ -75,6 +84,9 @@ export const makeMac = (options: { profile?: string; profileExtra?: string } = {
 		registered: join(dir, "board.registered"),
 		// Each `pi` call, as its agent folder and its arguments.
 		pi: join(dir, "pi.log"),
+		// The Swift build and the signature of the app it builds.
+		swift: join(dir, "swift.log"),
+		codesign: join(dir, "codesign.log"),
 	};
 	mkdirSync(join(home, ".config", "factory"), { recursive: true });
 	const profile = join(home, ".config", "factory", "profile");
@@ -186,6 +198,27 @@ esac
 exit 0`,
 	);
 
+	// Swift, as far as install can tell: a release build leaves the product where
+	// runbar/install.sh reads it. SWIFT_FAIL makes it a Mac with no working toolchain.
+	stub(
+		join(bin, "swift"),
+		`printf '%s\\n' "$*" >> "$SWIFT_LOG"
+[ -z "\${SWIFT_FAIL:-}" ] || exit 1
+product=
+previous=
+for argument in "$@"; do
+	case $previous in --scratch-path) product=$argument/release/RunBar ;; esac
+	previous=$argument
+done
+if [ -n "$product" ]; then
+	mkdir -p "$(dirname "$product")"
+	printf '#!/bin/sh\\nexit 0\\n' > "$product"
+	chmod +x "$product"
+fi
+exit 0`,
+	);
+	stub(join(bin, "codesign"), `printf '%s\\n' "$*" >> "$CODESIGN_LOG"\nexit 0`);
+
 	const env: NodeJS.ProcessEnv = {
 		...process.env,
 		HOME: home,
@@ -196,6 +229,8 @@ exit 0`,
 		BDUI_LOG: logs.bdui,
 		BDUI_REGISTERED: logs.registered,
 		PI_LOG: logs.pi,
+		SWIFT_LOG: logs.swift,
+		CODESIGN_LOG: logs.codesign,
 	};
 	// The Profile is the one place a Mac's settings come from, not an inherited shell.
 	delete env.ARCHON_HOME;

@@ -1,13 +1,19 @@
 #!/bin/sh
 # The Factory's check, which Runs on this repo run as FACTORY_CHECK: every test under
 # tests/ (Node's test runner, which reads TypeScript by stripping its types, the way pi
-# loads extensions), then a syntax check of every shell script. Fast by design; a long
-# test belongs in the background with this reading its saved result.
+# loads extensions), RunBar's own tests, then a syntax check of every shell script. Fast by
+# design; a long test belongs in the background with this reading its saved result.
 set -e
 cd "$(dirname "$0")/.."
 tests=$(find tests -name '*.test.ts' -o -name '*.test.mjs' 2>/dev/null | sort)
 [ -z "$tests" ] || node --experimental-strip-types --no-warnings --test $tests
-for f in $(grep -lE '^#!/bin/(ba)?sh' bin/* project-manager/* scripts/* 2>/dev/null); do
+# RunBar's sources are Swift, so its tests run under the Swift toolchain, where this Mac has
+# one; its reading of the Archon CLI is all there is to it. The build folder is outside the
+# checkout, as install.sh leaves it, so no build product lands in the repo.
+if command -v swift >/dev/null 2>&1; then
+	swift test -q --package-path runbar --scratch-path "${RUNBAR_BUILD:-$HOME/.local/share/factory/runbar}"
+fi
+for f in $(grep -lE '^#!/bin/(ba)?sh' bin/* project-manager/* scripts/* runbar/* 2>/dev/null); do
 	case "$(head -1 "$f")" in *bash*) bash -n "$f" ;; *) sh -n "$f" ;; esac
 done
 echo "check passed"
