@@ -2,9 +2,9 @@
  * bin/finish is how a Run's last node reports how the Run ended (GLOSSARY.md, `Notice`).
  * It reads the notes the Run leaves in its artifacts folder — bin/land's `landing` and
  * `held`, pi-flows' `flows-failed.txt`, a task's `no-commits` and research's `findings.md`
- * — composes the one Notice line and leaves it with bin/tell-pm. The seam is the command: a temporary home that
- * receives the Notice file, a temporary artifacts folder holding the notes, and the
- * environment a Run gives its last node. Nothing here looks inside bin/finish.
+ * — composes the one Notice line and leaves it with bin/tell-pm. The seam is the command:
+ * a temporary home that receives the Notice file, a temporary artifacts folder holding the
+ * notes, and the environment a Run gives its last node. Nothing here looks inside bin/finish.
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";

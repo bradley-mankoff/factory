@@ -25,10 +25,10 @@ set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 
 workflow=${1:?usage: finish <workflow name>}
-arguments=${ARGUMENTS:?finish: a Run gives this node \$ARGUMENTS}
+message=${ARGUMENTS:?finish: a Run gives this node \$ARGUMENTS}
 run=${WORKFLOW_ID:?finish: a Run gives this node \$WORKFLOW_ID}
 artifacts=${ARTIFACTS_DIR:?finish: a Run gives this node \$ARTIFACTS_DIR}
-pane=${arguments%% · *}
+pane=${message%% · *}
 
 # note <file>: what the Run left in the file, or nothing when it left none. The command
 # substitution strips the trailing newline, so a note reads as the one line bin/land writes.
@@ -39,11 +39,19 @@ note() {
 landing=$(note landing)
 held=$(note held)
 failures=$(note flows-failed.txt)
+# Where a Project Manager reads why a Run ended as it did. The gated Workflow also ends on
+# its gate's answer, so its sentence names that too.
+if [ "$workflow" = factory-build-gated ]; then
+	failed_node="archon workflow get $run names the node that failed or the gate's answer"
+else
+	failed_node="archon workflow get $run names the node that failed"
+fi
+
 if [ "$workflow" = factory-research ]; then
 	if [ -s "$artifacts/findings.md" ]; then
 		how="answered; the answer opens $artifacts/findings.md"
 	else
-		how="ended without findings; archon workflow get $run names the node that failed"
+		how="ended without findings; $failed_node"
 	fi
 	notice="Research Run $run $how"
 else
@@ -52,13 +60,11 @@ else
 	elif [ -n "$landing" ]; then
 		how=$landing
 	elif [ -n "$held" ]; then
-		how="held $held and did not land it; archon workflow get $run names the node that failed or the gate's answer"
-	elif [ "$workflow" = factory-build-gated ]; then
-		how="ended without a landing; archon workflow get $run names the node that failed or the gate's answer"
+		how="held $held and did not land it; $failed_node"
 	else
-		how="ended without a landing; archon workflow get $run names the node that failed"
+		how="ended without a landing; $failed_node"
 	fi
-	notice="Run $run ($workflow) for Bead $("$here/bead" --id "$arguments") $how."
+	notice="Run $run ($workflow) for Bead $("$here/bead" --id "$message") $how."
 fi
 
 # The failed checks stay out of the Notice, which is one line, and go in the Run's log
