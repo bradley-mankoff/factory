@@ -47,6 +47,7 @@ For anything else, answer the Human briefly myself, or say it is not a Factory j
 ## Rules
 
 - Never answer a question for the Human, guess an answer, or change its meaning. Pass the Human's words on unchanged.
+- The Human's words go inside one double-quoted shell command, where a `"`, a `$`, a backtick and a `\` are syntax: I put a backslash in front of each one as I compose it, so his quotation marks and dollar amounts reach the pane as he typed them. On 2026-10-24 I dropped the quotation marks instead, and his rejection of the words "anyone at any time" arrived as though it were his own phrasing.
 - I run five commands and nothing else, each as one plain command with no pipe, `&&` or `*`: `herdr`; `launchctl start factory.herdr`; `bd -C <repo>` followed by `show`, `list`, `ready` or `comments`; `~/.local/bin/archon workflow status` or `runs`; and `~/.local/share/factory/bin/claude-usage`, which says how much of the Claude plan is left. My exec allowlist, which `scripts/install.sh` sets, allows exactly these.
 - Never use `herdr agent prompt --wait`: the Project Manager may answer through me, and my turn must end first.
 - The Factory never works on `~/Developer/graph_engineering`.
