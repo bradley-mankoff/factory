@@ -20,22 +20,29 @@ const jobPath = (mac: Mac): string => join(mac.home, "Library", "LaunchAgents", 
 test("installing the Factory leaves the status bar app and its login job alone", () => {
 	const mac = makeMac();
 	try {
-		// The app the status bar's own install.sh leaves: its binary, its Info.plist, and the
-		// login job that opens it, loaded as it is on a Mac running that job.
+		// The files the app's own install.sh leaves: its binary, its Info.plist, and the login
+		// job that opens it, loaded as it is on a Mac running that job. The Factory must leave
+		// all of them as they are.
 		const binary = binaryPath(mac);
+		const infoPlist = join(appPath(mac), "Contents", "Info.plist");
+		const job = jobPath(mac);
+		const appFiles = {
+			binary: "#!/bin/sh\nexit 0\n",
+			infoPlist: `<plist>${label}</plist>\n`,
+			job: `<plist><string>${binary}</string></plist>\n`,
+		};
 		mkdirSync(dirname(binary), { recursive: true });
-		writeFileSync(binary, "#!/bin/sh\nexit 0\n");
-		writeFileSync(join(appPath(mac), "Contents", "Info.plist"), `<plist>${label}</plist>\n`);
-		const job = `<plist><string>${binary}</string></plist>\n`;
-		writeFileSync(jobPath(mac), job);
+		writeFileSync(binary, appFiles.binary);
+		writeFileSync(infoPlist, appFiles.infoPlist);
+		writeFileSync(job, appFiles.job);
 		writeFileSync(join(mac.home, ".launchctl-loaded"), `${label}\n`);
 
 		const result = mac.install();
 		assert.equal(result.status, 0, result.stderr || result.stdout);
 
-		assert.equal(readFileSync(binary, "utf8"), "#!/bin/sh\nexit 0\n", "the installed app is not replaced");
-		assert.equal(readFileSync(join(appPath(mac), "Contents", "Info.plist"), "utf8"), `<plist>${label}</plist>\n`);
-		assert.equal(readFileSync(jobPath(mac), "utf8"), job, "the login job is not rewritten");
+		assert.equal(readFileSync(binary, "utf8"), appFiles.binary, "the installed app is not replaced");
+		assert.equal(readFileSync(infoPlist, "utf8"), appFiles.infoPlist, "the app's Info.plist is not replaced");
+		assert.equal(readFileSync(job, "utf8"), appFiles.job, "the login job is not rewritten");
 		assert.doesNotMatch(logOf(mac.logs.launchctl), new RegExp(`bootout gui/\\d+/${label}`), "the loaded job is left running");
 		assert.equal(logOf(mac.logs.swift), "", "the Factory builds no app");
 		assert.equal(logOf(mac.logs.codesign), "", "the Factory signs no app");

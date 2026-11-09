@@ -24,6 +24,7 @@
     tell-pm.test.ts  — tell-pm: one dated line in the pane's Notice file, named by the pane the Run's message names first, with nothing typed into any pane (fac-qpv.2.1)
     finish.test.ts  — bin/finish against a temporary home and a Run's artifacts: landed, held, no-commits, failed-checks and failed-node endings leave the Notice the Workflows left before, and a research Run keeps its own shape (fac-3fy)
     install-packages.test.ts  — install with a temporary HOME and a stand-in pi: each package goes into the pi folder that needs it, both pi folders link chains.json to the Profile's Chains, and install repairs nothing an earlier install left (fac-qpv.8.1)
+    install-status-bar.test.ts  — install on a temporary Mac that already has the status bar app and its login job: the binary, the app's Info.plist and the job plist are left as they were, and install builds and signs no app (fac-2na)
   project-manager/  — The Project Manager's definition
     instructions.md  — Appended to pi's system prompt; under the worktree shape its Runs start from the worktree's branch with --base, pushed first (fac-qpv.6.5)
     start  — Starts your own pi with the Project Manager's role added, opening the session with a message asking for the start routine and the next steps it proposes; the model, the Workflow library and the workspace shape come from ~/.config/factory/profile, the model naming chain/pm, whose Chain sets the thinking level, and under the worktree shape it registers the repo with Archon from its main checkout (fac-qpv.1.4, fac-qpv.2.2, fac-qpv.6.3, fac-qpv.6.5)
@@ -252,12 +253,14 @@
 ~/Developer/personal_code/auto-close-tab-ext  — Aging Tabs browser extension; pane pm-auto-close-tab-ext; forked to bradley-mankoff on 2026-10-31, upstream ndokutovich; check npm ci && npx tsc --noEmit && npm test (since 2026-10-31)
   .beads/  [runtime]
   .archon/.env  [secret]
+~/Developer/personal_code/archon-workflow-status-bar  — ArchonWorkflowStatusBar, formerly RunBar, the menu bar item that lists the active Workflows: one line per Run with its project and Bead, opened to that Workflow's nodes; pane pm-archon-workflow-status-bar; Beads prefix runbar; check swift test -q; github.com/bradley-mankoff/archon-workflow-status-bar, private (fac-s6f, fac-2na)
+  install.sh  — Builds the app into ~/Applications/ArchonWorkflowStatusBar.app, signed ad hoc, writes the login job com.bradley-mankoff.archon-workflow-status-bar, and removes the old RunBar.app and com.bradley-mankoff.runbar job; the Factory's install builds and writes neither
+  .beads/  [runtime]
+  .archon/.env  [secret]
 
 ## Related
 > Outside the Factory, but it leans on them.
 /opt/homebrew/bin/bdui  — beads-ui 0.12.6, the Beads board on 127.0.0.1:3917; the launchd job factory.bdui starts it at login with bin/board, which adds each Factory project to the dropdown (fac-qpv.5, fac-qpv.7.3)
-~/Developer/personal_code/archon-workflow-status-bar  — ArchonWorkflowStatusBar's source (github.com/bradley-mankoff/archon-workflow-status-bar, private): the menu bar item that lists the active Workflows, one line per Run with its project and Bead, opened to that Workflow's nodes (fac-s6f, fac-2na)  [source]
-  install.sh  — Builds the app into ~/Applications/ArchonWorkflowStatusBar.app, signed ad hoc, writes the login job com.bradley-mankoff.archon-workflow-status-bar, and removes the old RunBar.app and com.bradley-mankoff.runbar job; the Factory's install builds and writes neither
 ~/AGENTS.md  — Home instructions: words, finding things, working with you
 ~/Developer/personal_code/AGENTS.md  — The universal law and the project list
 ~/Developer/personal_code/claw-setup  — The OpenClaw setup shared by both Macs; its factoryclaw/ folder is gone

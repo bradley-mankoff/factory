@@ -11,7 +11,7 @@ init wrote (.agents/). Herdr plugins, pi extensions and Hammerspoon/Lua/Ghostty 
 not in this repo; core pi, core Archon and core Beads live outside it too. What the count
 skips depends on the file: everything but Markdown loses blank lines and full-line #
 comments; Python loses its docstrings too, found through its syntax tree, so a # heading
-in Markdown still counts; JS and Swift lose // lines and /* */ blocks as well. A line with
+in Markdown still counts; JS and TS lose // lines and /* */ blocks as well. A line with
 code plus a trailing comment still counts. With --by-file it prints each file's count.
 """
 import ast
@@ -20,10 +20,7 @@ import subprocess
 import sys
 
 SKIP_DIRS = ("reference/", "tests/", ".beads/", ".agents/")
-# reference/, tests/, .beads/ and .agents/ are never the Factory: copied evidence, tests, the
-# Beads database and the Beads integration files bd init wrote. What counts is this repo's
-# own code, skills, docs and AGENTS.md files.
-C_LIKE = (".js", ".mjs", ".cjs", ".ts", ".swift")
+C_LIKE = (".js", ".mjs", ".cjs", ".ts")
 
 
 def repo_files(root):
