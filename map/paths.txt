@@ -40,7 +40,7 @@
     tell-pm  — Appends a Run's one-line Notice, dated, to its Project Manager's Notice file, named by the pane the Run's message names first, and types nothing into any pane (fac-qpv.2.1)
     archon-roles  — Sets Archon's small, medium and large tiers and its @aliases to Chain models, so a Workflow names a role and never a model or a seat (fac-qpv.1.4)
     archon-register  — Registers a repo with Archon from its main checkout, when it is not registered yet; start runs it under the worktree shape, because Archon finds a worktree's project only through the main checkout (fac-qpv.6.5)
-    board  — Starts the Beads board on the Profile's port and registers every project with it; the launchd job factory.bdui runs it at login (fac-qpv.7.3)
+    board  — Starts the Beads board on the Profile's port from the first project with Beads and registers every project with it; the launchd job factory.bdui runs it at login (fac-qpv.7.3)
   workflows/factory/  — The core Workflows, which ship with the core: install copies the group into the Workflow library, replacing only that group (fac-qpv.6.2)
     README.md  — The router: what each core Workflow is for, when to pick it, and where a Workflow of your own goes
     build/  — factory-build: work, checks, two reviews, the landing (bin/land)
@@ -190,7 +190,7 @@
 ## herdr and launchd
 > Project Managers run in panes of the herdr session factory, named pm-<project>.
 ~/Library/LaunchAgents/factory.herdr.plist  — Starts herdr --session factory server at login
-~/Library/LaunchAgents/factory.bdui.plist  — Starts the Beads board at login with bin/board, which registers every Factory project with it (fac-qpv.7.3)
+~/Library/LaunchAgents/factory.bdui.plist  — Starts the Beads board at login with bin/board, which starts it from the first project with Beads and registers every Factory project with it (fac-qpv.7.3)
 ~/Library/LaunchAgents/ai.openclaw.gateway.plist  — The OpenClaw gateway; restart with launchctl kickstart -k
 ~/.config/herdr/  — herdr's config and state
   config.toml

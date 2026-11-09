@@ -45,6 +45,9 @@ const starts = (mac: Mac): { folder: string; args: string[] }[] =>
 
 const portOf = (start: { args: string[] }): string => start.args[start.args.indexOf("--port") + 1];
 
+/** The project the board's server is started from: the folder of the job's last start. */
+const boardFolder = (jobStarts: { folder: string }[]): string | undefined => jobStarts.at(-1)?.folder;
+
 /** The projects the board knows, as beads-ui keeps them: one line per workspace. */
 const workspaces = (mac: Mac): string[] => logOf(mac.logs.registered).split("\n").filter(Boolean).sort();
 
@@ -54,10 +57,10 @@ const boots = (mac: Mac): string[] =>
 		.split("\n")
 		.filter((line) => line.startsWith("bootstrap ") || line.startsWith("bootout "));
 
-/** A project repo as install expects one: git, Beads, and its check command. */
-const makeProject = (mac: Mac, name: string): string => {
+/** A project repo as install expects one: git, its check command, and Beads unless the test leaves it out. */
+const makeProject = (mac: Mac, name: string, options: { beads?: boolean } = {}): string => {
 	const repo = join(mac.home, "Developer", name);
-	mkdirSync(join(repo, ".beads"), { recursive: true });
+	if (options.beads !== false) mkdirSync(join(repo, ".beads"), { recursive: true });
 	execFileSync("git", ["init", "-q", repo]);
 	mkdirSync(join(repo, ".archon"), { recursive: true });
 	writeFileSync(join(repo, ".archon", ".env"), "FACTORY_CHECK=true\n");
@@ -94,6 +97,52 @@ test("install writes a launchd job that starts the board at login and registers 
 		const folders = new Set(jobStarts.map((start) => start.folder));
 		for (const repo of [one, two]) assert.ok(folders.has(repo), `the job registers ${repo} with the board`);
 		assert.deepEqual(workspaces(mac), [one, two], "the board knows each project once");
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("the board starts in the first project that has a Beads database, not in a folder without one", () => {
+	const mac = makeMac({ profile: squashProfile });
+	try {
+		// A fresh browser tab shows the board's current project, so that project has to hold
+		// Beads: the first project in the list with a database, not one without and not the
+		// home folder.
+		const bare = makeProject(mac, "bare", { beads: false });
+		const one = makeProject(mac, "one");
+		const two = makeProject(mac, "two");
+		writeFileSync(projectsFile(mac), `${one}\n${two}\n`);
+
+		const result = mac.install();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		// The list is the person's file, read again at each login and not checked by install:
+		// a repo whose Beads database has gone is still in it when the job starts the board.
+		writeFileSync(projectsFile(mac), `${bare}\n${one}\n${two}\n`);
+		const before = starts(mac).length;
+		runJob(mac);
+		const jobStarts = starts(mac).slice(before);
+		assert.equal(boardFolder(jobStarts), one, "the board is started from the first project with Beads");
+		assert.deepEqual(
+			[...new Set(jobStarts.map((start) => start.folder))].sort(),
+			[bare, one, two].sort(),
+			"the job still starts the board in every project in the list",
+		);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("with no project holding a Beads database the board starts in the home folder", () => {
+	const mac = makeMac({ profile: squashProfile });
+	try {
+		const bare = makeProject(mac, "bare", { beads: false });
+		assert.equal(mac.install().status, 0);
+		writeFileSync(projectsFile(mac), `${bare}\n`);
+
+		const before = starts(mac).length;
+		runJob(mac);
+		assert.equal(boardFolder(starts(mac).slice(before)), mac.home, "the home folder is the board's project when no project has Beads");
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}
