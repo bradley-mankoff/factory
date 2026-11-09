@@ -45,6 +45,7 @@
     board  — Starts the Beads board on the Profile's port from the first project with Beads and registers every project with it; the launchd job factory.bdui runs it at login (fac-qpv.7.3)
   workflows/factory/  — The core Workflows, which ship with the core: install copies the group into the Workflow library, replacing only that group (fac-qpv.6.2)
     README.md  — The router: what each core Workflow is for, when to pick it, and where a Workflow of your own goes
+    NODES.md  — The node library: every kind of node the core Workflows use, with its prompt, role, tools, Flows file and a YAML snippet to paste into a Workflow of your own (fac-60v.20.8)
     build/  — factory-build: work, checks, two reviews, the landing (bin/land)
     build-gated/  — factory-build-gated, a fork of build: adds a demo and a Human gate
     research/  — factory-research: two research agents and a combined findings file
@@ -138,6 +139,7 @@
     README.md  — How Archon reads this folder
     factory/  — The core Workflows, replaced whole by each install from this repo's workflows/factory/  [installed]
       README.md  — The router: what each core Workflow is for and when to pick it
+      NODES.md  — The node library, installed beside the router (fac-60v.20.8)
       build/  — factory-build: work, checks, two reviews, the landing (bin/land)
         build.yaml
         fixtures/approved.stubs.yaml

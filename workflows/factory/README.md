@@ -20,6 +20,12 @@ listed under the parent below, and its line says how it differs.
 - A problem particular to one project gets the nearest Workflow here, not a new one.
 - A Workflow every project should have belongs here in the core: add its folder with its line below, in the Factory's repo, and install. Anything narrower, one project, one Mac or one client, goes in a group of the person's own in the library; fork a core Workflow there rather than changing this group.
 
+## Nodes
+
+`NODES.md`, beside this page, is the node library: every kind of node the core Workflows
+use, with its prompt, role, tools, Flows file and a YAML snippet to paste into a Workflow of
+your own. Read it when you build or fork one.
+
 ## Workflows
 
 - **build** (`factory-build`): builds one Bead in one pass. Work and checks; a spec review that only reads, and ends the Run with its findings on the Bead when it withholds; then a standards review that fixes what it finds inside the diff and commits it, the checks again, and the landing the Mac's Profile chooses: a pull request and its squash merge, or the commits squashed onto the base branch, checked again and pushed (`bin/land`). Pick it when the checks and the reviews can judge the result alone.

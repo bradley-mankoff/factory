@@ -55,7 +55,7 @@ nodes:
       $bead.output
 
       $checks.output
-    output_format: &review-output
+    output_format:
       type: object
       properties:
         approved: {type: boolean}
@@ -76,7 +76,12 @@ nodes:
       The diff is `git diff $BASE_BRANCH...HEAD`; the commits are `git log --oneline $BASE_BRANCH..HEAD`.
 
       $bead.output
-    output_format: *review-output
+    output_format:
+      type: object
+      properties:
+        approved: {type: boolean}
+        feedback: {type: string}
+      required: [approved, feedback]
 
   # The check again, since the standards review may have changed files. It fails the
   # node, and so stops the landing, when the check fails.
