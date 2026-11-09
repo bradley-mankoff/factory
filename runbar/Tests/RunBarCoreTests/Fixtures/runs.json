@@ -3,7 +3,7 @@
     {
       "id": "839baa6f962cabe6141fc93b60d6777e",
       "workflow_name": "factory-build",
-      "user_message": "pm-herdr-click-open \u00b7 herdr-click-open-0h4",
+      "user_message": "pm-herdr-click-open · herdr-click-open-0h4",
       "status": "running",
       "started_at": "2026-11-09T18:17:31.000Z",
       "last_activity_at": "2026-11-09T18:21:23.000Z",
@@ -17,7 +17,7 @@
     {
       "id": "56aade6ad504848e67c42df45824e4f1",
       "workflow_name": "factory-build",
-      "user_message": "pm-factory \u00b7 fac-s6f",
+      "user_message": "pm-factory · fac-s6f",
       "status": "running",
       "started_at": "2026-11-09T18:17:31.000Z",
       "last_activity_at": "2026-11-09T18:21:02.000Z",
@@ -29,21 +29,9 @@
       ]
     },
     {
-      "id": "a4a0c9615dcc5935704cf4096c7e3a0f",
-      "workflow_name": "factory-research",
-      "user_message": "pm-factory \u00b7 Answer the Bead whose id ends this message: read it with bd show and write the tour its acceptance criteria describe, as a findings file that opens with a one-screen summary table (kind of thing, where it lives on the personal Mac, where on the work Mac, what writes it, what to edit to change it). Inventory the personal Mac directly, and the work Mac read-only over 'ssh work-mac' (list folders and file names only; never print the contents of anything under ~/bau_git or any work repo, and no client or patient data). Cover agents (pi agent definitions, the Scout), skills (~/.agents/skills, ~/.pi/agent/skills, the Factory's skills/), pi extensions and packages (~/.pi/agent/extensions, packages in ~/.pi/agent/settings.json, the Factory's pi folder ~/.local/share/factory/pi-agent), herdr plugins (herdr plugin list), Archon (home, binary, Workflow library groups, web UI on port 3090), Beads (one database per repo, the board on 3917, the factory-history Beads remote), the Profile, Chains, Notices, sessions and logs, launchd jobs, and the GitHub repos (public, and the private -history ones). List any path in map/paths.txt that no longer exists, and any real path the map lacks; do not edit the map. Change no file. \u00b7 fac-7rn",
-      "status": "completed",
-      "started_at": "2026-11-09T16:01:16.000Z",
-      "last_activity_at": "2026-11-09T16:11:11.000Z",
-      "codebase_name": "bradley-mankoff/factory",
-      "current_step_name": null,
-      "current_step_status": null,
-      "active_nodes": []
-    },
-    {
       "id": "9d418f1ad62a44b2ca9c87bf90ffe0cc",
       "workflow_name": "factory-build",
-      "user_message": "pm-factory \u00b7 fac-woi",
+      "user_message": "pm-factory · fac-woi",
       "status": "completed",
       "started_at": "2026-11-09T15:35:34.000Z",
       "last_activity_at": "2026-11-09T15:55:46.000Z",
