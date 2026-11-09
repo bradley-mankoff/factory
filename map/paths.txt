@@ -71,6 +71,11 @@
     README.md
     agents/scout.md  — The Scout: on the Scout Chain, chain/scout, for the subagent tool; copied to the Factory's pi folder, linked into yours
   demo/trim-idle  — Cuts idle stretches out of demo videos
+  runbar/  — RunBar, the menu bar item that lists the active Workflows: one line per Run with its project and Bead, opened to that Workflow's nodes (fac-s6f)
+    Sources/RunBarCore/  — What can be tested without a window: Archon.activeRuns and Archon.nodes read the CLI's JSON, ArchonHome finds the Archon home from the Profile and asks the CLI
+    Sources/RunBar/  — The app: one MenuBarExtra, polled every 15s, a run's nodes read when its line is opened
+    Tests/RunBarCoreTests/  — swift test, with trimmed copies of the CLI's replies as fixtures
+    install.sh  — Builds it into ~/Applications/RunBar.app, signed ad hoc, and starts nothing
   config/profile  — The one shipped example Profile, the personal Mac's: pull-request landing, no protected targets, FactoryClaw and Telegram, one Project Manager per project, the commit identity its projects commit as, the Chains file, and the Archon home and Workflow library under ~/.local/share/factory; its comments give the other choices generically, with placeholder repo names such as myrepo; copied to ~/.config/factory/profile when missing and never overwritten (fac-qpv.6.3, fac-qpv.6.7)
   config/chains.json  — Default Chains (the personal Mac's): Opus at medium then Muse Spark at xhigh for chain/pm and chain/spec-review, DeepSeek at max for chain/work and chain/scout; copied to the Chains file the Profile names when missing (fac-qpv.1.1, fac-qpv.1.4, fac-qpv.6.3)
   map/  — This map
@@ -96,6 +101,7 @@
   openclaw-plugins/workshop-catch/  — The plugin as OpenClaw loads it (linked install)
   map.html  — The Factory map, built by map/render from map/paths.txt
   archon/  — Archon's home; see "Archon and the Workflow library"
+  runbar/  — RunBar's build products, kept out of the repo so the size count never reads them  [runtime]
   pi-agent/  — The Factory's pi folder for Runs (PI_CODING_AGENT_DIR)
     settings.json  — Merged from the repo; lists pi-claude-bridge, pi-chains and pi-flows, and pi adds its own keys
     trust.json  — Trusted folders: the three projects and Archon's workspaces
@@ -189,8 +195,10 @@
 
 ## herdr and launchd
 > Project Managers run in panes of the herdr session factory, named pm-<project>.
+~/Applications/RunBar.app  — RunBar: one menu bar item with the number of active Workflows, each with its project and Bead, opened to its nodes (fac-s6f)
 ~/Library/LaunchAgents/factory.herdr.plist  — Starts herdr --session factory server at login
 ~/Library/LaunchAgents/factory.bdui.plist  — Starts the Beads board at login with bin/board, which starts it from the first project with Beads and registers every Factory project with it (fac-qpv.7.3)
+~/Library/LaunchAgents/com.bradley-mankoff.runbar.plist  — Opens RunBar at login and starts it again if it dies; install loads it again only when the binary changed, since launchd pins a loaded job to the binary it saw (fac-s6f)
 ~/Library/LaunchAgents/ai.openclaw.gateway.plist  — The OpenClaw gateway; restart with launchctl kickstart -k
 ~/.config/herdr/  — herdr's config and state
   config.toml
