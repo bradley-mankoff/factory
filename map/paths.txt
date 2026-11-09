@@ -1,0 +1,257 @@
+## Source repo
+> Everything the Factory is made of, edited by hand. install.sh copies or links it to where it is read; nothing runs from here. The Factory depends on five pi packages from repos of their own, github.com/bradley-mankoff/pi-beads, pi-links, pi-chains, pi-notices and pi-flows, which `pi install` puts in the pi folders; it holds no pi extension itself (fac-qpv.8.1).
+~/Developer/personal_code/factory  — The Factory's source, git, github.com/bradley-mankoff/factory  [source]
+  2026-10-16-factory-stack.md  — The spec, the source of truth
+  AGENTS.md  — Rules for working on the Factory
+  README.md  — Overview and the size count
+  GLOSSARY.md  — The Factory's words: Agent, Scout, Workflow library, Bead, Run…
+  docs/adr/  — Architecture decisions for the Factory
+    001-keep-factoryclaw-on-openclaw-telegram.md  — Keep FactoryClaw on OpenClaw plus Telegram, trial pi plus Ovis beside it (fac-km9)
+  scripts/check  — The Factory's check, FACTORY_CHECK for Runs on this repo: tests under tests/, then a syntax check of the shell scripts
+  scripts/install.sh  — Installs the Factory, or sets up one project for it, following the Mac's Profile; its top holds the one version set: Archon 0.12.1, pi 1.3.0, pi-claude-bridge 0.9.3
+  scripts/install-workflows  — Copies workflows/factory/ into a Workflow library's factory/, replacing that group only and leaving the person's own groups alone (fac-qpv.6.2)
+  tests/  — The Factory's tests, run by scripts/check
+    pm.test.ts  — pm and project-manager/start with stand-ins for pi, herdr and Archon: your own pi, the appended role, LIBRARY, the opening message and the first message that replaces it, the pane name, the worktree shape's pane and registration, pm-pane's names, and the Notice file and board port the packages read (fac-qpv.2.2, fac-qpv.6.5, fac-qpv.8.1)
+    chains-config.test.ts  — The Factory's own Chains: every role it names has a Chain of models and thinking levels, the shipped Chains are the personal Mac's from the Epic, and the Scout's definition names chain/scout (fac-qpv.1.1, fac-qpv.8.1)
+    archon-roles.test.ts  — bin/archon-roles against a temporary Archon home: the tiers and @aliases all name Chain models, and a second run changes nothing (fac-qpv.1.4)
+    install-workflows.test.ts  — The core Workflows installed into a temporary Archon home: the core group is this repo's copy with a stale file gone, another group is untouched, and archon workflow test passes on every core Workflow (fac-qpv.6.2)
+    profile.test.ts  — install against a temporary HOME with stand-ins at the system's edges: the one example Profile is shipped when none exists and never overwritten, the example installs FactoryClaw as today, and a Mac whose Profile chooses the squash landing writes no FactoryClaw or OpenClaw file and puts the Archon home and library where its Profile says (fac-qpv.6.3, fac-qpv.6.7)
+    core-names.test.ts  — the repo's files read as a stranger publishing them would: no work name anywhere outside the Beads database, and config/profile the one example Profile, whose comments give the other choices with placeholder names (fac-qpv.6.7)
+    land.test.ts  — bin/land against a real repo, a Run's worktree, a bare remote and a Profile the test writes: the squash landing squashes onto the Project Manager's branch and pushes it, main and develop never move, a protected or unnamed target is refused before anything moves, and the pull-request landing merges a pull request into main (fac-qpv.6.4, fac-qpv.6.7)
+    node-prompts.test.ts  — bin/node-prompts' Flows marker, naming the node, Bead, folders and the project's FACTORY_CHECK (fac-qpv.3.1, fac-qpv.8.1)
+    tell-pm.test.ts  — tell-pm: one dated line in the pane's Notice file, named by the pane the Run's message names first, with nothing typed into any pane (fac-qpv.2.1)
+    install-packages.test.ts  — install with a temporary HOME and a stand-in pi: each package goes into the pi folder that needs it, both pi folders link chains.json to the Profile's Chains, and install repairs nothing an earlier install left (fac-qpv.8.1)
+  project-manager/  — The Project Manager's definition
+    instructions.md  — Appended to pi's system prompt; under the worktree shape its Runs start from the worktree's branch with --base, pushed first (fac-qpv.6.5)
+    start  — Starts your own pi with the Project Manager's role added, opening the session with a message asking for the start routine and the next steps it proposes; the model, the Workflow library and the workspace shape come from ~/.config/factory/profile, the model naming chain/pm, whose Chain sets the thinking level, and under the worktree shape it registers the repo with Archon from its main checkout (fac-qpv.1.4, fac-qpv.2.2, fac-qpv.6.3, fac-qpv.6.5)
+    pm  — Shorthand for start in the folder it runs in
+  prompts/  — Node prompts, the Factory's own
+    work.md  — The work agent: build the Bead test first
+    task.md  — The task agent: do the Bead in one step, answer or change it
+    review_spec.md  — The spec review agent: did it do what the Bead asked
+    review_standards.md  — The standards review agent: coding standards and code smells
+    LICENSE.txt  — MIT, for what was adapted from Matt Pocock
+  bin/  — Helpers for the start script and the Workflows
+    claude-usage  — Says how much of the Claude plan is left, for FactoryClaw's warning before a Run; at 0% a Run carries on down its Chain (fac-qpv.1.4)
+    node-prompts  — Prints prompts/ as JSON for a Workflow's prompts node, with a Flows marker per checked node when given the Workflow folder
+    work-finished  — A build's node after its work node: comments the work node's failed checks on the Bead and fails, so the reviews do not run (fac-qpv.3.3)
+    land  — Lands a Run's commits the way the Profile says: a pull request into the base branch and its squash merge, or the commits squashed onto the base branch, checked again and pushed; refuses a protected or unnamed target before any git command moves one (fac-qpv.6.4)
+    pm-pane  — Prints a project's pane name, pm-<folder>; start and install.sh both call it, so one rule names every pane
+    tell-pm  — Appends a Run's one-line Notice, dated, to its Project Manager's Notice file, named by the pane the Run's message names first, and types nothing into any pane (fac-qpv.2.1)
+    archon-roles  — Sets Archon's small, medium and large tiers and its @aliases to Chain models, so a Workflow names a role and never a model or a seat (fac-qpv.1.4)
+    archon-register  — Registers a repo with Archon from its main checkout, when it is not registered yet; start runs it under the worktree shape, because Archon finds a worktree's project only through the main checkout (fac-qpv.6.5)
+    board  — Starts the Beads board on the Profile's port and registers every project with it; the launchd job factory.bdui runs it at login (fac-qpv.7.3)
+  workflows/factory/  — The core Workflows, which ship with the core: install copies the group into the Workflow library, replacing only that group (fac-qpv.6.2)
+    README.md  — The router: what each core Workflow is for, when to pick it, and where a Workflow of your own goes
+    build/  — factory-build: work, checks, two reviews, the landing (bin/land)
+    build-gated/  — factory-build-gated, a fork of build: adds a demo and a Human gate
+    research/  — factory-research: two research agents and a combined findings file
+    task/  — factory-task: one node with no review, for an answer or a change the Bead spells out
+    register/  — factory-register: registers a repo with Archon from its main checkout, one shell node and no model (fac-qpv.6.5)
+  skills/  — Factory skills
+    grilling/  — Interview the Human about an Idea
+    wayfinder/  — Chart a Map for an Idea too big for one Spec
+    to-spec/  — Write a Spec as an Epic
+    to-beads/  — Split an Epic into Beads
+    record-demo/  — Record a demo video for a Human gate
+  factoryclaw/  — FactoryClaw's files, copied to its workspace
+    AGENTS.md  — Routing: each kind of request to one skill
+    BOOT.md
+    HEARTBEAT.md
+    skills/
+      panes/  — Start and stop Project Managers; a start gives `project-manager/start` its first message on the command line when the pane is closed (fac-qpv.2.2)
+      relay-idea/
+      relay-message/
+      report-state/
+  openclaw-plugins/workshop-catch/  — OpenClaw plugin: archives FactoryClaw's learned skills and files each as a Bead
+  pi-agent/  — Source of the Factory's pi folder, for Runs
+    settings.json  — The packages every Run loads: pi-claude-bridge 0.9.3, pi-chains and pi-flows; default thinking
+    trust.json
+    claude-bridge.json
+    README.md
+    agents/scout.md  — The Scout: on the Scout Chain, chain/scout, for the subagent tool; copied to the Factory's pi folder, linked into yours
+  demo/trim-idle  — Cuts idle stretches out of demo videos
+  config/profile  — The one shipped example Profile, the personal Mac's: pull-request landing, no protected targets, FactoryClaw and Telegram, one Project Manager per project, the Chains file, and the Archon home and Workflow library under ~/.local/share/factory; its comments give the other choices generically, with placeholder repo names such as myrepo; copied to ~/.config/factory/profile when missing and never overwritten (fac-qpv.6.3, fac-qpv.6.7)
+  config/chains.json  — Default Chains (the personal Mac's): Opus at medium then Muse Spark at xhigh for chain/pm and chain/spec-review, DeepSeek at max for chain/work and chain/scout; copied to the Chains file the Profile names when missing (fac-qpv.1.1, fac-qpv.1.4, fac-qpv.6.3)
+  map/  — This map
+    paths.txt  — The tree: one path a line, indented under its parent, a note after " — ", tags in brackets
+    page.html, render  — render builds the collapsible page from paths.txt and names listed paths that are missing
+  reference/  — Copied evidence, not part of the Factory
+    archon-pi-spike/RESULTS.md  — What Archon on pi can and cannot do
+  .beads/  — The Beads database (git and Dolt remote)  [runtime]
+
+## Installed Factory files
+> Copies install.sh keeps in step with the repo. Project Managers and Runs read these.
+~/.local/bin/pm  — Link to the installed project-manager/pm, the shorthand that starts a Project Manager  [installed]
+~/.local/share/factory  — Installed copies  [installed]
+  notices/  — One Notice file per Project Manager, <pane>.md: bin/tell-pm appends a Run's ending, and the pi-notices package delivers each new line into the conversation (fac-qpv.2.1)  [runtime]
+  project-manager/  — instructions.md, pm and start; FactoryClaw's panes skill runs start, which opens the session with the start routine's proposal when it gets no first message (fac-qpv.2.2)
+  bin/  — claude-usage, node-prompts, work-finished, pm-pane, archon-roles, archon-register, tell-pm, land, board
+  jev-shadow.jsonl  — Jev's is-it-done answer for each Run's review pass; the record that retired Jev, kept as it stands (fac-60v.20.12, fac-qpv.3.3)
+  jev-replay/  — The 2026-10-24 replay of Jev over 35 past review passes: cases, states, scripts, results (fac-60v.20.12)
+  prompts/  — work.md, task.md, review_spec.md, review_standards.md
+  skills/  — grilling, wayfinder, to-spec, to-beads and record-demo (all linked into ~/.agents/skills)
+  GLOSSARY.md  — Appended to the Project Manager's system prompt
+  demo/  — trim-idle and playwright-core 1.63.0
+  openclaw-plugins/workshop-catch/  — The plugin as OpenClaw loads it (linked install)
+  map.html  — The Factory map, built by map/render from map/paths.txt
+  archon/  — Archon's home; see "Archon and the Workflow library"
+  pi-agent/  — The Factory's pi folder for Runs (PI_CODING_AGENT_DIR)
+    settings.json  — Merged from the repo; lists pi-claude-bridge, pi-chains and pi-flows, and pi adds its own keys
+    trust.json  — Trusted folders: the three projects and Archon's workspaces
+    claude-bridge.json
+    chains.json  — Link to the Chains file the Profile names; the pi-chains package reads it here, so every Run node runs on its Chain (fac-qpv.8.1)
+    agents/scout.md  — The Scout, copied from the repo; the subagent tool reads agents/
+    npm/node_modules/pi-claude-bridge  — v0.9.3, the Factory's own copy; Run nodes load it through settings.json
+    git/github.com/bradley-mankoff/  — The pi-chains and pi-flows packages, installed with pi install (fac-qpv.8.1)
+    auth.json  — Link to ~/.pi/agent/auth.json, so one login serves both  [secret]
+    sessions/  — Run sessions  [runtime]
+    models-store.json  — Written by pi  [runtime]
+
+## Settings
+> What a person edits. install.sh never overwrites it.
+~/.config/factory
+  profile  — This Mac's Profile: the landing, protected targets, outer layer, workspace shape, the board's port, Chains file, Archon home, Workflow library, the Project Manager's Chain and FactoryClaw's model and level; shipped from config/profile when missing, never overwritten, read by install.sh, bin/board, project-manager/start and the pi-chains package (fac-qpv.6.3, fac-qpv.7.3, fac-qpv.8.1)
+  chains.json  — The Chains: each role's ordered models and thinking levels, the one place a model is changed; copied from the repo to the path the Profile names when missing, never overwritten
+  projects  — The Factory's project repos, one a line; a plain install.sh sets each up again and registers each with the board
+
+## State
+> What the tools write as they run, outside the folders they install into.
+~/.local/state/pi-chains  — pi-chains' own folder: accounts.json marks each account used up and when it resets, which every agent on the Mac reads (fac-qpv.1.2, fac-qpv.8.1)  [runtime]
+
+## Archon and the Workflow library
+> Archon 0.12.1 runs Workflows on pi. Its home is the Profile's ARCHON_HOME, wherever that Mac's Profile names it, and holds the Workflow library: the core group that install writes from this repo, and the person's own groups beside it.
+~/.local/bin/archon  — Wrapper, written by install.sh: sets ARCHON_HOME and LIBRARY to the Profile's values unless the shell sets them, and runs the Archon binary
+~/.local/share/factory/archon  — The example Profile's ARCHON_HOME, inside the Factory's one root (moved from ~/.local/share/archon-pi on 2026-10-21); a Mac whose Profile chooses otherwise puts it wherever its Profile names
+  bin/archon  — The Archon 0.12.1 binary, downloaded by install.sh from the release and checked against its checksums
+  library.git/  — Git folder of the Workflow library, the person's own groups' repo github.com/bradley-mankoff/archon-workflows (kept beside it, since Archon refuses a .git folder)
+  workflows/  — The Workflow library: the core group install writes, and the person's own groups  [installed]
+    .git  — A file pointing to ../library.git
+    README.md  — How Archon reads this folder
+    factory/  — The core Workflows, replaced whole by each install from this repo's workflows/factory/  [installed]
+      README.md  — The router: what each core Workflow is for and when to pick it
+      build/  — factory-build: work, checks, two reviews, the landing (bin/land)
+        build.yaml
+        fixtures/approved.stubs.yaml
+      build-gated/  — factory-build-gated, a fork of build: adds a demo and a Human gate
+        build-gated.yaml
+        fixtures/  — approved and rejected stubs
+      research/  — factory-research: two research agents and a combined findings file
+        research.yaml
+        fixtures/answered.stubs.yaml
+    other/  — The personal Mac's own Workflows, beside the core ones; install never writes here
+  config.yaml  — Default assistant pi; the small, medium and large tiers and the @aliases (@work, @standards-review, @reviewer and @spec-review), all Chain models set by bin/archon-roles (fac-qpv.1.4)
+  .env  — Archon environment  [secret]
+  credential-key  [secret]
+  archon.db  — Runs and conversations  [runtime]
+  workspaces/  — Each Run's checkout and worktree  [runtime]
+    _local/
+    bradley-mankoff/  — factory-toy-calc, factory-toy-todo, news, health-chat
+  logs/  — Detached-run logs since 2026-10-16  [runtime]
+  plugins/archon-provider-pi  — Archon's pi provider, with its own bundled copy of pi 1.3.0 (Archon 0.12.1's lock file): AI nodes run this, not /opt/homebrew/bin/pi
+  commands/  — Two fusion-judge command files from September
+    cache/, web-dist/, staged-source/, temp/  — Archon's own  [runtime]
+
+## pi
+> Your personal pi folder, where Project Managers run. Runs use the Factory's own pi folder instead (Installed Factory files).
+~/.pi/agent  — Your personal pi
+  settings.json  — Default model Opus 5.5 at high on claude-bridge; packages: plain-voice, draft-stash, image-paste, the bridge, and the Factory's pi-beads, pi-links, pi-chains and pi-notices (fac-qpv.8.1)
+  mcp.json  — MCP servers: gitnexus
+  auth.json  — pi logins; the Factory's pi folder links here  [secret]
+  npm/node_modules/pi-claude-bridge  — v0.9.3: Claude through your Claude Code login, for your own sessions
+  git/github.com/bradley-mankoff/  — The pi-beads, pi-links, pi-chains and pi-notices packages, installed with pi install (fac-qpv.8.1)
+  extensions/  — herdr-agent-state.ts, file-links.ts, quote-clipboard.ts
+    hide-tool-calls.ts  — Your own extension: tool calls drawn as nothing; not part of the Factory
+    subagent  — Link to pi's sample subagent extension; Project Managers send Scouts with it  [installed]
+  chains.json  — Link to the Chains file the Profile names; the pi-chains package reads it here, so a Project Manager runs on its Chain (fac-qpv.8.1)
+  agents/scout.md  — Link to the Scout in the Factory's pi folder  [installed]
+  skills/model-roles  — Link to ~/.agents/skills/model-roles
+  sessions/  — Your pi sessions and your Project Managers'  [runtime]
+/opt/homebrew/bin/pi  — pi 1.3.0, installed with npm into Homebrew's Node folder (not a Homebrew formula); install.sh keeps it at the version Archon bundles. You and Project Managers run this one
+
+## OpenClaw and FactoryClaw
+> FactoryClaw is the OpenClaw agent that carries messages between you and the Project Managers.
+~/.openclaw  — OpenClaw's home
+  openclaw.json  — Config: agents, Telegram, plugins (workshop-catch's config), FactoryClaw's model and command allowlist  [secret]
+  .env  [secret]
+  workspace-factoryclaw/  — FactoryClaw's workspace
+    AGENTS.md, BOOT.md, HEARTBEAT.md  — Copied from the Factory repo  [installed]
+    TOOLS.md  — The Factory projects and their panes, written by project setup  [installed]
+    skills/  — panes, relay-idea, relay-message, report-state, plain-voice  [installed]
+    IDENTITY.md, SOUL.md, USER.md  — FactoryClaw's identity and notes on you
+    memory/, DREAMS.md  — OpenClaw memory: daily notes and dreaming  [runtime]
+    demos/  — Run demo videos it attaches on Telegram  [runtime]
+  agents/factoryclaw/agent/  — FactoryClaw's agent state  [runtime]
+    workshop-skills/  — Learned skills; workshop-catch archives FactoryClaw's
+      .archive/factory-herdr-relay/  — The archived stale skill
+  agents/main/, workspace/  — PersonalClaw (agent main), outside the Factory
+~/.local/bin/openclaw  — The OpenClaw CLI
+
+## herdr and launchd
+> Project Managers run in panes of the herdr session factory, named pm-<project>.
+~/Library/LaunchAgents/factory.herdr.plist  — Starts herdr --session factory server at login
+~/Library/LaunchAgents/factory.bdui.plist  — Starts the Beads board at login with bin/board, which registers every Factory project with it (fac-qpv.7.3)
+~/Library/LaunchAgents/ai.openclaw.gateway.plist  — The OpenClaw gateway; restart with launchctl kickstart -k
+~/.config/herdr/  — herdr's config and state
+  config.toml
+  sessions/factory/  — The factory session's sockets, logs and snapshots  [runtime]
+/opt/homebrew/bin/herdr  — herdr 0.9.4
+
+## Skills
+> Where pi finds skills. The four planning skills and record-demo are links to the Factory's installed copies.
+~/.agents/skills  — Skills for every harness
+  grilling, wayfinder, to-spec, to-beads, record-demo  — Links to ~/.local/share/factory/skills  [installed]
+  domain-modeling, tdd, codebase-design, prototype  — Matt Pocock's copies, loaded unadapted by Project Managers
+  archon/  — The archon skill Project Managers load
+  model-roles/  — The Human's model rules and where each model is set
+  plain-voice  — Link to pi-plain-voice's skill
+~/Developer/personal_code/pi-plain-voice/skills/plain-voice  — The plain-voice skill every message to you follows  [source]
+~/Developer/reference/mattpocock-skills  — Matt Pocock's skills, cloned for ideas, not synced
+
+## Projects
+> The repos the Factory builds, as listed in ~/.config/factory/projects. Each has Beads and an uncommitted .archon/.env. The toy repos factory-toy-calc and factory-toy-todo left the list on 2026-10-28 and were deleted locally on 2026-10-31.
+~/Developer/personal_code/socratic-dialogue-facilitator  — Active project; pane pm-socratic-dialogue-facilitator
+  AGENTS.md, GLOSSARY.md
+  .beads/  [runtime]
+  .archon/.env  — FACTORY_PM_AGENT, FACTORY_CHECK, FACTORY_DEMOS, FACTORYCLAW_SESSION, PI_CODING_AGENT_DIR  [secret]
+  .archon/workflows/  — Empty: Workflows come from the library
+~/Developer/personal_code/health-chat  — Local lab-results chat; pane pm-health-chat; Beads prefix hch; check python3 -m pytest -q (since 2026-10-28)
+  AGENTS.md
+  .beads/  [runtime]  — Not committed: Runs' worktrees reach this database through git
+  .archon/.env  [secret]
+  .archon/workflows/, .archon/commands/  — The retired first factory's; the Factory's Workflows come from the library
+~/Developer/personal_code/news  — Daily news report; pane pm-news; base branch develop; Beads prefix news; check uv run --frozen python -m pytest tests/ -q, about 90 s (since 2026-10-28)
+  AGENTS.md  — Never use GitHub auto-close keywords
+  .beads/  [runtime]  — Not committed: Runs' worktrees reach this database through git
+  .archon/.env  [secret]
+  .archon/config.yaml  — worktree.baseBranch develop
+  .archon/workflows/, .archon/commands/  — The retired first factory's; the Factory's Workflows come from the library
+~/Developer/personal_code/bad_game_warning  — Mavericks game verdict page; pane pm-bad_game_warning; Beads prefix bad; check python3 -m unittest (since 2026-10-28)
+  .beads/  [runtime]
+  .archon/.env  [secret]
+~/Developer/personal_code/no_spoilers_reddit  — Delayed team-subreddit reader; pane pm-no_spoilers_reddit; check python3 -m pytest -q (since 2026-10-28)
+  .beads/  [runtime]
+  .archon/.env  [secret]
+~/Developer/personal_code/usage-bar  — macOS menu bar usage app (Swift); pane pm-usage-bar; Beads prefix usage-bar; check swift test (since 2026-10-31)
+  .beads/  [runtime]
+  .archon/.env  [secret]
+~/Developer/personal_code/pi-plain-voice  — Plain-voice pi extension plus skill; pane pm-pi-plain-voice; check python3 skills/plain-voice/scripts/hygiene_gate.py README.md (since 2026-10-31)
+  .beads/  [runtime]
+  .archon/.env  [secret]
+~/Developer/personal_code/pi-draft-stash  — Stash the pi prompt draft with pasted images; pane pm-pi-draft-stash; check npm test (since 2026-10-31)
+  .beads/  [runtime]
+  .archon/.env  [secret]
+~/Developer/personal_code/auto-close-tab-ext  — Aging Tabs browser extension; pane pm-auto-close-tab-ext; forked to bradley-mankoff on 2026-10-31, upstream ndokutovich; check npm ci && npx tsc --noEmit && npm test (since 2026-10-31)
+  .beads/  [runtime]
+  .archon/.env  [secret]
+
+## Related
+> Outside the Factory, but it leans on them.
+/opt/homebrew/bin/bdui  — beads-ui 0.12.6, the Beads board on 127.0.0.1:3917; the launchd job factory.bdui starts it at login with bin/board, which adds each Factory project to the dropdown (fac-qpv.5, fac-qpv.7.3)
+~/AGENTS.md  — Home instructions: words, finding things, working with you
+~/Developer/personal_code/AGENTS.md  — The universal law and the project list
+~/Developer/personal_code/claw-setup  — The OpenClaw setup shared by both Macs; its factoryclaw/ folder is gone
+~/Developer/graph_engineering  — The earlier Factory: read-only, never aimed at
+~/Developer/archive/jev_opportunity_study/REPORT.md  — Where a decision model pays: the four areas
+Keychain: Claude Code-credentials  — Claude Code's login, kept for pi-claude-bridge; claude-usage reads plan usage with it  [secret]
+/opt/homebrew/bin/bd  — Beads

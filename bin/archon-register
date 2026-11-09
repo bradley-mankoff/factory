@@ -1,0 +1,46 @@
+#!/bin/sh
+# Registers a repo with Archon from its main checkout, when that checkout is not registered
+# yet.
+#
+#   archon-register <worktree>
+#
+# Archon registers a repo the first time a Workflow runs in it, and afterwards finds the
+# project of a Run started in one of its worktrees only through that registration: a second
+# registration of the same repo from another checkout fails with "already registered ... a
+# different clone of the same remote" (tested 2026-11-04, codebase-checkout-resolver.ts in
+# Archon 0.12.1). So the main checkout registers first, with the core Workflow
+# factory-register, which runs one shell node and no model (fac-qpv.6.5).
+#
+# project-manager/start runs this under the worktree shape, WORKSPACE=worktree in the
+# Profile. ARCHON_HOME comes from the environment, the Archon home the Profile names, which
+# start exports; Archon's own database says whether the main checkout is registered. Without
+# a database, or with one that cannot be read, the registration is tried, which is harmless.
+set -eu
+worktree=${1:?usage: archon-register <worktree>}
+main=$(git -C "$worktree" worktree list --porcelain | sed -n '1s/^worktree //p')
+[ -n "$main" ] || { echo "archon-register: no main checkout found for $worktree" >&2; exit 1; }
+main=$(cd "$main" && pwd -P)
+archon=${ARCHON_HOME:?ARCHON_HOME must name the Archon home}/bin/archon
+if sqlite3 -readonly "${ARCHON_HOME}/archon.db" "select default_cwd from remote_agent_codebases;" 2>/dev/null |
+	grep -qxF -- "$main"; then
+	exit 0
+fi
+# The main checkout's branch is named as the project's base because this Run takes no
+# worktree: without one Archon follows the remote's default branch, and a repo with no
+# remote to ask stops before its shell node runs.
+branch=$(git -C "$main" branch --show-current)
+register() {
+	cd "$main" || return 1
+	if [ -n "$branch" ]; then
+		"$archon" workflow run factory-register --no-worktree --base-branch "$branch" register
+	else
+		"$archon" workflow run factory-register --no-worktree register
+	fi
+}
+if out=$(register 2>&1); then
+	echo "archon-register: registered $main with Archon" >&2
+else
+	[ -z "$out" ] || printf '%s\n' "$out" >&2
+	echo "archon-register: could not register $main with Archon; a Run started from one of its worktrees will fail until it is" >&2
+	exit 1
+fi

@@ -1,0 +1,87 @@
+#!/bin/sh
+# Starts a Project Manager: the Human's own pi in the current repo's top folder, with the
+# Project Manager's instructions and the glossary appended to its system prompt.
+#
+#   project-manager/start [pi arguments...]
+#
+# pm, the shorthand a session in the project folder starts with, execs this. FactoryClaw's
+# panes skill runs it too, so a pane opened from FactoryClaw and one opened by hand start
+# the same Project Manager.
+#
+# This is the Human's own pi setup, not a separate one: it leaves PI_CODING_AGENT_DIR
+# unset, so pi uses ~/.pi/agent, and it passes no -ne or -ns, so his extensions, skills
+# and packages load as they do in his other sessions. Its session is therefore kept with
+# his other pi sessions. The pi packages a Project Manager needs are installed into
+# ~/.pi/agent by scripts/install.sh (fac-qpv.8.1), and the skills are linked into
+# ~/.agents/skills there, rather than loaded here alone. The two settings those packages
+# read that belong to this Mac are exported below.
+#
+# The model, the Workflow library, the Archon home and the workspace shape come from
+# ~/.config/factory/profile, this Mac's Profile (fac-qpv.6.3). PM_MODEL names the
+# Project Manager's Chain, chain/pm, whose entry sets the thinking level (fac-qpv.1),
+# so no --thinking is passed: it would overrule the Chain. The Profile's LIBRARY,
+# ARCHON_HOME and WORKSPACE are exported, the paths the instructions name. pi's update
+# notice is off because the install keeps pi on the version Archon bundles (fac-88m.1).
+#
+# In a herdr pane it renames the pane pm-<folder>, which under the worktree shape is the
+# worktree's folder, and exports that name as FACTORY_PM_AGENT, so a Run started from here
+# names the Project Manager that started it.
+factory=$(cd "$(dirname "$0")/.." && pwd)
+top=$(git rev-parse --show-toplevel 2>/dev/null) || {
+	echo "start: not inside a git repo (this is $PWD)" >&2
+	exit 2
+}
+cd "$top" || exit 2
+# The project's .archon/.env holds values the Project Manager uses, such as
+# FACTORY_DEMOS. Its PI_CODING_AGENT_DIR is for Runs and is dropped below.
+[ ! -f .archon/.env ] || { set -a; . .archon/.env; set +a; }
+# The pane's herdr name, from the one rule in bin/pm-pane; install.sh writes the same
+# name into the project's .archon/.env and FactoryClaw's TOOLS.md.
+pane=$("$factory/bin/pm-pane" "$PWD")
+
+# The Profile, this Mac's settings file: install.sh ships the personal one when it is
+# missing. Without one, say how to make it rather than start with no model.
+profile=$HOME/.config/factory/profile
+[ -f "$profile" ] || { echo "start: no Profile at $profile; run scripts/install.sh" >&2; exit 2; }
+# shellcheck source=/dev/null
+. "$profile"
+# The workspace shape, `project` unless the Profile names another: `worktree` gives this
+# Project Manager one worktree's branch to lead, the work Mac's shape (fac-qpv.6.5). pi's
+# shell holds it as $WORKSPACE, and the instructions read it.
+WORKSPACE=${WORKSPACE:-project}
+export LIBRARY ARCHON_HOME WORKSPACE
+export PI_SKIP_VERSION_CHECK=1
+unset PI_CODING_AGENT_DIR
+export FACTORY_PM_AGENT="$pane"
+# pi-notices watches the file bin/tell-pm writes, named after this pane, and pi-links
+# makes each Bead id a link to the board on the port the Profile names (fac-qpv.8.1).
+PI_NOTICES_FILE=$HOME/.local/share/factory/notices/$pane.md
+BEADS_BOARD_PORT=${BOARD_PORT:-3917}
+export PI_NOTICES_FILE BEADS_BOARD_PORT
+
+if [ "${HERDR_ENV:-}" = 1 ] && [ -n "${HERDR_PANE_ID:-}" ]; then
+	herdr pane rename "$HERDR_PANE_ID" "$pane" >/dev/null 2>&1 || true
+fi
+
+# One Project Manager per worktree: Archon finds the project of a Run started in a worktree
+# only through the repo's main checkout, so that checkout registers before any Run starts
+# here (fac-qpv.6.5). A registration that fails must not stop the Project Manager, whose
+# planning needs no Archon; its Runs say so when they cannot start.
+if [ "$WORKSPACE" = worktree ]; then
+	"$factory/bin/archon-register" "$PWD" || true
+fi
+
+# A session that starts with no message would sit at pi's prompt, so pi is given the
+# start routine: review the claimed Beads, the Runs that ended and the ready Beads, then
+# propose the next steps and wait for the Human to accept (fac-qpv.2.2). A message given
+# on the command line, as FactoryClaw's panes skill passes the Human's "get to work",
+# replaces it: pi takes the message it is given.
+if [ "$#" -eq 0 ]; then
+	set -- "Run your start routine now: review the claimed Beads, the Runs that ended and the ready Beads, then propose the obvious next steps and wait for the Human to accept."
+fi
+
+exec pi \
+	--model "$PM_MODEL" \
+	--append-system-prompt "$factory/project-manager/instructions.md" \
+	--append-system-prompt "$factory/GLOSSARY.md" \
+	"$@"

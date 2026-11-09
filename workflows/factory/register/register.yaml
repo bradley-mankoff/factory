@@ -1,0 +1,10 @@
+name: factory-register
+description: >-
+  Registers a repo with Archon from its main checkout, and does nothing else. Archon finds
+  the project of a Run started in one of the repo's worktrees only through that checkout's
+  registration, so the first registration must come from there; bin/archon-register runs
+  this when a Project Manager starts under the worktree shape. It runs one shell node and no
+  model, and no Bead is ever given to it.
+nodes:
+  - id: registered
+    bash: echo "registered $(pwd)"

@@ -1,0 +1,42 @@
+name: w1-basics
+description: Spike checks 1, 2, 3, 4, 11, 16 - basic pi prompt, per-node model, effort, systemPrompt, parallelism, bash variables.
+provider: pi
+nodes:
+  - id: model-a
+    prompt: "Reply with exactly one line: ALPHA-OK"
+    model: opencode-go/qwen3.8-flash
+    allowed_tools: []
+  - id: model-b
+    prompt: "Reply with exactly one line: BETA-OK"
+    model: opencode-go/deepseek-v4-flash
+    allowed_tools: []
+  - id: effort-high
+    prompt: "Think step by step, then reply with only the number: what is 17 * 23?"
+    model: opencode-go/deepseek-v4-flash
+    effort: high
+    allowed_tools: []
+  - id: effort-low
+    prompt: "Reply with only the number: what is 17 * 23?"
+    model: opencode-go/deepseek-v4-flash
+    effort: low
+    allowed_tools: []
+  - id: sysprompt
+    prompt: "Your system prompt contains a secret codeword. Reply with only that codeword, or NONE if you see none."
+    model: opencode-go/qwen3.8-flash
+    systemPrompt: "You are a test agent. The secret codeword is ZEBRA-PLUM-41."
+    allowed_tools: []
+  - id: vars
+    bash: |
+      echo "ARGUMENTS=[$ARGUMENTS]"
+      echo "ARTIFACTS_DIR=[$ARTIFACTS_DIR]"
+      echo "WORKFLOW_ID=[$WORKFLOW_ID]"
+      echo "BASE_BRANCH=[$BASE_BRANCH]"
+      echo "pwd=$(pwd)"
+      echo "arbitrary=$(date -u +%H:%M:%S) $(which herdr || echo no-herdr)"
+  - id: join
+    bash: |
+      echo "a=$model-a.output"
+      echo "b=$model-b.output"
+      echo "hi=$effort-high.output lo=$effort-low.output"
+      echo "sys=$sysprompt.output"
+    depends_on: [model-a, model-b, effort-high, effort-low, sysprompt, vars]

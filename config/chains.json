@@ -1,0 +1,16 @@
+{
+  "pm": [
+    { "model": "claude-bridge/claude-opus-5-5", "thinking": "medium" },
+    { "model": "opencode-go/muse-spark-1.3-contributor", "thinking": "xhigh" }
+  ],
+  "spec-review": [
+    { "model": "claude-bridge/claude-opus-5-5", "thinking": "medium" },
+    { "model": "opencode-go/muse-spark-1.3-contributor", "thinking": "xhigh" }
+  ],
+  "work": [
+    { "model": "opencode-go/deepseek-v4.1-flash", "thinking": "max" }
+  ],
+  "scout": [
+    { "model": "opencode-go/deepseek-v4.1-flash", "thinking": "max" }
+  ]
+}

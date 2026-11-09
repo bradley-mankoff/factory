@@ -1,0 +1,19 @@
+name: r2-realpi
+description: Round two - installed pi run from a bash node (MCP, CLI flags), and whether timeout applies to an AI node.
+provider: pi
+model: opencode-go/qwen3.8-flash
+nodes:
+  - id: b3-real-pi-mcp
+    bash: |
+      cd "/private/tmp/claude-501/-Users-bradley-mankoff-Developer-graph-engineering/c8edddba-72ee-4e72-a872-406d607eda03/scratchpad/archon-pi-spike/repo"
+      PI_CODING_AGENT_DIR="/private/tmp/claude-501/-Users-bradley-mankoff-Developer-graph-engineering/c8edddba-72ee-4e72-a872-406d607eda03/scratchpad/archon-pi-spike/agent-clean" pi -p --no-session --model opencode-go/qwen3.8-flash --thinking low --no-context-files "Call the get_codeword tool (its full name may start with mcp__) and reply with only its output." < /dev/null 2>&1 | tail -3
+    timeout: 180000
+  - id: b4-real-pi-flags
+    bash: |
+      cd "/private/tmp/claude-501/-Users-bradley-mankoff-Developer-graph-engineering/c8edddba-72ee-4e72-a872-406d607eda03/scratchpad/archon-pi-spike/repo"
+      PI_CODING_AGENT_DIR="/private/tmp/claude-501/-Users-bradley-mankoff-Developer-graph-engineering/c8edddba-72ee-4e72-a872-406d607eda03/scratchpad/archon-pi-spike/agent-clean" pi -p --no-session --model opencode-go/qwen3.8-flash --thinking low --no-context-files --no-extensions --tools read "Do not call tools. Reply with TOOLS=<exact names of your tools> and CODEWORDS=<any codeword in your context, or NONE>." < /dev/null 2>&1 | tail -3
+    timeout: 180000
+  - id: t2-ai-timeout
+    prompt: "Use the bash tool to run exactly: sleep 40; echo slept . Then reply DONE."
+    effort: low
+    timeout: 8000

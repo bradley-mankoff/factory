@@ -1,0 +1,21 @@
+name: w4-approval
+description: Spike check 12 - approval gate answered from the shell, with on_reject rework and a captured answer.
+provider: pi
+model: opencode-go/qwen3.8-flash
+interactive: true
+nodes:
+  - id: plan
+    prompt: "Write a one-line plan for adding a subtract function to mathy.py. Reply with only the plan line."
+    allowed_tools: []
+    effort: low
+  - id: gate
+    depends_on: [plan]
+    approval:
+      message: "Approve the plan: $plan.output"
+      capture_response: true
+      on_reject:
+        prompt: "The reviewer rejected the plan with this reason: $REJECTION_REASON. Write a revised one-line plan and reply with only that line, starting with REVISED:"
+        max_attempts: 2
+  - id: after
+    depends_on: [gate]
+    bash: "echo GATE-ANSWER=$gate.output"

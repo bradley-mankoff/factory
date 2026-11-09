@@ -1,0 +1,66 @@
+name: factory-research
+description: >-
+  Answer a research question for the Project Manager without filling its context:
+  two nodes look into it independently, in parallel and write their findings
+  to files, a third combines them into one file and a short answer, and the last
+  node tells the Project Manager which file opens with the answer.
+  Start it with "<pane> · <question>".
+provider: pi
+nodes:
+  # Prints each checked node's Flows marker (flows/ beside this file), which the pi-flows
+  # package reads to hold the node to its checks (fac-qpv.3.3).
+  - id: prompts
+    bash: '"$HOME/.local/share/factory/bin/node-prompts" "${LIBRARY:-$ARCHON_HOME/workflows}/factory/research"'
+
+  - id: look-a
+    depends_on: [prompts]
+    model: "@work"
+    idle_timeout: 300000
+    allowed_tools: [read, bash]
+    prompt: |
+      $prompts.output.marker_look_a
+      Research this question for a Project Manager who will act on the answer.
+      The message starts with the Project Manager's pane and " · "; the question follows:
+      $ARGUMENTS
+
+      Read the repo, its docs and anything installed; use curl for public web pages.
+      Do not change any file in the repo. Write your findings, with the evidence for
+      each (file paths, URLs, command output), to $ARTIFACTS_DIR/findings-a.md.
+
+  - id: look-b
+    depends_on: [prompts]
+    model: "@work"
+    idle_timeout: 300000
+    allowed_tools: [read, bash]
+    prompt: |
+      $prompts.output.marker_look_b
+      Research this question for a Project Manager who will act on the answer.
+      The message starts with the Project Manager's pane and " · "; the question follows:
+      $ARGUMENTS
+
+      Read the repo, its docs and anything installed; use curl for public web pages.
+      Do not change any file in the repo. Write your findings, with the evidence for
+      each (file paths, URLs, command output), to $ARTIFACTS_DIR/findings-b.md.
+
+  - id: combine
+    depends_on: [look-a, look-b]
+    model: "@work"
+    idle_timeout: 300000
+    allowed_tools: [read, write]
+    prompt: |
+      $prompts.output.marker_combine
+      The Run's message starts with the Project Manager's pane and " · "; the question follows: $ARGUMENTS
+      Two researchers answered it. Their findings are in $ARTIFACTS_DIR/findings-a.md and $ARTIFACTS_DIR/findings-b.md.
+      Write one combined account to $ARTIFACTS_DIR/findings.md. Begin it with the answer
+      in at most five sentences, then where they agree, where they disagree and which
+      evidence is stronger, and what is still unknown.
+
+  # Reads findings.md, not $combine.output: Archon refuses to splice a failed node's
+  # output, so that reference would stop this node exactly when the Project Manager
+  # most needs telling.
+  - id: tell-project-manager
+    depends_on: [combine]
+    trigger_rule: all_done
+    bash: |
+      if [ -s "$ARTIFACTS_DIR/findings.md" ]; then how="answered; the answer opens $ARTIFACTS_DIR/findings.md"; else how="ended without findings; archon workflow get $WORKFLOW_ID names the node that failed"; fi
+      "$HOME/.local/share/factory/bin/tell-pm" "${ARGUMENTS%% · *}" "Research Run $WORKFLOW_ID $how"

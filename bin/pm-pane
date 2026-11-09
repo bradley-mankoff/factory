@@ -1,0 +1,11 @@
+#!/bin/sh
+# Prints the herdr name of a project's Project Manager pane: pm-<folder>. herdr agent names
+# match [a-z][a-z0-9_-]{0,31}, so the folder is lowercased, any character outside that set
+# becomes a dash, and the name stops at 32 characters.
+#
+# project-manager/start names the pane with this, and scripts/install.sh writes the same
+# name into the project's .archon/.env and FactoryClaw's TOOLS.md. One script, so the rule
+# cannot drift: a Run's last node must name a pane that was really renamed.
+#
+#   pm-pane <folder>
+printf 'pm-%s\n' "$(basename "$1")" | tr 'A-Z' 'a-z' | tr -c 'a-z0-9_\n-' '-' | cut -c1-32

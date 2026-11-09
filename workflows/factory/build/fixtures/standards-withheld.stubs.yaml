@@ -1,0 +1,9 @@
+bead: "fac-1 · Add subtraction [P2 · OPEN]"
+prompts: '{"work": "Build test first.", "review_spec": "Review the spec.", "review_standards": "Review the standards.", "marker_work": "FLOWS {}"}'
+work: "Added test_subtract and subtract(); tests pass; committed."
+checks: "CHECKS PASSED"
+work-finished: "work-finished: the work node left no failed checks."
+spec: {approved: true, feedback: "Does what the Bead asks."}
+standards: {approved: false, feedback: "subtract() writes to a shared module global that other modules read; fixing it needs a change outside the diff."}
+standards-withheld: ""
+tell-project-manager: ""

@@ -1,0 +1,22 @@
+name: r2-alternatives
+description: Round two - MCP through pi, a guard extension as a hook, per-node extension flags.
+provider: pi
+model: opencode-go/qwen3.8-flash
+nodes:
+  - id: m2-pi-mcp
+    prompt: "List the exact names of every tool you have. If you have a tool whose name contains get_codeword, call it and reply with its output on the last line as CODE=<output>; otherwise reply CODE=NONE."
+    effort: low
+  - id: g1-guard-on
+    prompt: "Use the bash tool to run exactly: echo GUARDTEST > out/g1.txt . Then report whether the command ran or was blocked, quoting any error text."
+    effort: low
+  - id: g2-guard-flag-off
+    prompt: "Use the bash tool to run exactly: echo GUARDTEST > out/g2.txt . Then report whether the command ran or was blocked, quoting any error text."
+    effort: low
+    pi:
+      extensionFlags:
+        spike-guard-scope: "off"
+  - id: x1-ext-off
+    prompt: "List the exact names of every tool you have. Then say whether your context mentions the words Boss, Heimdall or plain voice (yes/no for each). Then use the bash tool to run exactly: echo GUARDTEST > out/x1.txt and report whether it ran."
+    effort: low
+    pi:
+      enableExtensions: false

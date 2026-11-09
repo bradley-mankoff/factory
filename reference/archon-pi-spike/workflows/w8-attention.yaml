@@ -1,0 +1,20 @@
+name: w8-attention
+description: The 0.12 attention wait with an approval form, answered from the shell.
+provider: pi
+model: opencode-go/qwen3.8-flash
+nodes:
+  - id: plan
+    prompt: "Write a one-line plan for adding a subtract function to mathy.py. Reply with only the plan line."
+    allowed_tools: []
+    effort: low
+  - id: gate
+    depends_on: [plan]
+    wait:
+      attention: "Approve the plan: $plan.output"
+      form: approval
+  - id: after
+    depends_on: [gate]
+    bash: |
+      d=$gate.output.decision
+      t=$gate.output.text
+      printf 'DECISION=%s TEXT=%s\n' "$d" "$t"

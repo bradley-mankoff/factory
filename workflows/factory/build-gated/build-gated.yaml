@@ -1,0 +1,171 @@
+name: factory-build-gated
+description: >-
+  factory-build with a Human gate: one pass of work, checks, a spec review that only
+  reads, a standards review that fixes what it finds, the checks again, and the landing
+  held before the base branch moves; then a demo video, and the Run waits for the
+  Human's taste-and-fit answer before it lands. A withheld review ends the Run with its
+  findings on the Bead. Start it with "<pane> · <bead id>". Needs FACTORY_CHECK and
+  FACTORY_DEMOS in the project's .archon/.env.
+provider: pi
+nodes:
+  - id: bead
+    bash: '"$HOME/.local/share/factory/bin/bead" "$ARGUMENTS"'
+
+  # The Factory's conventions for each kind of AI node (prompts/ in the Factory's repo):
+  # every AI node's prompt starts with one of them.
+  - id: prompts
+    bash: '"$HOME/.local/share/factory/bin/node-prompts" "${LIBRARY:-$ARCHON_HOME/workflows}/factory/build-gated"'
+
+  - id: work
+    depends_on: [bead, prompts]
+    model: "@work"
+    idle_timeout: 300000
+    prompt: |
+      $prompts.output.marker_work
+      $prompts.output.work
+
+      $bead.output
+
+  - id: checks
+    depends_on: [work]
+    bash: |
+      if out=$(sh -c "$FACTORY_CHECK" 2>&1); then r=PASSED; else r=FAILED; fi
+      printf 'CHECKS %s\n%s\n' "$r" "$(printf '%s\n' "$out" | tail -40)"
+
+  # The work node's checks (flows/work) ran when its agent tried to finish. When it finished
+  # with checks still failing, this comments them on the Bead and fails, so neither review
+  # runs and no usage is spent reviewing unfinished work (fac-qpv.3.3).
+  - id: work-finished
+    depends_on: [checks]
+    bash: '"$HOME/.local/share/factory/bin/work-finished" "$("$HOME/.local/share/factory/bin/bead" --id "$ARGUMENTS")"'
+
+  # One review pass, in order (fac-qpv.4). The spec review reads first: a change that
+  # misses what the Bead asked needs the Project Manager's judgment, so a withheld spec
+  # review ends the Run before any fixing is spent on it.
+  - id: spec
+    depends_on: [work-finished]
+    model: "@spec-review"
+    idle_timeout: 300000
+    allowed_tools: [read, bash]
+    prompt: |
+      $prompts.output.review_spec
+
+      The diff is `git diff $BASE_BRANCH...HEAD`; the commits are `git log --oneline $BASE_BRANCH..HEAD`.
+
+      $bead.output
+
+      $checks.output
+    output_format: &review-output
+      type: object
+      properties:
+        approved: {type: boolean}
+        feedback: {type: string}
+      required: [approved, feedback]
+
+  # The standards review fixes what it finds inside the diff and commits it, so a small
+  # issue never costs another Run (the Human, 2026-11-06). It withholds only for a defect
+  # it cannot fix there.
+  - id: standards
+    depends_on: [spec]
+    when: "$spec.output.approved == true"
+    model: "@standards-review"
+    idle_timeout: 300000
+    prompt: |
+      $prompts.output.review_standards
+
+      The diff is `git diff $BASE_BRANCH...HEAD`; the commits are `git log --oneline $BASE_BRANCH..HEAD`.
+
+      $bead.output
+    output_format: *review-output
+
+  # The check again, since the standards review may have changed files. It fails the
+  # node, and so stops the landing, when the check fails.
+  - id: recheck
+    depends_on: [standards]
+    when: "$standards.output.approved == true"
+    bash: |
+      out=$(sh -c "$FACTORY_CHECK" 2>&1); status=$?
+      printf '%s\n' "$out" | tail -40
+      exit $status
+
+  # A withheld review's findings go on the Bead, so the Project Manager can decide.
+  # The feedback is quoted into a heredoc so its backticks and dollar signs stay text.
+  - id: spec-withheld
+    depends_on: [spec]
+    when: "$spec.output.approved == false"
+    bash: |
+      bd comments add "$("$HOME/.local/share/factory/bin/bead" --id "$ARGUMENTS")" "$(cat <<'FEEDBACK'
+      Spec review withheld approval in Run $WORKFLOW_ID; the commits stay on its branch:
+      $spec.output.feedback
+      FEEDBACK
+      )"
+
+  - id: standards-withheld
+    depends_on: [standards]
+    when: "$standards.output.approved == false"
+    bash: |
+      bd comments add "$("$HOME/.local/share/factory/bin/bead" --id "$ARGUMENTS")" "$(cat <<'FEEDBACK'
+      Standards review withheld approval in Run $WORKFLOW_ID; the commits stay on its branch:
+      $standards.output.feedback
+      FEEDBACK
+      )"
+
+  # The landing's first half, held so the Human decides before the base branch moves:
+  # bin/land opens the pull request, or squashes the commits and checks the squashed tree,
+  # and stops (fac-qpv.6.4). Its `held` note names what it holds, which the gate quotes.
+  - id: land-hold
+    depends_on: [recheck]
+    bash: '"$HOME/.local/share/factory/bin/land" --hold'
+
+  # The Human judges taste and fit from Telegram and never runs anything, so the gate
+  # carries a video of the change working.
+  - id: demo
+    depends_on: [land-hold]
+    model: "@work"
+    idle_timeout: 300000
+    allowed_tools: [read, bash, write]
+    prompt: |
+      Record a demo video of this Bead's change working, for the Human's taste-and-fit
+      check. Read ~/.local/share/factory/skills/record-demo/SKILL.md and follow it. Save
+      the video as "$FACTORY_DEMOS/$WORKFLOW_ID.mp4" (FACTORY_DEMOS is in your
+      environment). Do not change, commit or push any file in this repo.
+
+      $bead.output
+
+  # all_done, and the video read from its file rather than $demo.output: a failed demo
+  # still lets the Human judge from what the landing holds.
+  - id: ask-human
+    depends_on: [demo]
+    trigger_rule: all_done
+    bash: |
+      # What the landing holds, from bin/land's note: a failed hold leaves no note, and then
+      # there is nothing to judge, so this node fails and the gate is skipped.
+      held=$(cat "$ARTIFACTS_DIR/held" 2>/dev/null) || exit 1
+      demo="$FACTORY_DEMOS/$WORKFLOW_ID.mp4"
+      # The Human judges from the video alone, and approving it approves the landing, so a
+      # link to the change goes to the Human only when there is no video.
+      if [ -s "$demo" ]; then video="Relay it through FactoryClaw with the demo video $demo and without a link to the change."; else video="There is no video: the demo node found the change broken or failed (archon workflow get $WORKFLOW_ID says which). If the change is broken, reject the Run and rework the Bead without asking the Human; otherwise record one with the record-demo skill, or relay the change instead."; fi
+      "$HOME/.local/share/factory/bin/tell-pm" "${ARGUMENTS%% · *}" "Run $WORKFLOW_ID (factory-build-gated) for Bead $("$HOME/.local/share/factory/bin/bead" --id "$ARGUMENTS") waits for the Human's taste-and-fit check of $held. $video Then answer with archon workflow approve $WORKFLOW_ID or archon workflow reject $WORKFLOW_ID --reason '<the Human's words>'."
+
+  - id: taste
+    depends_on: [ask-human]
+    wait:
+      attention: "Taste and fit for Bead $ARGUMENTS: does $land-hold.output look and feel right, and does it fit the Idea?"
+      form: approval
+
+  # The landing's second half: the merge, or the push of the squash the hold built.
+  - id: land
+    depends_on: [taste]
+    when: "$taste.output.decision == 'approve'"
+    bash: '"$HOME/.local/share/factory/bin/land"'
+
+  - id: tell-project-manager
+    depends_on: [land, work-finished, spec-withheld, standards-withheld]
+    trigger_rule: all_done
+    # Reads how the landing ended from the note bin/land leaves in the Run's artifacts,
+    # not $land.output or $taste.output: Archon refuses to splice a failed node's output,
+    # so such a reference stops this node exactly when the Project Manager most needs
+    # telling. A rejection is known already: the Project Manager sent it.
+    bash: |
+      if [ -s "$ARTIFACTS_DIR/landing" ]; then how=$(cat "$ARTIFACTS_DIR/landing"); else how="ended without a landing; archon workflow get $WORKFLOW_ID names the node that failed or the gate's answer"; fi
+      "$HOME/.local/share/factory/bin/tell-pm" "${ARGUMENTS%% · *}" "Run $WORKFLOW_ID (factory-build-gated) for Bead $("$HOME/.local/share/factory/bin/bead" --id "$ARGUMENTS") $how."

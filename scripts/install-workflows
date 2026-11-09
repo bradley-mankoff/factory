@@ -1,0 +1,18 @@
+#!/bin/sh
+# Copies the Factory's core Workflows into a Workflow library.
+#
+#   scripts/install-workflows [<library>]   default: $LIBRARY, else
+#                                          $ARCHON_HOME/workflows, else
+#                                          ~/.local/share/factory/archon/workflows
+#
+# The library is the Archon home's workflows folder, the path the Profile names and a
+# Project Manager's shell holds as $LIBRARY. Only the core group, factory/, is written,
+# and it is replaced whole: a Workflow removed from this repo's workflows/factory/ is gone
+# after the next install. Every other group there belongs to the person using the Mac and
+# is left as it is. Files are real copies, not links, because Archon loads a linked
+# Workflow but finds no fixtures in it.
+set -eu
+src=$(cd "$(dirname "$0")/.." && pwd)/workflows/factory
+library=${1:-${LIBRARY:-${ARCHON_HOME:-$HOME/.local/share/factory/archon}/workflows}}
+mkdir -p "$library"
+rsync -a --delete "$src/" "$library/factory/"

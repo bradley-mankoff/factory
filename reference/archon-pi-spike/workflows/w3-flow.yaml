@@ -1,0 +1,63 @@
+name: w3-flow
+description: Spike checks 8 (idle_timeout/retry effect), 9 (loop, loop_group), 10 (output_format + when).
+provider: pi
+model: opencode-go/qwen3.8-flash
+nodes:
+  - id: setup
+    bash: "rm -f $ARTIFACTS_DIR/n.txt $ARTIFACTS_DIR/g.txt; echo ready"
+  - id: loop-until-bash
+    depends_on: [setup]
+    loop:
+      prompt: "Use the bash tool to run exactly: echo x >> $ARTIFACTS_DIR/n.txt . Then reply with the word APPENDED."
+      until: NEVER-SAY-THIS
+      until_bash: "test $(wc -l < $ARTIFACTS_DIR/n.txt) -ge 3"
+      max_iterations: 5
+      fresh_context: true
+  - id: loop-count
+    depends_on: [loop-until-bash]
+    bash: "echo lines=$(wc -l < $ARTIFACTS_DIR/n.txt)"
+  - id: group
+    depends_on: [setup]
+    loop_group:
+      nodes:
+        - id: bump
+          bash: "echo y >> $ARTIFACTS_DIR/g.txt; wc -l < $ARTIFACTS_DIR/g.txt | tr -d ' '"
+        - id: judge
+          prompt: "The counter is now $bump.output. If it is 2 or more reply with exactly SHIP, otherwise reply with exactly AGAIN."
+          depends_on: [bump]
+          allowed_tools: []
+          effort: low
+      until: SHIP
+      max_iterations: 4
+  - id: group-count
+    depends_on: [group]
+    bash: "echo glines=$(wc -l < $ARTIFACTS_DIR/g.txt)"
+  - id: classify
+    depends_on: [setup]
+    prompt: "Classify this request: 'please fix the crash on startup'. Kind is bug or feature."
+    allowed_tools: []
+    effort: low
+    output_format:
+      type: object
+      properties:
+        kind: {type: string, enum: [bug, feature]}
+        confidence: {type: number}
+      required: [kind]
+  - id: on-bug
+    depends_on: [classify]
+    when: "$classify.output.kind == 'bug'"
+    bash: "echo ROUTED-BUG"
+  - id: on-feature
+    depends_on: [classify]
+    when: "$classify.output.kind == 'feature'"
+    bash: "echo ROUTED-FEATURE"
+  - id: idle-tiny
+    depends_on: [setup]
+    prompt: "Think carefully about the history of the number zero for a while, then reply with one sentence."
+    idle_timeout: 50
+    retry: {max_attempts: 2, delay_ms: 1000}
+    allowed_tools: []
+  - id: after-idle
+    depends_on: [idle-tiny]
+    trigger_rule: all_done
+    bash: "echo idle-node-settled"

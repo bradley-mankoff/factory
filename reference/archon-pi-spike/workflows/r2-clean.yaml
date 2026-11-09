@@ -1,0 +1,27 @@
+name: r2-clean
+description: Round two - clean pi agent dir, trusted project extensions and MCP, guard scoping, context files.
+provider: pi
+model: opencode-go/qwen3.8-flash
+nodes:
+  - id: c1-inventory
+    prompt: "Do not call any tool. Reply in four lines: TOOLS=<comma separated exact names of every tool you have>; SKILLS=<names of skills listed in your system prompt, or NONE>; CODEWORDS=<every codeword you can see in your context, or NONE>; WORDS=<yes/no for each of Boss, Heimdall, plain voice>."
+    effort: low
+  - id: m3-mcp
+    prompt: "If you have a tool whose name contains get_codeword, call it and reply on the last line CODE=<its output>; otherwise reply CODE=NONE."
+    effort: low
+  - id: g3-guard-on
+    prompt: "Use the bash tool to run exactly: echo GUARDTEST > out/g3.txt . Then run: echo second-call-ok . Report each call's result, quoting any error text."
+    effort: low
+  - id: g4-guard-flag-off
+    depends_on: [g3-guard-on]
+    prompt: "Use the bash tool to run exactly: echo GUARDTEST > out/g4.txt . Then run: echo second-call-ok . Report each call's result, quoting any error text."
+    effort: low
+    pi:
+      extensionFlags:
+        spike-guard-scope: "off"
+  - id: g5-ext-off
+    depends_on: [g4-guard-flag-off]
+    prompt: "Use the bash tool to run exactly: echo GUARDTEST > out/g5.txt . Report the result, quoting any error text. Then reply on the last line CODE=<output of a get_codeword tool if you have one, else NONE>."
+    effort: low
+    pi:
+      enableExtensions: false

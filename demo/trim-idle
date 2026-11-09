@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+"""Cut the idle stretches out of a screen recording and write an MP4 a phone can play.
+
+    trim-idle <input video> <output .mp4> [seconds to keep of each still stretch, default 1.5]
+
+A recorded demo has long still stretches while the app or the agent works. ffmpeg's
+freezedetect finds every stretch where the picture stays the same for longer than the
+kept time (its noise tolerance is strict, -80 dB, because on a mostly white page a
+new line of text changes so few pixels that a looser setting counts it as still); this
+keeps its first seconds, so the viewer still sees each state, and drops
+the rest. Prints the output's duration in seconds.
+"""
+import re
+import subprocess
+import sys
+
+src, dst = sys.argv[1], sys.argv[2]
+keep = float(sys.argv[3]) if len(sys.argv) > 3 else 1.5
+
+probe = subprocess.run(
+    ["ffmpeg", "-hide_banner", "-i", src, "-vf", f"freezedetect=n=0.0001:d={keep}", "-map", "0:v", "-f", "null", "-"],
+    capture_output=True, text=True).stderr
+starts = [float(x) for x in re.findall(r"freeze_start: ([\d.]+)", probe)]
+ends = [float(x) for x in re.findall(r"freeze_end: ([\d.]+)", probe)]
+ends += [1e9] * (len(starts) - len(ends))  # a recording that ends while still
+
+drop = "+".join(f"between(t,{s + keep:.3f},{e:.3f})" for s, e in zip(starts, ends))
+keep_expr = f"not({drop})" if drop else "1"
+subprocess.run(
+    ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", src,
+     "-vf", f"select='{keep_expr}',setpts=N/FRAME_RATE/TB,scale=trunc(iw/2)*2:trunc(ih/2)*2",
+     "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", dst],
+    check=True)
+print(subprocess.run(
+    ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", dst],
+    capture_output=True, text=True).stdout.strip())

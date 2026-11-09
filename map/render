@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""Builds the Factory map, a collapsible page of every Factory path, from paths.txt.
+
+    render [<output file>]
+
+The output defaults to ~/.local/share/factory/map.html, a plain page any browser opens
+offline, so the map does not depend on where it was first drawn (a Claude artifact,
+2026-10-21). paths.txt stays the source because it reads as a tree in any editor and
+its diffs show what moved.
+
+paths.txt: `## <area>` starts an area and `> <note>` describes it. Every other line is
+a path, indented two spaces per level under its parent, then optionally `  — <note>`
+and `  [<tag>, ...]` (source, installed, runtime, secret).
+
+It also prints each listed path that does not exist. An entry that is not one literal
+path (several names joined by commas, a wildcard, a description in brackets) is not
+checked.
+"""
+import json
+import os
+import pathlib
+import re
+import sys
+
+here = pathlib.Path(__file__).resolve().parent
+areas = []
+stack = []  # (depth, node, full path or None) for the current line's ancestors
+for line in (here / "paths.txt").read_text().splitlines():
+    if not line.strip():
+        continue
+    if line.startswith("## "):
+        areas.append({"title": line[3:], "items": []})
+        stack = []
+        continue
+    if line.startswith("> "):
+        areas[-1]["note"] = line[2:]
+        continue
+    depth = (len(line) - len(line.lstrip(" "))) // 2
+    text = line.strip()
+    node = {}
+    tags = re.search(r"  \[([^\]]+)\]$", text)
+    if tags:
+        node["t"] = [t.strip() for t in tags.group(1).split(",")]
+        text = text[: tags.start()]
+    path, _, note = text.partition("  — ")
+    node["p"] = path
+    if note:
+        node["n"] = note
+    while stack and stack[-1][0] >= depth:
+        stack.pop()
+    parent = stack[-1][2] if stack else None
+    full = None
+    if not re.search(r"[,*…()]|^Keychain:", path):
+        full = os.path.join(parent, path) if parent and not path.startswith(("~", "/")) else path
+        if (parent or path.startswith(("~", "/"))) and not os.path.lexists(os.path.expanduser(full)):
+            print(f"missing: {full}")
+    (stack[-1][1].setdefault("c", []) if stack else areas[-1]["items"]).append(node)
+    stack.append((depth, node, full))
+
+out = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "~/.local/share/factory/map.html").expanduser()
+page = (here / "page.html").read_text().replace("__DATA__", json.dumps(areas, ensure_ascii=False))
+out.write_text(page)
+print(f"wrote {out}")

@@ -1,0 +1,15 @@
+{
+  "id": "workshop-catch",
+  "name": "Workshop catch",
+  "description": "Turns each skill OpenClaw's Skill Workshop learns for FactoryClaw into a Factory Bead, and archives the skill.",
+  "activation": { "onStartup": true },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "factoryRepo": { "type": "string", "description": "The Factory repo, where the Bead is filed." },
+      "path": { "type": "string", "description": "PATH for bd and openclaw; the gateway's own PATH is bare." }
+    },
+    "required": ["factoryRepo", "path"]
+  }
+}

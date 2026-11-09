@@ -1,0 +1,16 @@
+name: e2-effort
+description: Does per-node effort reach pi 1.3? Same prompt at low and at max.
+provider: pi
+model: opencode-go/qwen3.8-flash
+nodes:
+  - id: e-low
+    prompt: "How many prime numbers are there between 2000 and 2100? Work it out, then reply with only the number."
+    effort: low
+    allowed_tools: []
+  - id: e-max
+    prompt: "How many prime numbers are there between 2000 and 2100? Work it out, then reply with only the number."
+    effort: max
+    allowed_tools: []
+  - id: e-none
+    prompt: "How many prime numbers are there between 2000 and 2100? Work it out, then reply with only the number."
+    allowed_tools: []

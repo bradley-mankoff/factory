@@ -1,0 +1,12 @@
+name: w7-extensions
+description: Spike check 15 - extension-registered model (claude-bridge) inside an Archon pi node, and which global extensions and tools reach nodes.
+provider: pi
+nodes:
+  - id: bridge
+    model: claude-bridge/claude-haiku-4-5
+    prompt: "Reply with exactly: BRIDGE-OK"
+    allowed_tools: []
+  - id: all-tools
+    model: opencode-go/qwen3.8-flash
+    effort: low
+    prompt: "List the exact names of every tool you have, comma separated, nothing else."

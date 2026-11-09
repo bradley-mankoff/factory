@@ -1,0 +1,63 @@
+# The Factory's Profile: how the Factory core behaves on this Mac. This copy is the one
+# example install ships, and it is the personal Mac's.
+# scripts/install.sh copies this file to ~/.config/factory/profile when that file is
+# missing and never overwrites it, so edit the copy there. project-manager/start and
+# install.sh read it, and so does the pi-chains package, which reads the Chains file it
+# names (fac-qpv.8.1).
+#
+# A Profile is a plain shell file of KEY=value lines, so an sh script can read it. A Mac
+# whose Profile chooses otherwise writes its own file with the same keys, and install
+# leaves it as it is.
+
+# The model a Project Manager starts on. It names the role's Chain in the Chains file,
+# and the Chain entry sets the thinking level (fac-qpv.1).
+PM_MODEL=chain/pm
+
+# The port the Beads board listens on, and the one a Bead id's link in a Project Manager's
+# reply names. The launchd job factory.bdui starts the board here at login (fac-qpv.7.3).
+BOARD_PORT=3917
+
+# The Chains file: each role's ordered models and thinking levels, the one place a model
+# is changed. install.sh copies config/chains.json here when it is missing and never
+# overwrites it.
+CHAINS=$HOME/.config/factory/chains.json
+
+# FactoryClaw runs on OpenClaw rather than pi, so it names a model and a thinking level,
+# not a Chain. It is used only when OUTER_LAYER is factoryclaw.
+FACTORYCLAW_MODEL=opencode-go/muse-spark-1.3-contributor
+FACTORYCLAW_THINKING=high
+
+# How a Run lands its work:
+#   pull-request  open a pull request into the base branch and merge it
+#   squash        squash the Run's commits onto the Project Manager's branch locally,
+#                 run the check again, and push that branch
+# A Mac whose Profile chooses the squash landing writes LANDING=squash there instead; such
+# a Run opens no pull request.
+LANDING=pull-request
+
+# The branches no landing may move, per repo: entries of <repo>:<branch>,<branch>, or a
+# bare <repo> for a repo with no protected branch, separated by spaces. bin/land refuses one
+# before any git command moves it. Under the squash landing this list is also the only set
+# of repos a landing reaches: name every repo a Run may land on, such as
+# PROTECTED_TARGETS="myrepo:main,develop otherrepo". Nothing is protected here: a pull
+# request merges where the Human merged it.
+PROTECTED_TARGETS=
+
+# What carries messages between the Human and the Project Managers:
+#   factoryclaw  FactoryClaw on OpenClaw and Telegram
+#   none         no outer layer: the Human talks to each Project Manager directly
+# A Mac whose Profile chooses OUTER_LAYER=none writes that line here instead, and install
+# writes no FactoryClaw or OpenClaw file.
+OUTER_LAYER=factoryclaw
+
+# What a Project Manager leads:
+#   project   one Project Manager per project, on the project's base branch
+#   worktree  one Project Manager per git worktree, each on that worktree's branch
+# A Mac whose Profile chooses WORKSPACE=worktree writes that line here instead.
+WORKSPACE=project
+
+# Where Archon's home and the Workflow library live on this Mac. The library holds the
+# core group factory/ that install writes, and the person's own groups beside it. A Mac
+# whose Profile chooses otherwise gives its own paths, such as beside its worktrees.
+ARCHON_HOME=$HOME/.local/share/factory/archon
+LIBRARY=$HOME/.local/share/factory/archon/workflows

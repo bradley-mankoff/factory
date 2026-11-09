@@ -1,0 +1,58 @@
+name: factory-task
+description: >-
+  Do one Bead in a single node, with no review: an answer (research, a brainstorm, a
+  plan) or a change the Bead spells out exactly. When the node commits, the checks run,
+  then the landing the Mac's Profile chooses: a pull request and its squash merge, or the
+  commits squashed onto the base branch, checked again and pushed; then the Project
+  Manager's pane is told how the Run ended. Start it with "<pane> · <bead id>". Needs
+  FACTORY_CHECK in the project's .archon/.env.
+provider: pi
+nodes:
+  - id: bead
+    bash: '"$HOME/.local/share/factory/bin/bead" "$ARGUMENTS"'
+
+  - id: prompts
+    bash: '"$HOME/.local/share/factory/bin/node-prompts" "${LIBRARY:-$ARCHON_HOME/workflows}/factory/task"'
+
+  - id: task
+    depends_on: [bead, prompts]
+    model: "@work"
+    idle_timeout: 300000
+    prompt: |
+      $prompts.output.marker_task
+      $prompts.output.task
+
+      $bead.output
+
+  # A node that changed nothing leaves a marker, so the landing skips and the last node
+  # can tell an answer from a failure without reading a failed node's output.
+  - id: checks
+    depends_on: [task]
+    bash: |
+      if [ -z "$(git log --oneline "$BASE_BRANCH..HEAD")" ]; then
+        touch "$ARTIFACTS_DIR/no-commits"; echo "CHECKS SKIPPED: the Run made no commits"
+      else
+        sh -c "$FACTORY_CHECK"
+      fi
+
+  # bin/land lands the Run's commits the way this Mac's Profile says (fac-qpv.6.4), and
+  # refuses a target the Profile protects before any git command moves a branch.
+  - id: land
+    depends_on: [checks]
+    bash: |
+      [ -e "$ARTIFACTS_DIR/no-commits" ] && exit 0
+      "$HOME/.local/share/factory/bin/land"
+
+  - id: tell-project-manager
+    depends_on: [land]
+    trigger_rule: all_done
+    # How the landing ended comes from bin/land's note, never from $land.output: Archon
+    # refuses to splice a failed node's output, and a failed landing is what the Project
+    # Manager most needs to hear about.
+    bash: |
+      if [ -e "$ARTIFACTS_DIR/no-commits" ]; then
+        how="finished without changing files; its answer is the task node's output in archon workflow get $WORKFLOW_ID"
+      elif [ -s "$ARTIFACTS_DIR/landing" ]; then how=$(cat "$ARTIFACTS_DIR/landing")
+      else how="ended without a landing; archon workflow get $WORKFLOW_ID names the node that failed"
+      fi
+      "$HOME/.local/share/factory/bin/tell-pm" "${ARGUMENTS%% · *}" "Run $WORKFLOW_ID (factory-task) for Bead $("$HOME/.local/share/factory/bin/bead" --id "$ARGUMENTS") $how."

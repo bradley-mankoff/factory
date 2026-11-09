@@ -1,0 +1,18 @@
+name: w5-worktree
+description: Spike check 13 - worktree isolation, an AI edit, then a bash commit and push to the local bare remote.
+provider: pi
+model: opencode-go/qwen3.8-flash
+nodes:
+  - id: where
+    bash: "echo pwd=$(pwd); echo branch=$(git branch --show-current)"
+  - id: edit
+    depends_on: [where]
+    prompt: "Edit mathy.py in the current directory: add a function subtract(a, b) that returns a - b, below add. Use your edit or write tool. Then reply DONE."
+    effort: low
+  - id: commit-push
+    depends_on: [edit]
+    bash: |
+      git add mathy.py
+      git -c user.email=spike@x -c user.name=spike commit -qm "subtract via archon worktree run"
+      git push -q origin HEAD 2>&1
+      echo pushed=$(git rev-parse --short HEAD) branch=$(git branch --show-current)

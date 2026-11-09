@@ -1,0 +1,24 @@
+#!/bin/sh
+# Leaves a Run's ending, its Notice, where its Project Manager will read it: one dated
+# line appended to ~/.local/share/factory/notices/<pane>.md. It types nothing into any
+# pane, so a half-typed draft in the Project Manager's text box is never touched
+# (fac-qpv.2.1). The pi-notices package delivers each new line into the Project
+# Manager's conversation as a message of its own.
+#
+#   tell-pm "<pane>" "<line>"
+#
+# A Run's message is "<pane> · <bead id>": the pane name first is the whole address of a
+# Notice, so each Workflow's last node passes the message's first field, in full
+# "${ARGUMENTS%% · *}", and tell-pm looks nowhere else for a pane.
+#
+# The line is dated so a Notice says when the Run ended, and it stays one line because
+# the package delivers one line as one Notice: a line break in the message becomes a
+# space.
+set -u
+pane=${1:?usage: tell-pm "<pane>" "<line>"}
+msg=${2:?usage: tell-pm "<pane>" "<line>"}
+
+notices=$HOME/.local/share/factory/notices
+mkdir -p "$notices"
+line=$(printf '%s' "$msg" | tr '\n' ' ' | sed 's/ *$//')
+printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M')" "$line" >>"$notices/$pane.md"

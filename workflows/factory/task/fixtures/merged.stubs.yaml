@@ -1,0 +1,6 @@
+bead: "fac-2 · Rename the Settings page's title to Preferences [P2 · OPEN]"
+prompts: '{"marker_task": "FLOWS {}", "task": "Do the task.", "work": "Build test first.", "review_spec": "Review the spec.", "review_standards": "Review the standards."}'
+task: "Renamed the title in two files; tests pass; committed."
+checks: "All tests passed."
+land: "merged pull request https://github.com/example/app/pull/8 into main"
+tell-project-manager: ""

@@ -1,0 +1,62 @@
+name: w2-tools
+description: Spike checks 5, 6, 7, 8, 15 - tool limits, skills, hooks, mcp, budget/retry/idle_timeout, extension and context bleed.
+provider: pi
+model: opencode-go/qwen3.8-flash
+nodes:
+  - id: t0-control
+    prompt: "Use your file-writing tool to create the file out/t0.txt containing the word made. Then reply DONE, or reply CANNOT if you have no tool that can create files."
+    effort: low
+  - id: t1-deny-pi-names
+    prompt: "Use any tool you have to create the file out/t1.txt containing the word made. Then reply DONE, or reply CANNOT if you have no tool that can create files. Also list the exact names of every tool you have."
+    denied_tools: [write, edit, bash]
+    effort: low
+  - id: t2-deny-claude-names
+    prompt: "Use any tool you have to create the file out/t2.txt containing the word made. Then reply DONE, or reply CANNOT if you have no tool that can create files. Also list the exact names of every tool you have."
+    denied_tools: [Write, Edit, Bash]
+    effort: low
+  - id: t3-allow-read
+    prompt: "Use any tool you have to create the file out/t3.txt containing the word made. Then reply DONE, or reply CANNOT if you have no tool that can create files. Also list the exact names of every tool you have."
+    allowed_tools: [read]
+    effort: low
+  - id: t4-allow-none
+    prompt: "List the exact names of every tool you have, or reply NO-TOOLS."
+    allowed_tools: []
+    effort: low
+  - id: s1-skill-agents
+    prompt: "Reply with only the spike codeword from the spike-codeword skill, or NONE if you do not have it. Use the read tool on the skill file if needed."
+    skills: [spike-codeword]
+    effort: low
+  - id: s2-skill-claude
+    prompt: "Reply with only the second codeword from the spike-claudedir skill, or NONE if you do not have it. Use the read tool on the skill file if needed."
+    skills: [spike-claudedir]
+    effort: low
+  - id: s3-no-skill
+    prompt: "List the names of every skill listed in your system prompt, comma separated, or NONE. Then say whether your context mentions the words Boss, Heimdall or Factory (yes/no for each)."
+    allowed_tools: []
+    effort: low
+  - id: h1-hooks
+    prompt: "Use the bash tool to run: echo hooked > out/h1.txt . Then reply DONE."
+    effort: low
+    hooks:
+      PreToolUse:
+        - matcher: "Bash|bash"
+          response:
+            hookSpecificOutput:
+              hookEventName: PreToolUse
+              permissionDecision: deny
+              permissionDecisionReason: "spike hook denies bash"
+  - id: m1-mcp
+    prompt: "List the exact names of every tool you have."
+    mcp: .archon/mcp/spike.json
+    allowed_tools: []
+    effort: low
+  - id: b1-budget-retry-idle
+    prompt: "Reply with exactly: BUDGET-OK"
+    maxBudgetUsd: 0.01
+    idle_timeout: 120000
+    retry: {max_attempts: 1, delay_ms: 1000}
+    allowed_tools: []
+    effort: low
+  - id: files
+    bash: "ls out 2>/dev/null; for f in out/*; do echo \"$f: $(cat $f)\"; done"
+    depends_on: [t0-control, t1-deny-pi-names, t2-deny-claude-names, t3-allow-read, h1-hooks]

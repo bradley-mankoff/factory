@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+"""Prints the Factory's node prompts as one JSON object, for a Workflow's first node.
+
+Each Markdown file in ~/.local/share/factory/prompts/ is the convention for one kind
+of AI node: `work`, `review_spec`, `review_standards`. A Workflow runs this as a bash
+node with the id `prompts`, and each AI node's prompt starts with its convention,
+`$prompts.output.work` for example, followed by what is particular to that Workflow.
+Archon's own command files could hold them too, but a command file cannot see
+`$LOOP_PREV`, which carries a review's findings back to the next pass of work.
+
+    node-prompts [<workflow folder>]
+
+With a Workflow folder, it also prints one `marker_<node>` for each node in the
+Workflow's `flows/` folder. A marker is the one line the pi-flows package reads from a
+node's prompt to find the node's checks and the project's check command:
+
+    FLOWS {"node":"work","bead":"fac-qpv.3.1","flows":"...","artifacts":"...","check":"..."}
+
+The node is named by the flows file, the Bead by the end of $ARGUMENTS, the folders
+from the environment the Run gives this node, and the check command from the project's
+FACTORY_CHECK. That last field is optional in the package, so a Mac with no check
+command leaves it out. A node without a flows file has no checks, so it gets no marker
+and the package leaves its sessions alone.
+
+The prompts are the Factory's own, adapted from Matt Pocock's tdd and code-review
+skills (MIT; prompts/LICENSE.txt) and no longer kept in step with his releases (the
+Human, 2026-10-19).
+"""
+import json
+import os
+import pathlib
+import subprocess
+import sys
+
+bin_dir = pathlib.Path(__file__).resolve().parent
+prompts = {path.stem: path.read_text() for path in sorted((bin_dir.parent / "prompts").glob("*.md"))}
+
+if len(sys.argv) > 1:
+    workflow = pathlib.Path(sys.argv[1]).resolve()
+    arguments = os.environ.get("ARGUMENTS", "")
+    try:
+        bead = subprocess.run(
+            [str(bin_dir / "bead"), "--id", arguments],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        bead = ""
+    flows = workflow / "flows"
+    artifacts = os.environ.get("ARTIFACTS_DIR", "")
+    check = os.environ.get("FACTORY_CHECK", "")
+    if flows.is_dir():
+        for path in sorted(flows.iterdir()):
+            if path.is_file() and not path.name.startswith("."):
+                key = "marker_" + path.name.replace("-", "_")
+                marker = {
+                    "node": path.name,
+                    "bead": bead,
+                    "flows": str(flows),
+                    "artifacts": artifacts,
+                }
+                if check:
+                    marker["check"] = check
+                prompts[key] = "FLOWS " + json.dumps(marker)
+
+print(json.dumps(prompts))

@@ -1,0 +1,16 @@
+#!/bin/bash
+# Reads the Bead id out of a Run's message.
+#
+#   bead "<message>"        prints `bd show` for the Bead the message names
+#   bead --id "<message>"   prints just the id
+#
+# A Project Manager starts a Run with its pane name first and the Bead last, so the Archon
+# web UI's input line reads `news · fac-60v.12` and anyone scanning the runs sees which
+# Project Manager started each one. The Bead is the last field separated by " · ", and a
+# message that is only an id still works. A Mac that starts its Runs through a helper of
+# its own does the same there.
+set -euo pipefail
+msg=${1:?usage: bead [--id] "<message>"}
+[ "$msg" = "--id" ] && { msg=${2:?usage: bead [--id] "<message>"}; id=${msg##* · }; printf '%s\n' "$id"; exit 0; }
+id=${msg##* · }
+exec bd show "$id"

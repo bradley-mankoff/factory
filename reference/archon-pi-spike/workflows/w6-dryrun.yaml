@@ -1,0 +1,21 @@
+name: w6-dryrun
+description: Spike check 14 - dry-run fixture with a stubbed AI node and when routing.
+provider: pi
+model: opencode-go/qwen3.8-flash
+nodes:
+  - id: classify
+    prompt: "Classify: $ARGUMENTS"
+    allowed_tools: []
+    output_format:
+      type: object
+      properties:
+        kind: {type: string, enum: [bug, feature]}
+      required: [kind]
+  - id: on-bug
+    depends_on: [classify]
+    when: "$classify.output.kind == 'bug'"
+    bash: "echo ROUTED-BUG"
+  - id: on-feature
+    depends_on: [classify]
+    when: "$classify.output.kind == 'feature'"
+    bash: "echo ROUTED-FEATURE"

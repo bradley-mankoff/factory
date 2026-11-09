@@ -1,0 +1,5 @@
+prompts: '{"marker_look_a": "FLOWS {}", "marker_look_b": "FLOWS {}", "marker_combine": "FLOWS {}"}'
+look-a: "Wrote findings-a.md."
+look-b: "Wrote findings-b.md."
+combine: "Wrote findings.md."
+tell-project-manager: ""

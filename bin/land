@@ -1,0 +1,166 @@
+#!/bin/sh
+# land [--hold] [--base <branch>]: lands the Run's commits, the way this Mac's Profile says
+# (fac-qpv.6.4). A build Workflow's last shell node before telling the Project Manager runs
+# it, so the one rule for landing is here rather than in each Workflow.
+#
+#   pull-request  push the Run's branch, open a pull request into the base branch and
+#                 squash-merge it, as the personal Mac lands.
+#   squash        squash the Run's commits onto the base branch, run the check again on
+#                 that tree and push the branch, as the work Mac lands: it opens no pull
+#                 request, so only the Human opens one into an engineering branch.
+#
+#   --hold        stop before the base branch moves, for a Workflow that puts a Human gate
+#                 in between: open the pull request, or build and check the squash.
+#   --base        the branch to land on; $BASE_BRANCH by default, which Archon sets.
+#
+# Before any git command that moves a branch it refuses a target the Profile protects for
+# the repo, and, under the squash landing, any target of a repo the Profile does not name.
+# The repo is the folder of the repo's main checkout, which is the name the Profile uses.
+# How the landing ended is left in "$ARTIFACTS_DIR/landing", one line, for the Workflow's
+# last node to tell the Project Manager: a node's own output cannot be read back after it
+# fails (Archon refuses to splice it).
+set -eu
+here=$(cd "$(dirname "$0")" && pwd)
+
+profile=$HOME/.config/factory/profile
+[ -f "$profile" ] || {
+	echo "land: no Profile at $profile; scripts/install.sh puts one there" >&2
+	exit 1
+}
+. "$profile"
+protected=${PROTECTED_TARGETS:-}
+
+hold=
+base=${BASE_BRANCH:-}
+while [ $# -gt 0 ]; do
+	case $1 in
+	--hold) hold=1 ;;
+	--base) base=${2:?land: --base needs a branch} && shift ;;
+	*) echo "land: unknown argument $1" >&2 && exit 2 ;;
+	esac
+	shift
+done
+[ -n "$base" ] || {
+	echo "land: no base branch: set BASE_BRANCH or pass --base <branch>" >&2
+	exit 2
+}
+
+# note <file> <one line>: leaves a note in the Run's artifacts for the Workflow's last
+# node, which cannot read a failed node's output back. `landing` is how the landing ended;
+# `held` is what a Human gate is asked about.
+note() {
+	if [ -n "${ARTIFACTS_DIR:-}" ]; then printf '%s\n' "$2" >"$ARTIFACTS_DIR/$1"; fi
+}
+refuse() {
+	echo "land: $*" >&2
+	note landing "refused to land: $*"
+	exit 1
+}
+# fail <output> <reason>: show the end of what the command printed, where the reason is,
+# then refuse, so a failure reads as one message instead of a bare exit.
+fail() {
+	printf '%s\n' "$1" | tail -40 >&2
+	refuse "$2"
+}
+
+common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || refuse "$PWD is not in a git repo"
+repo=$(basename "$(dirname "$common")")
+case ${LANDING:-} in
+pull-request | squash) landing=$LANDING ;;
+*) refuse "LANDING=${LANDING:-nothing} in $profile is neither pull-request nor squash" ;;
+esac
+
+# The repo's entry in PROTECTED_TARGETS, <repo>:<branches> or the bare <repo> for a repo
+# with no protected branch, says which of its branches no landing may move.
+entry=
+for candidate in $protected; do
+	case $candidate in
+	"$repo" | "$repo:"*) entry=$candidate ;;
+	esac
+done
+protected_branches=
+if [ -n "$entry" ]; then
+	protected_branches=${entry#"$repo"}
+	protected_branches=${protected_branches#:}
+fi
+case ",$protected_branches," in
+*",$base,"*) refuse "the Profile protects $repo's $base ($profile: PROTECTED_TARGETS), and a landing never moves it" ;;
+esac
+if [ "$landing" = squash ] && [ -z "$entry" ]; then
+	refuse "$repo is not named in $profile (PROTECTED_TARGETS) and the squash landing refuses a repo it does not name: add \"$repo\" there, or \"$repo:<the branches no landing may move>\""
+fi
+# The branch the landing moves. Both landings need it, so it is refused once here rather
+# than once per landing.
+branch=$(git rev-parse --abbrev-ref HEAD)
+[ "$branch" != HEAD ] || refuse "the Run's worktree is on no branch, so there is nothing to land"
+
+if [ -n "${WORKFLOW_ID:-}" ]; then
+	message="landed by Archon Run $WORKFLOW_ID"
+else
+	message="landed by an unnamed Run"
+fi
+bead=
+if [ -n "${ARGUMENTS:-}" ]; then
+	bead=$("$here/bead" --id "$ARGUMENTS" 2>/dev/null || true)
+	[ -z "$bead" ] || message="Bead $bead, $message"
+fi
+
+case $landing in
+pull-request)
+	# A pull request the gate opened earlier is reused, so the merge after the gate is the
+	# same landing as one with no gate.
+	url=$(gh pr view --json url -q .url 2>/dev/null || true)
+	if [ -z "$url" ]; then
+		if [ -z "$bead" ] || [ -z "${WORKFLOW_ID:-}" ]; then
+			refuse "a pull request's body names the Bead and the Run, and this Run has no \$ARGUMENTS or \$WORKFLOW_ID"
+		fi
+		git push -q -u origin HEAD
+		url=$(gh pr create --base "$base" --fill-first --body "Bead $bead, built by Archon Run $WORKFLOW_ID.")
+	fi
+	if [ -n "$hold" ]; then
+		held="the pull request $url into $base"
+		note held "$held"
+		note landing "opened $held, which the gate decides"
+		printf '%s\n' "$held"
+		exit 0
+	fi
+	gh pr merge --squash "$url"
+	git push -q origin --delete "$branch"
+	note landing "merged pull request $url into $base"
+	printf 'merged pull request %s into %s\n' "$url" "$base"
+	;;
+squash)
+	base_commit=refs/heads/$base
+	git rev-parse --verify -q "$base_commit" >/dev/null || base_commit=refs/remotes/origin/$base
+	git rev-parse --verify -q "$base_commit" >/dev/null || refuse "there is no $base branch to land on"
+	[ -n "$(git rev-list "$base_commit..HEAD")" ] || refuse "the Run made no commits to land"
+
+	# The squash is built in a worktree of its own, so the base branch need not be free and
+	# the Run's worktree is left as it is.
+	tmp=$(mktemp -d)
+	trap 'rm -rf "$tmp"; git worktree prune 2>/dev/null' EXIT
+	git worktree add -q --detach "$tmp/tree" "$base_commit"
+	if ! out=$(git -C "$tmp/tree" merge --squash "$branch" 2>&1); then
+		fail "$out" "the Run's commits do not apply cleanly to $base"
+	fi
+	# A Run re-run after its work already landed squashes to an empty tree: committing
+	# that would fail with git's own message and no note, so refuse it with a reason.
+	if git -C "$tmp/tree" diff --quiet --cached; then
+		refuse "the Run's commits add nothing to $base that is not already there, so nothing is pushed"
+	fi
+	git -C "$tmp/tree" commit -q -m "$message"
+	if ! out=$(cd "$tmp/tree" && sh -c "${FACTORY_CHECK:-true}" 2>&1); then
+		fail "$out" "the check failed on the squashed tree, so $base is not pushed"
+	fi
+	if [ -n "$hold" ]; then
+		held="the squash onto $base, held for the gate"
+		note held "$held"
+		note landing "squashed onto $base and checked it, and holds it for the gate"
+		printf '%s\n' "$held"
+		exit 0
+	fi
+	git -C "$tmp/tree" push -q origin "HEAD:refs/heads/$base"
+	note landing "squashed onto $base and pushed it"
+	printf 'squashed onto %s and pushed it\n' "$base"
+	;;
+esac

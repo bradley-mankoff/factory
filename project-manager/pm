@@ -1,0 +1,16 @@
+#!/bin/sh
+# Starts this repo's Project Manager: the same launcher FactoryClaw's panes skill runs,
+# as a shorthand, so that a session in a project's folder begins as its Project Manager
+# rather than as pi.
+#
+#   pm [pi arguments...]
+#
+# It starts in the repo's top folder, wherever in the repo it is run. Run it in the
+# project's herdr pane, not a plain terminal: the launcher names the pane pm-<folder>,
+# which is where a Run's Notice goes, and a pane outside herdr has no name.
+#
+# The alternative passed over: a second launcher here with its own model and skills. The
+# Factory's start command already adds the role and sets the model and thinking level, and
+# a copy would drift from it.
+here=$(dirname "$(readlink -f "$0")")
+exec "$here/start" "$@"

@@ -1,0 +1,26 @@
+name: r2-workarounds
+description: Round two - guard scoped per node through ctx, real pi in a bash node for MCP, AI-node timeout.
+provider: pi
+model: opencode-go/qwen3.8-flash
+nodes:
+  - id: g6-guard-on
+    prompt: "Use the bash tool to run exactly: echo GUARDTEST > out/g6.txt . Then run: echo second-call-ok . Report each result, quoting any error text."
+    effort: low
+  - id: g7-guard-off-by-prompt
+    prompt: "Use the bash tool to run exactly: echo GUARDTEST > out/g7.txt . Then run: echo second-call-ok . Report each result, quoting any error text."
+    systemPrompt: "You are a test node. SPIKE-GUARD-OFF. Follow the user's instructions exactly."
+    effort: low
+  - id: b1-real-pi-mcp
+    bash: |
+      cd "/private/tmp/claude-501/-Users-bradley-mankoff-Developer-graph-engineering/c8edddba-72ee-4e72-a872-406d607eda03/scratchpad/archon-pi-spike/repo"
+      PI_CODING_AGENT_DIR="/private/tmp/claude-501/-Users-bradley-mankoff-Developer-graph-engineering/c8edddba-72ee-4e72-a872-406d607eda03/scratchpad/archon-pi-spike/agent-clean" pi -p --no-session --model opencode-go/qwen3.8-flash --thinking low --no-context-files "Call the get_codeword tool (its full name may start with mcp__) and reply with only its output." 2>&1 | tail -3
+    timeout: 120000
+  - id: b2-real-pi-flags
+    bash: |
+      cd "/private/tmp/claude-501/-Users-bradley-mankoff-Developer-graph-engineering/c8edddba-72ee-4e72-a872-406d607eda03/scratchpad/archon-pi-spike/repo"
+      PI_CODING_AGENT_DIR="/private/tmp/claude-501/-Users-bradley-mankoff-Developer-graph-engineering/c8edddba-72ee-4e72-a872-406d607eda03/scratchpad/archon-pi-spike/agent-clean" pi -p --no-session --model opencode-go/qwen3.8-flash --thinking low --no-context-files --no-extensions --tools read "Do not call tools. Reply with TOOLS=<exact names of your tools> and CODEWORDS=<any codeword in your context, or NONE>." 2>&1 | tail -3
+    timeout: 120000
+  - id: t1-ai-timeout
+    prompt: "Reply with the word ok."
+    effort: low
+    timeout: 5000

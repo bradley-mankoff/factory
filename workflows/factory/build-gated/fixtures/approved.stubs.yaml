@@ -1,0 +1,14 @@
+bead: "fac-1 · Add subtraction [P2 · OPEN]"
+prompts: '{"work": "Build test first.", "review_spec": "Review the spec.", "review_standards": "Review the standards.", "marker_work": "FLOWS {}"}'
+work: "Added test_subtract and subtract(); tests pass; committed."
+checks: "CHECKS PASSED"
+work-finished: "work-finished: the work node left no failed checks."
+spec: {approved: true, feedback: "Does what the Bead asks."}
+standards: {approved: true, feedback: "Follows the repo's standards."}
+recheck: "check passed"
+land-hold: "the pull request https://github.com/example/calc/pull/7 into main"
+demo: "Saved the demo video."
+ask-human: ""
+taste: {decision: approve, text: ""}
+land: "merged pull request https://github.com/example/calc/pull/7 into main"
+tell-project-manager: ""

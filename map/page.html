@@ -1,0 +1,122 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Built by map/render from map/paths.txt; edit paths.txt, not the built page. -->
+<title>Factory Path Map</title>
+<style>
+/* Layout: one reading column; each area is a native <details> tree, paths in mono, notes in sans. */
+:root {
+  --bg: #f6f7f5; --panel: #ffffff; --fg: #1d2420; --muted: #5d6a62; --rule: #d9dfda;
+  --accent: #2f6f55; --chip: #e6efe9; --warn: #9a5b12; --warn-bg: #f7ecdc;
+  --mono: ui-monospace, Menlo, monospace;
+  --sans: system-ui, -apple-system, sans-serif;
+  --head: system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121614; --panel: #1a201d; --fg: #e3e9e5; --muted: #98a69e; --rule: #2c3530;
+  --accent: #7cc4a2; --chip: #213029; --warn: #e2b170; --warn-bg: #33281a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121614; --panel: #1a201d; --fg: #e3e9e5; --muted: #98a69e; --rule: #2c3530;
+  --accent: #7cc4a2; --chip: #213029; --warn: #e2b170; --warn-bg: #33281a; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--sans);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 56px; }
+main { max-width: 920px; margin: 0 auto; display: grid; gap: 18px; }
+h1 { font: 600 28px/1.15 var(--head); margin: 0; text-wrap: balance; letter-spacing: .01em; }
+.lede { color: var(--muted); margin: 6px 0 0; max-width: 68ch; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; position: sticky; top: env(safe-area-inset-top, 0px);
+  background: var(--bg); padding-block: 10px; z-index: 5; border-bottom: 1px solid var(--rule); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.bar input { flex: 1 1 220px; min-width: 0; font: 14px var(--mono); padding: 8px 10px; border: 1px solid var(--rule);
+  border-radius: 6px; background: var(--panel); color: var(--fg); }
+.bar button { font: 500 13px var(--sans); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--rule);
+  background: var(--panel); color: var(--fg); cursor: pointer; }
+.bar button:hover { border-color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); }
+.tag { font: 500 11px var(--sans); letter-spacing: .04em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px;
+  background: var(--chip); color: var(--accent); white-space: nowrap; }
+.tag.secret { background: var(--warn-bg); color: var(--warn); }
+.area { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 4px 14px; min-width: 0; }
+.area > summary { font: 600 18px/1.3 var(--head); padding: 10px 0; }
+.area > summary .count { font: 400 13px var(--sans); color: var(--muted); margin-left: 8px; }
+details { min-width: 0; }
+summary { cursor: pointer; list-style: none; }
+summary::-webkit-details-marker { display: none; }
+summary::before { content: "▸"; display: inline-block; width: 1.1em; color: var(--muted); transition: transform .12s; }
+details[open] > summary::before { transform: rotate(90deg); }
+.kids { margin-left: 1.1em; border-left: 1px solid var(--rule); padding-left: 12px; display: grid; gap: 2px; padding-bottom: 6px; }
+.row { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; padding: 3px 0; min-width: 0; }
+.leaf { padding-left: 1.1em; }
+.path { font: 14px/1.45 var(--mono); overflow-wrap: anywhere; }
+.top .path { font-weight: 500; }
+.note { color: var(--muted); font-size: 14px; min-width: 0; }
+mark { background: var(--chip); color: var(--fg); border-radius: 2px; }
+.hide { display: none !important; }
+@media (prefers-reduced-motion: reduce) { summary::before { transition: none; } }
+</style>
+
+<main>
+  <header>
+    <h1>Factory Path Map</h1>
+    <p class="lede">Every folder and file on this Mac that makes up or serves the Factory, grouped by what it is part of. Open a group to see what is inside it. Files marked secret were named but never read.</p>
+  </header>
+  <div class="bar">
+    <input id="filter" type="search" placeholder="Filter paths and notes, e.g. archon, prompts, .env" aria-label="Filter paths">
+    <button id="open" type="button">Open all</button>
+    <button id="close" type="button">Close all</button>
+  </div>
+  <div class="legend">
+    <span><span class="tag">source</span> edited by hand, in git</span>
+    <span><span class="tag">installed</span> copied or linked by install.sh</span>
+    <span><span class="tag">runtime</span> written while things run</span>
+    <span><span class="tag secret">secret</span> not read</span>
+  </div>
+  <div id="tree"></div>
+</main>
+
+<script>
+const DATA = __DATA__;
+
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function row(node, top) {
+  const r = el("div", "row" + (top ? " top" : ""));
+  r.append(el("span", "path", node.p));
+  for (const t of node.t || []) r.append(el("span", "tag" + (t === "secret" ? " secret" : ""), t));
+  if (node.n) r.append(el("span", "note", node.n));
+  return r;
+}
+function build(node, top) {
+  if (!node.c || !node.c.length) { const r = row(node, top); r.classList.add("leaf"); r.dataset.text = (node.p + " " + (node.n || "")).toLowerCase(); return r; }
+  const d = el("details"); const s = el("summary"); s.append(row(node, top)); d.append(s);
+  d.dataset.text = (node.p + " " + (node.n || "")).toLowerCase();
+  const k = el("div", "kids"); for (const c of node.c) k.append(build(c, false)); d.append(k);
+  return d;
+}
+function countLeaves(n) { return n.c && n.c.length ? n.c.reduce((a, c) => a + countLeaves(c), 0) : 1; }
+const tree = document.getElementById("tree");
+tree.style.display = "grid"; tree.style.gap = "12px";
+for (const area of DATA) {
+  const d = el("details", "area"); d.open = true;
+  const s = el("summary", null, area.title); s.append(el("span", "count", countLeaves({c: area.items}) + " paths")); d.append(s);
+  if (area.note) d.append(el("p", "note", area.note));
+  const k = el("div", "kids"); k.style.borderLeft = "0"; k.style.marginLeft = "0"; k.style.paddingLeft = "0";
+  for (const it of area.items) k.append(build(it, true));
+  d.append(k); tree.append(d);
+}
+const all = () => tree.querySelectorAll("details");
+document.getElementById("open").onclick = () => all().forEach(d => d.open = true);
+document.getElementById("close").onclick = () => tree.querySelectorAll("details:not(.area)").forEach(d => d.open = false);
+document.getElementById("filter").addEventListener("input", e => {
+  const q = e.target.value.trim().toLowerCase();
+  const walk = (node) => {
+    if (node.matches(".leaf")) { const hit = !q || node.dataset.text.includes(q); node.classList.toggle("hide", !hit); return hit; }
+    const own = !q || (node.dataset.text || "").includes(q);
+    let any = false; for (const c of node.querySelector(":scope > .kids").children) any = walk(c) || any;
+    if (own && q) { node.querySelectorAll(".hide").forEach(h => h.classList.remove("hide")); any = true; }
+    node.classList.toggle("hide", !(any || own));
+    if (q && any) node.open = true;
+    return any || own;
+  };
+  for (const area of tree.children) { let any = false; for (const c of area.querySelector(":scope > .kids").children) any = walk(c) || any; area.classList.toggle("hide", !any); }
+});
+</script>
