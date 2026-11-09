@@ -57,9 +57,9 @@ def flows_files(workflow, flows):
     node_ids = {same_name(node) for node in re.findall(r"^\s*-\s*id:\s*(\S+)", text, re.MULTILINE)}
     files = [path for path in sorted(flows.iterdir()) if path.is_file() and not path.name.startswith(".")]
     problems = [f"{path} names no node of {yaml}" for path in files if same_name(path.name) not in node_ids]
-    produced = {same_name(path.name) for path in files}
-    for wanted in sorted(set(re.findall(r"\$prompts\.output\.marker_(\w+)", text))):
-        if same_name(wanted) not in produced:
+    keys = {path.name.replace("-", "_") for path in files}
+    for wanted in sorted(set(re.findall(r"\$prompts\.output\.marker_([\w-]+)", text))):
+        if wanted not in keys:
             problems.append(f"{yaml} asks for $prompts.output.marker_{wanted}, which no flows file produces")
     if problems:
         sys.exit("node-prompts: " + "\nnode-prompts: ".join(problems))

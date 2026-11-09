@@ -100,6 +100,20 @@ test("bin/node-prompts fails, naming the Workflow file, when a prompt asks for a
 	}
 });
 
+test("bin/node-prompts fails when a prompt names its marker with a dash", () => {
+	const folder = makeWorkflow("nodes:\n  - id: work\n  - id: look-a\n    prompt: |\n      $prompts.output.marker_look-a\n", {
+		work: "changed-files\n",
+		"look-a": "changed-files\n",
+	});
+	try {
+		const result = runNodePrompts(folder.workflow);
+		assert.notEqual(result.status, 0, "a dash-spelled marker key does not exist, so the prompts node fails");
+		assert.match(result.stderr, /marker_look-a/);
+	} finally {
+		rmSync(folder.dir, { recursive: true, force: true });
+	}
+});
+
 test("bin/node-prompts matches a flows file to a node spelled with an underscore", () => {
 	const folder = makeWorkflow("nodes:\n  - id: look-a\n    prompt: |\n      $prompts.output.marker_look_a\n", {
 		look_a: "changed-files\n",
