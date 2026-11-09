@@ -358,9 +358,19 @@ print(keys[0] if keys else "")')
 	# A repo set up for the first time has no .archon folder for the .env below.
 	mkdir -p "$repo/.archon"
 
-	python3 - "$repo/.archon/.env" "$pi_dir" "$pane" "$session" "$demos" "${2-}" <<'EOF'
+	# The commit identity a Run uses (fac-woi). The Profile names both keys or neither, so
+	# this is the one gate that decides; the .env and the repo's git config below both take
+	# the answer, and a Profile that names half of one leaves the project's git as it is.
+	git_name=${GIT_NAME-}
+	git_email=${GIT_EMAIL-}
+	if [ -z "$git_name" ] || [ -z "$git_email" ]; then
+		git_name=
+		git_email=
+	fi
+
+	python3 - "$repo/.archon/.env" "$pi_dir" "$pane" "$session" "$demos" "${2-}" "$git_name" "$git_email" <<'EOF'
 import os, sys
-path, pi_dir, pane, session, demos, check = sys.argv[1:]
+path, pi_dir, pane, session, demos, check, git_name, git_email = sys.argv[1:]
 lines = open(path).read().splitlines() if os.path.exists(path) else []
 env = dict(l.split("=", 1) for l in lines if "=" in l and not l.startswith("#"))
 want = {"PI_CODING_AGENT_DIR": pi_dir, "FACTORY_PM_AGENT": pane, "FACTORY_DEMOS": demos}
@@ -370,6 +380,11 @@ if check:
     want["FACTORY_CHECK"] = check
 elif "FACTORY_CHECK" not in env:
     sys.exit("error: give the project's check command the first time, for example: scripts/install.sh <repo> 'python3 -m unittest'")
+# The Profile's commit identity, which a Run's nodes read from this env (fac-woi). The
+# shell passes both keys or neither, so one name here covers all four variables.
+if git_name:
+    want.update({"GIT_AUTHOR_NAME": git_name, "GIT_COMMITTER_NAME": git_name,
+                 "GIT_AUTHOR_EMAIL": git_email, "GIT_COMMITTER_EMAIL": git_email})
 for k, v in want.items():
     v = "'" + v.replace("'", "'\\''") + "'" if any(c in v for c in " \"'$;&|") else v
     hit = [i for i, l in enumerate(lines) if l.startswith(k + "=")]
@@ -381,6 +396,13 @@ new = "\n".join(lines) + "\n"
 if not os.path.exists(path) or open(path).read() != new:
     open(path, "w").write(new)
 EOF
+	# The project's repo commits as the Profile's identity whatever this Mac's global git
+	# email is, so a public repo never takes the work one (fac-woi). The `.env` above gives
+	# a Run's nodes the same identity as variables.
+	if [ -n "$git_name" ]; then
+		git -C "$repo" config user.name "$git_name"
+		git -C "$repo" config user.email "$git_email"
+	fi
 	# Kept out of git by the repo's own exclude file, not .gitignore, so setup leaves the
 	# working tree clean: a changed .gitignore and an untracked pack stopped the Project
 	# Manager's git pull --rebase.
