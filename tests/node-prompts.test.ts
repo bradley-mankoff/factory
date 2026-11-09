@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-test("bin/node-prompts puts a marker naming the node, folders and check in each checked node's prompt", () => {
+test("bin/node-prompts puts a marker naming the node, Bead, folders and check in each checked node's prompt", () => {
 	const dir = mkdtempSync(join(tmpdir(), "factory-node-prompts-"));
 	try {
 		const workflow = join(dir, "workflows", "factory", "build");
@@ -42,12 +42,14 @@ test("bin/node-prompts puts a marker naming the node, folders and check in each 
 			{
 				marker_work: {
 					node: "work",
+					bead: "fac-qpv.3.1",
 					flows: realpathSync(flows),
 					artifacts,
 					check: "python3 -m unittest",
 				},
 				marker_spec: {
 					node: "spec",
+					bead: "fac-qpv.3.1",
 					flows: realpathSync(flows),
 					artifacts,
 					check: "python3 -m unittest",
