@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+"""Counts the Factory's policy lines: Factory-specific code, skills, docs and AGENTS.md
+files, not their comments, docstrings or blank lines (the Human, 2026-11-09).
+
+Usage: scripts/size [root] [--by-file]
+
+It counts the same files the old wc pipeline did: tracked files plus untracked files git
+does not ignore, leaving out reference/ (copied evidence), tests/ (so the count never
+argues against writing a test), .beads/ (the database) and the Beads integration files bd
+init wrote (.agents/). Herdr plugins, pi extensions and Hammerspoon/Lua/Ghostty setup are
+not in this repo; core pi, core Archon and core Beads live outside it too. What the count
+skips depends on the file: everything but Markdown loses blank lines and full-line #
+comments; Python loses its docstrings too, found through its syntax tree, so a # heading
+in Markdown still counts; JS and Swift lose // lines and /* */ blocks as well. A line with
+code plus a trailing comment still counts. With --by-file it prints each file's count.
+"""
+import ast
+import os
+import subprocess
+import sys
+
+SKIP_DIRS = ("reference/", "tests/", ".beads/", ".agents/")
+C_LIKE = (".js", ".mjs", ".cjs", ".ts", ".swift")
+
+
+def repo_files(root):
+    files = []
+    for args in (["ls-files", "-z"], ["ls-files", "--others", "--exclude-standard", "-z"]):
+        out = subprocess.run(["git", "-C", root] + args, capture_output=True)
+        if out.returncode != 0:
+            sys.exit(f"size: not a git repo: {root}")
+        files.extend(out.stdout.split(b"\0"))
+    seen = []
+    for raw in files:
+        if not raw:
+            continue
+        path = raw.decode("utf-8", "replace")
+        if path.startswith(SKIP_DIRS):
+            continue
+        if path not in seen:
+            seen.append(path)
+    return seen
+
+
+def docstring_spans(tree):
+    """Line ranges (0-based, end-exclusive) of module, class and function docstrings."""
+    spans = []
+
+    def visit(node):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            body = node.body
+            if body and isinstance(body[0], ast.Expr):
+                value = body[0].value
+                if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                    spans.append((value.lineno - 1, value.end_lineno))
+        for child in ast.iter_child_nodes(node):
+            visit(child)
+
+    visit(tree)
+    return spans
+
+
+def count_python(lines):
+    try:
+        spans = docstring_spans(ast.parse("\n".join(lines)))
+    except SyntaxError:
+        spans = []
+    skip = set()
+    for start, end in spans:
+        skip.update(range(start, end))
+    return sum(
+        1
+        for i, raw in enumerate(lines)
+        if raw.strip() and not raw.strip().startswith("#") and i not in skip
+    )
+
+
+def count_c_like(lines):
+    count = 0
+    block = False
+    for raw in lines:
+        stripped = raw.strip()
+        if block:
+            if "*/" in stripped:
+                block = False
+            continue
+        if not stripped or stripped.startswith("//"):
+            continue
+        if stripped.startswith("/*"):
+            if "*/" not in stripped[2:]:
+                block = True
+            continue
+        count += 1
+    return count
+
+
+def count_file(root, path):
+    with open(os.path.join(root, path), encoding="utf-8", errors="replace") as handle:
+        text = handle.read()
+    lines = text.split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    ext = os.path.splitext(path)[1].lower()
+    if ext == ".md":
+        return sum(1 for raw in lines if raw.strip())
+    if ext in C_LIKE:
+        return count_c_like(lines)
+    first = lines[0] if lines else ""
+    if ext == ".py" or "python" in first:
+        return count_python(lines)
+    return sum(1 for raw in lines if raw.strip() and not raw.strip().startswith("#"))
+
+
+def main(argv):
+    by_file = "--by-file" in argv
+    rest = [arg for arg in argv if arg != "--by-file"]
+    if len(rest) > 2:
+        sys.exit("usage: scripts/size [root] [--by-file]")
+    root = rest[1] if len(rest) == 2 else subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
+    ).stdout.strip()
+    counts = [(path, count_file(root, path)) for path in repo_files(root)]
+    if by_file:
+        for path, count in counts:
+            print(f"{count}\t{path}")
+    print(sum(count for _, count in counts))
+
+
+if __name__ == "__main__":
+    main(sys.argv)

@@ -10,6 +10,7 @@
   scripts/check  — The Factory's check, FACTORY_CHECK for Runs on this repo: tests under tests/, RunBar's Swift tests, then a syntax check of every shell script, runbar/install.sh included
   scripts/install.sh  — Installs the Factory, or sets up one project for it, following the Mac's Profile; its top holds the one version set: Archon 0.12.1, pi 1.3.0, pi-claude-bridge 0.9.3
   scripts/install-workflows  — Copies workflows/factory/ into a Workflow library's factory/, replacing that group only and leaving the person's own groups alone (fac-qpv.6.2)
+  scripts/size  — Counts the Factory's policy lines: code, skills, docs and AGENTS.md files, not their comments, docstrings or blank lines (fac-4tn)
   tests/  — The Factory's tests, run by scripts/check
     pm.test.ts  — pm and project-manager/start with stand-ins for pi, herdr and Archon: your own pi, the appended role, LIBRARY, the opening message and the first message that replaces it, the pane name, the worktree shape's pane and registration, pm-pane's names, and the Notice file and board port the packages read (fac-qpv.2.2, fac-qpv.6.5, fac-qpv.8.1)
     chains-config.test.ts  — The Factory's own Chains: every role it names has a Chain of models and thinking levels, the shipped Chains are the personal Mac's from the Epic, and the Scout's definition names chain/scout (fac-qpv.1.1, fac-qpv.8.1)
