@@ -1,9 +1,9 @@
 /**
  * One temporary Mac, for the tests whose seam is installation: a HOME with the files a Mac
  * already has, and stand-ins on PATH for the commands scripts/install.sh calls outside the
- * Factory (OpenClaw, Archon, herdr, launchd, pi, npm, bdui, and the Swift toolchain and
- * codesign that build RunBar). A test reads back the files install leaves on that Mac and
- * the log each stand-in wrote; nothing looks inside install.sh.
+ * Factory (OpenClaw, Archon, herdr, launchd, pi, npm and bdui). A test reads back the files
+ * install leaves on that Mac and the log each stand-in wrote; nothing looks inside
+ * install.sh.
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -84,7 +84,8 @@ export const makeMac = (options: { profile?: string; profileExtra?: string } = {
 		registered: join(dir, "board.registered"),
 		// Each `pi` call, as its agent folder and its arguments.
 		pi: join(dir, "pi.log"),
-		// The Swift build and the signature of the app it builds.
+		// Swift and codesign, which the Factory installs no app with; a test reads these to
+		// prove install builds and signs nothing.
 		swift: join(dir, "swift.log"),
 		codesign: join(dir, "codesign.log"),
 	};
@@ -198,26 +199,11 @@ esac
 exit 0`,
 	);
 
-	// Swift, as far as install can tell: a release build leaves the product where
-	// runbar/install.sh reads it. SWIFT_FAIL makes it a Mac with no working toolchain.
-	stub(
-		join(bin, "swift"),
-		`printf '%s\\n' "$*" >> "$SWIFT_LOG"
-[ -z "\${SWIFT_FAIL:-}" ] || exit 1
-product=
-previous=
-for argument in "$@"; do
-	case $previous in --scratch-path) product=$argument/release/RunBar ;; esac
-	previous=$argument
-done
-if [ -n "$product" ]; then
-	mkdir -p "$(dirname "$product")"
-	printf '#!/bin/sh\\nexit 0\\n' > "$product"
-	chmod +x "$product"
-fi
-exit 0`,
-	);
-	stub(join(bin, "codesign"), `printf '%s\\n' "$*" >> "$CODESIGN_LOG"\nexit 0`);
+	// The Swift toolchain and codesign: the Factory installs no app of its own, so these
+	// only record that something tried to build or sign one, and fail so that attempt
+	// cannot write into the fake Mac.
+	stub(join(bin, "swift"), `printf '%s\\n' "$*" >> "$SWIFT_LOG"\nexit 1`);
+	stub(join(bin, "codesign"), `printf '%s\\n' "$*" >> "$CODESIGN_LOG"\nexit 1`);
 
 	const env: NodeJS.ProcessEnv = {
 		...process.env,

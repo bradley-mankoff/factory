@@ -177,7 +177,6 @@ WRAPPER
 	fi
 	herdr_job
 	board_job
-	runbar_job
 	# The Factory map, a page of every Factory path, built from map/paths.txt; it names
 	# any listed path that is missing, so a stale entry shows up on every install. Last,
 	# so paths the steps above create are not reported missing on a first install.
@@ -212,13 +211,11 @@ install_factoryclaw() {
 # One launchd job at login, $1 the job's label and $2 the plist body. The file is written
 # only when its text changes and the job loaded only when this Mac has not loaded it, so a
 # second install changes nothing and leaves a running job alone rather than starting it
-# again. A third argument restarts the job even when its text is unchanged, which is what a
-# rebuild of the app it runs needs: launchd pins a loaded job to the binary's cdhash, so a
-# job left running would die on its next start (macOS 27, usage-bar's lesson).
+# again.
 login_job() {
 	plist=$HOME/Library/LaunchAgents/$1.plist
 	new=$2
-	if [ ! -f "$plist" ] || [ "$(cat "$plist")" != "$new" ] || [ -n "${3:-}" ]; then
+	if [ ! -f "$plist" ] || [ "$(cat "$plist")" != "$new" ]; then
 		printf '%s\n' "$new" > "$plist"
 		launchctl bootout "gui/$(id -u)/$1" 2>/dev/null || true
 		# bootout returns before the job is gone; bootstrapping too early fails with 5.
@@ -279,43 +276,6 @@ board_job() {
 PLIST
 )
 	login_job factory.bdui "$new"
-}
-
-# RunBar, the menu bar item that lists the active Workflows (fac-s6f): one line per Run with
-# its project and Bead, which opens to that Workflow's nodes. It is built from runbar/ and
-# reads its runs through the Archon CLI, whose home comes from this Mac's Profile, so both
-# Macs run the same app against their own Archon. A Mac with no Swift toolchain keeps the
-# rest of install and says so: the Factory itself needs nothing from RunBar. Only a new
-# binary restarts the job, because launchd pins a loaded job to the binary it first saw
-# (macOS 27); a second install of the same build leaves the running app alone.
-runbar_job() {
-	app=$HOME/Applications/RunBar.app
-	before=
-	if [ -f "$app/Contents/MacOS/RunBar" ]; then
-		before=$(shasum -a 256 "$app/Contents/MacOS/RunBar" | cut -d' ' -f1)
-	fi
-	"$src/runbar/install.sh" ||
-		{ echo "note: RunBar did not install, so there is no menu bar item until it does" >&2; return 0; }
-	after=$(shasum -a 256 "$app/Contents/MacOS/RunBar" | cut -d' ' -f1)
-	new=$(cat <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>Label</key><string>com.bradley-mankoff.runbar</string>
-	<key>ProgramArguments</key>
-	<array><string>$HOME/Applications/RunBar.app/Contents/MacOS/RunBar</string></array>
-	<key>RunAtLoad</key><true/>
-	<key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
-</dict>
-</plist>
-PLIST
-)
-	if [ "$before" = "$after" ]; then
-		login_job com.bradley-mankoff.runbar "$new"
-	else
-		login_job com.bradley-mankoff.runbar "$new" restart
-	fi
 }
 
 # Archon and its pi provider from the release, checked against its checksums.txt, and

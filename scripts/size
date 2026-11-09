@@ -11,7 +11,7 @@ init wrote (.agents/). Herdr plugins, pi extensions and Hammerspoon/Lua/Ghostty 
 not in this repo; core pi, core Archon and core Beads live outside it too. What the count
 skips depends on the file: everything but Markdown loses blank lines and full-line #
 comments; Python loses its docstrings too, found through its syntax tree, so a # heading
-in Markdown still counts; JS and Swift lose // lines and /* */ blocks as well. A line with
+in Markdown still counts; JS and TS lose // lines and /* */ blocks as well. A line with
 code plus a trailing comment still counts. With --by-file it prints each file's count.
 """
 import ast
@@ -19,14 +19,8 @@ import os
 import subprocess
 import sys
 
-SKIP_DIRS = ("reference/", "tests/", ".beads/", ".agents/", "runbar/")
-# reference/, tests/, .beads/ and .agents/ are never the Factory. runbar/ is a judgment call
-# (the Human, 2026-11-09): the Archon workflow status bar is a convenience the Factory
-# uses, not something it depends on, like the usage bar, the herdr click-open and sidebar
-# plugins, micro, the markdown preview viewer and the click and paste conveniences. What
-# counts is this repo's own code, skills, docs and AGENTS.md files. fac-2na removes
-# runbar/ from this repo; until then it is skipped here.
-C_LIKE = (".js", ".mjs", ".cjs", ".ts", ".swift")
+SKIP_DIRS = ("reference/", "tests/", ".beads/", ".agents/")
+C_LIKE = (".js", ".mjs", ".cjs", ".ts")
 
 
 def repo_files(root):
