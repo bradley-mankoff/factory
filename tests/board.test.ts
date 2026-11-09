@@ -45,7 +45,12 @@ const starts = (mac: Mac): { folder: string; args: string[] }[] =>
 
 const portOf = (start: { args: string[] }): string => start.args[start.args.indexOf("--port") + 1];
 
-/** The project the board's server is started from: the folder of the job's last start. */
+/** The folder the board's server boots in: beads-ui starts its server in the folder of the
+first start that finds it down and only registers later starts, so the job's first start is
+the boot. */
+const bootFolder = (jobStarts: { folder: string }[]): string | undefined => jobStarts.at(0)?.folder;
+
+/** The folder the job's last start runs in, which leaves the board up. */
 const boardFolder = (jobStarts: { folder: string }[]): string | undefined => jobStarts.at(-1)?.folder;
 
 /** The projects the board knows, as beads-ui keeps them: one line per workspace. */
@@ -102,12 +107,12 @@ test("install writes a launchd job that starts the board at login and registers 
 	}
 });
 
-test("the board starts in the first project that has a Beads database, not in a folder without one", () => {
+test("the board boots in the first project that has a Beads database, not in a folder without one", () => {
 	const mac = makeMac({ profile: squashProfile });
 	try {
-		// A fresh browser tab shows the board's current project, so that project has to hold
-		// Beads: the first project in the list with a database, not one without and not the
-		// home folder.
+		// A fresh browser tab shows the board's current project, so the server has to boot
+		// in a project that holds Beads: the first one in the list with a database, not one
+		// without and not the home folder.
 		const bare = makeProject(mac, "bare", { beads: false });
 		const one = makeProject(mac, "one");
 		const two = makeProject(mac, "two");
@@ -122,7 +127,8 @@ test("the board starts in the first project that has a Beads database, not in a 
 		const before = starts(mac).length;
 		runJob(mac);
 		const jobStarts = starts(mac).slice(before);
-		assert.equal(boardFolder(jobStarts), one, "the board is started from the first project with Beads");
+		assert.equal(bootFolder(jobStarts), one, "the server boots in the first project with Beads");
+		assert.equal(boardFolder(jobStarts), one, "the start that leaves the board up runs there too");
 		assert.deepEqual(
 			[...new Set(jobStarts.map((start) => start.folder))].sort(),
 			[bare, one, two].sort(),
@@ -142,7 +148,9 @@ test("with no project holding a Beads database the board starts in the home fold
 
 		const before = starts(mac).length;
 		runJob(mac);
-		assert.equal(boardFolder(starts(mac).slice(before)), mac.home, "the home folder is the board's project when no project has Beads");
+		const jobStarts = starts(mac).slice(before);
+		assert.equal(bootFolder(jobStarts), mac.home, "the server boots in the home folder when no project has Beads");
+		assert.equal(boardFolder(jobStarts), mac.home, "the start that leaves the board up runs there too");
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}

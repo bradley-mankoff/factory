@@ -8,8 +8,8 @@
 # the port the Bead links name too, and it is registered with every project listed in
 # ~/.config/factory/projects, which is how beads-ui learns a project.
 #
-# The board's own start runs in the first project in that list with a Beads database, since
-# a fresh browser tab shows the board's current project and the home folder holds none.
+# The server starts in the first project in that list with a Beads database, since a fresh
+# browser tab shows the board's current project and the home folder holds none.
 #
 # beads-ui keeps the projects it knows in the running server, not on disk, so they are
 # registered again at each login; a project registered twice is still known once.
@@ -33,10 +33,11 @@ if [ -f "$profile" ]; then
 fi
 port=${BOARD_PORT:-3917}
 
-# The home folder holds no Beads database, so the first project the board knows is the first
-# one registered below, never the folder the job happened to start in. The start that leaves
-# the board up runs in the first project with a Beads database, so a fresh browser tab shows
-# that project; the home folder is only the fallback when no project has one.
+# The home folder holds no Beads database, so the server has to start in a real project:
+# the first project in the list with a Beads database. beads-ui starts its server in the
+# folder of the first start that finds it down and only registers later starts with the
+# running one, so the boot below runs in that project, before the loop that registers every
+# project; the home folder is only the fallback when no project has one.
 cd "$HOME"
 board=
 projects=$HOME/.config/factory/projects
@@ -46,11 +47,18 @@ if [ -f "$projects" ]; then
 		if [ -z "$board" ] && [ -d "$repo/.beads" ]; then
 			board=$repo
 		fi
-		# bdui start in a project starts the server if it is down and registers the project
+	done < "$projects"
+fi
+board=${board:-$HOME}
+(cd "$board" && "$bdui" start --port "$port") || echo "board: could not start the board in $board" >&2
+if [ -f "$projects" ]; then
+	while IFS= read -r repo; do
+		[ -d "$repo" ] || continue
+		# A start in a project starts the server if it is down and registers the project
 		# with the running one, so one loop covers the first login and every later one.
 		(cd "$repo" && "$bdui" start --port "$port") || echo "board: could not register $repo" >&2
 	done < "$projects"
 fi
 # The board is up even before the first project is in the list, so its first link opens.
-cd "${board:-$HOME}"
+cd "$board"
 exec "$bdui" start --port "$port"
