@@ -57,3 +57,15 @@ test("scripts/size counts policy lines, not comments, docstrings or blanks", () 
 	// hello.py 4 (def, message lines, return) + hello.js 1 + hello.md 2 + hello.sh 1.
 	assert.equal(out, "8");
 });
+
+test("scripts/size skips folders the Factory does not depend on", () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "factory-size-"));
+	execFileSync("git", ["init", "-q", "-b", "main", root]);
+	fs.mkdirSync(path.join(root, "reference"));
+	fs.writeFileSync(path.join(root, "reference", "notes.md"), "# Copied\n\nEvidence.\n");
+	fs.writeFileSync(path.join(root, "kept.md"), "# Kept\n");
+	const out = execFileSync("python3", [path.join(repoRoot, "scripts", "size"), root], {
+		encoding: "utf-8",
+	}).trim();
+	assert.equal(out, "1");
+});

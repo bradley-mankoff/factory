@@ -38,7 +38,7 @@ Then send FactoryClaw an Idea for the project, or tell it to get the project to 
 
 ## Size
 
-The whole Factory stays under 5,000 lines of Factory-specific code, skills, docs and `AGENTS.md` files, not their comments, docstrings or blank lines (the Human, 2026-11-09). Herdr plugins, pi extensions and Hammerspoon/Lua/Ghostty setup do not count unless the Factory relies on them; core pi, core Archon and core Beads are used, not maintained, and never count. Nothing enforces it. This section holds no number, because a stored count went stale with every Run and parallel Runs collided rewriting it (2026-11-08); the command from `AGENTS.md` gives today's count as an upper bound:
+The whole Factory stays under 5,000 lines of Factory-specific code, skills, docs and `AGENTS.md` files, not their comments, docstrings or blank lines (the Human, 2026-11-09). Whether something counts is judgment: does the Factory depend on it, or merely use it (the Human, 2026-11-09)? The menu bar apps, the herdr plugins, micro, the markdown preview viewer and the terminal click and paste conveniences do not count; what counts is this repo's own code, skills, docs and `AGENTS.md` files, never those files as they live inside each project folder. Core pi, core Archon and core Beads are used, not maintained, and never count. Nothing enforces it. This section holds no number, because a stored count went stale with every Run and parallel Runs collided rewriting it (2026-11-08); the command from `AGENTS.md` gives today's count as an upper bound:
 
 ```bash
 scripts/size
