@@ -159,13 +159,10 @@ nodes:
     when: "$taste.output.decision == 'approve'"
     bash: '"$HOME/.local/share/factory/bin/land"'
 
+  # bin/finish reads how the Run ended from the notes in the Run's artifacts, never from a
+  # node's output or the gate's: Archon refuses to splice a failed node's output, so such a
+  # reference stops this node exactly when the Project Manager most needs telling.
   - id: tell-project-manager
     depends_on: [land, work-finished, spec-withheld, standards-withheld]
     trigger_rule: all_done
-    # Reads how the landing ended from the note bin/land leaves in the Run's artifacts,
-    # not $land.output or $taste.output: Archon refuses to splice a failed node's output,
-    # so such a reference stops this node exactly when the Project Manager most needs
-    # telling. A rejection is known already: the Project Manager sent it.
-    bash: |
-      if [ -s "$ARTIFACTS_DIR/landing" ]; then how=$(cat "$ARTIFACTS_DIR/landing"); else how="ended without a landing; archon workflow get $WORKFLOW_ID names the node that failed or the gate's answer"; fi
-      "$HOME/.local/share/factory/bin/tell-pm" "${ARGUMENTS%% · *}" "Run $WORKFLOW_ID (factory-build-gated) for Bead $("$HOME/.local/share/factory/bin/bead" --id "$ARGUMENTS") $how."
+    bash: '"$HOME/.local/share/factory/bin/finish" factory-build-gated'

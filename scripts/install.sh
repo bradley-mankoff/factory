@@ -92,8 +92,8 @@ WRAPPER
 	rsync -a --delete "$src/project-manager/" "$factory/project-manager/"
 	# pm: the shorthand a session starts with, in the project folder it is in.
 	ln -sfn "$factory/project-manager/pm" "$HOME/.local/bin/pm"
-	# claude-usage, node-prompts, work-finished, land, pm-pane and archon-roles, for
-	# project-manager/start and the Workflows.
+	# claude-usage, node-prompts, work-finished, finish, land, pm-pane and archon-roles,
+	# for project-manager/start and the Workflows.
 	rsync -a --delete "$src/bin/" "$factory/bin/"
 	# The node prompts that bin/node-prompts reads into every build Workflow.
 	rsync -a --delete "$src/prompts/" "$factory/prompts/"

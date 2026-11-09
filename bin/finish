@@ -1,0 +1,69 @@
+#!/bin/sh
+# finish <workflow name>: how a Run ended, composed into the one Notice line its Project
+# Manager reads. Each Workflow's last node calls it with the Workflow's own name:
+#
+#     "$HOME/.local/share/factory/bin/finish" factory-build
+#
+# The Run gives it $ARGUMENTS, $WORKFLOW_ID and $ARTIFACTS_DIR. It takes the pane from the
+# first field of the Run's message, "<pane> · <bead id>", and the Bead from the last, and
+# reads the notes the Run leaves in its artifacts folder:
+#
+#   landing          bin/land: how the landing ended, or what a held landing is.
+#   held             bin/land: what a Human gate holds, while the gate is undecided.
+#   no-commits       a task's checks node: the Run changed no files.
+#   flows-failed.txt pi-flows: the checks a node finished with still failing.
+#   findings.md      a research Run's combine node: the answer.
+#
+# A research Run is the one ending without a Bead: it names the findings file its answer
+# opens. Every other Workflow gets the build shape, and factory-build-gated's fallback also
+# names the gate's answer.
+#
+# It leaves the line with bin/tell-pm, which appends it dated to the Project Manager's
+# Notice file, and prints it for the Run's log. The notes are the interface: a node's own
+# output cannot be read back after it fails, because Archon refuses to splice it.
+set -eu
+here=$(cd "$(dirname "$0")" && pwd)
+
+workflow=${1:?usage: finish <workflow name>}
+arguments=${ARGUMENTS:?finish: a Run gives this node \$ARGUMENTS}
+run=${WORKFLOW_ID:?finish: a Run gives this node \$WORKFLOW_ID}
+artifacts=${ARTIFACTS_DIR:?finish: a Run gives this node \$ARTIFACTS_DIR}
+pane=${arguments%% · *}
+
+# note <file>: what the Run left in the file, or nothing when it left none. The command
+# substitution strips the trailing newline, so a note reads as the one line bin/land writes.
+note() {
+	if [ -s "$artifacts/$1" ]; then cat "$artifacts/$1"; fi
+}
+
+landing=$(note landing)
+held=$(note held)
+failures=$(note flows-failed.txt)
+if [ "$workflow" = factory-research ]; then
+	if [ -s "$artifacts/findings.md" ]; then
+		how="answered; the answer opens $artifacts/findings.md"
+	else
+		how="ended without findings; archon workflow get $run names the node that failed"
+	fi
+	notice="Research Run $run $how"
+else
+	if [ -e "$artifacts/no-commits" ]; then
+		how="finished without changing files; its answer is the task node's output in archon workflow get $run"
+	elif [ -n "$landing" ]; then
+		how=$landing
+	elif [ -n "$held" ]; then
+		how="held $held and did not land it; archon workflow get $run names the node that failed or the gate's answer"
+	elif [ "$workflow" = factory-build-gated ]; then
+		how="ended without a landing; archon workflow get $run names the node that failed or the gate's answer"
+	else
+		how="ended without a landing; archon workflow get $run names the node that failed"
+	fi
+	notice="Run $run ($workflow) for Bead $("$here/bead" --id "$arguments") $how."
+fi
+
+# The failed checks stay out of the Notice, which is one line, and go in the Run's log
+# beside it; a build's are also on the Bead, where bin/work-finished comments them.
+[ -z "$failures" ] || printf 'failed checks:\n%s\n' "$failures"
+
+printf '%s\n' "$notice"
+"$here/tell-pm" "$pane" "$notice"

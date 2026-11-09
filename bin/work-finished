@@ -7,8 +7,8 @@
 # run. Otherwise it comments the failed checks on the Bead, naming the Run, and exits 1:
 # the reviews depend on this node, so they do not run, and no usage is spent reviewing
 # unfinished work (fac-qpv.3.3). The Workflow's last node still tells the Project Manager
-# how the Run ended, because it reads the outcome from GitHub rather than this node's
-# output. Run it from the Run's worktree, where `bd` finds the project's Beads.
+# how the Run ended, because bin/finish reads the notes in the Run's artifacts rather than
+# this node's output. Run it from the Run's worktree, where `bd` finds the project's Beads.
 set -eu
 bead=${1:?work-finished: give the Bead id}
 failures="${ARTIFACTS_DIR:-}/flows-failed.txt"

@@ -17,8 +17,8 @@
 # the repo, and, under the squash landing, any target of a repo the Profile does not name.
 # The repo is the folder of the repo's main checkout, which is the name the Profile uses.
 # How the landing ended is left in "$ARTIFACTS_DIR/landing", one line, for the Workflow's
-# last node to tell the Project Manager: a node's own output cannot be read back after it
-# fails (Archon refuses to splice it).
+# last node, through bin/finish, to tell the Project Manager: a node's own output cannot be
+# read back after it fails (Archon refuses to splice it).
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 
