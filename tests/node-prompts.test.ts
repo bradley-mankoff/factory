@@ -13,6 +13,13 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
+/** The prompt key of a node, which spells the node's dashes as underscores. */
+const markerKey = (node: string) => `marker_${node.replace(/-/g, "_")}`;
+
+/** A marker read back out of the script's output. */
+const marker = (prompts: Record<string, string>, node: string) =>
+	JSON.parse(prompts[markerKey(node)].slice("FLOWS ".length)) as Record<string, string>;
+
 test("bin/node-prompts puts a marker naming the node, Bead, folders and check in each checked node's prompt", () => {
 	const dir = mkdtempSync(join(tmpdir(), "factory-node-prompts-"));
 	try {
@@ -36,9 +43,10 @@ test("bin/node-prompts puts a marker naming the node, Bead, folders and check in
 		assert.equal(result.status, 0, result.stderr);
 		const prompts = JSON.parse(result.stdout) as Record<string, string>;
 		assert.deepEqual(
-			Object.fromEntries(
-				["marker_work", "marker_spec"].map((key) => [key, JSON.parse(prompts[key].slice("FLOWS ".length))]),
-			),
+			{
+				marker_work: marker(prompts, "work"),
+				marker_spec: marker(prompts, "spec"),
+			},
 			{
 				marker_work: {
 					node: "work",
@@ -124,7 +132,7 @@ test("bin/node-prompts matches a flows file to a node spelled with an underscore
 		const result = runNodePrompts(folder.workflow);
 		assert.equal(result.status, 0, result.stderr);
 		const prompts = JSON.parse(result.stdout) as Record<string, string>;
-		assert.equal((JSON.parse(prompts.marker_look_a.slice("FLOWS ".length)) as { node: string }).node, "look_a");
+		assert.equal((marker(prompts, "look-a") as { node: string }).node, "look_a");
 	} finally {
 		rmSync(folder.dir, { recursive: true, force: true });
 	}
@@ -143,10 +151,9 @@ test("every core Workflow's marker names the node Archon runs", () => {
 		assert.equal(result.status, 0, `${name}: ${result.stderr}`);
 		const prompts = JSON.parse(result.stdout) as Record<string, string>;
 		const markers = Object.keys(prompts).filter((key) => key.startsWith("marker_"));
-		assert.deepEqual(markers.sort(), nodes.map((node) => `marker_${node.replace(/-/g, "_")}`).sort(), `${name}'s markers`);
+		assert.deepEqual(markers.sort(), nodes.map(markerKey).sort(), `${name}'s markers`);
 		for (const node of nodes) {
-			const marker = JSON.parse(prompts[`marker_${node.replace(/-/g, "_")}`].slice("FLOWS ".length)) as { node: string };
-			assert.equal(marker.node, node, `${name}'s marker names the node Archon runs`);
+			assert.equal(marker(prompts, node).node, node, `${name}'s marker names the node Archon runs`);
 		}
 	}
 });
