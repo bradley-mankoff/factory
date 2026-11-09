@@ -125,6 +125,75 @@ test("on a Mac whose Profile chooses the squash landing, setting up a project ne
 	}
 });
 
+test("project setup writes the Profile's git identity into the project's .env and its repo", () => {
+	const identity = [
+		"GIT_NAME='Bradley Mankoff'",
+		"GIT_EMAIL='52721920+bradley-mankoff@users.noreply.github.com'",
+	].join("\n");
+	const mac = makeMac({ profile: squashProfile + identity + "\n" });
+	try {
+		const repo = join(mac.home, "repo");
+		mkdirSync(join(repo, ".beads"), { recursive: true });
+		execFileSync("git", ["init", "-q", repo]);
+		mkdirSync(join(repo, ".archon"), { recursive: true });
+		writeFileSync(join(repo, ".archon", ".env"), "FACTORY_CHECK=true\n");
+		writeFileSync(join(mac.home, ".config", "factory", "projects"), `${repo}\n`);
+
+		const result = mac.install();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		// The Run's nodes read these four variables from the project's env.
+		const env = readFileSync(join(repo, ".archon", ".env"), "utf8");
+		assert.match(env, /^GIT_AUTHOR_NAME='Bradley Mankoff'$/m);
+		assert.match(env, /^GIT_COMMITTER_NAME='Bradley Mankoff'$/m);
+		assert.match(env, /^GIT_AUTHOR_EMAIL=52721920\+bradley-mankoff@users\.noreply\.github\.com$/m);
+		assert.match(env, /^GIT_COMMITTER_EMAIL=52721920\+bradley-mankoff@users\.noreply\.github\.com$/m);
+
+		const config = (key: string) =>
+			execFileSync("git", ["-C", repo, "config", "--local", key], { encoding: "utf8" }).trim();
+		assert.equal(config("user.name"), "Bradley Mankoff");
+		assert.equal(config("user.email"), "52721920+bradley-mankoff@users.noreply.github.com");
+
+		// A commit made with the project's env, as a Run's nodes have it, carries that identity.
+		writeFileSync(join(repo, "work.txt"), "work\n");
+		execFileSync("git", ["-C", repo, "add", "work.txt"]);
+		const commit = spawnSync("sh", ["-c", 'set -a; . "$1"; set +a; git -C "$2" commit -q -m work', "sh", join(repo, ".archon", ".env"), repo], { encoding: "utf8" });
+		assert.equal(commit.status, 0, commit.stderr);
+		assert.equal(
+			execFileSync("git", ["-C", repo, "log", "-1", "--format=%an <%ae> | %cn <%ce>"], { encoding: "utf8" }).trim(),
+			"Bradley Mankoff <52721920+bradley-mankoff@users.noreply.github.com> | Bradley Mankoff <52721920+bradley-mankoff@users.noreply.github.com>",
+		);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("a Profile that names no git identity leaves a project's repo git as it is", () => {
+	const mac = makeMac({ profile: squashProfile });
+	try {
+		const repo = join(mac.home, "repo");
+		mkdirSync(join(repo, ".beads"), { recursive: true });
+		execFileSync("git", ["init", "-q", repo]);
+		execFileSync("git", ["-C", repo, "config", "user.name", "The repo's own name"]);
+		execFileSync("git", ["-C", repo, "config", "user.email", "someone@example.test"]);
+		mkdirSync(join(repo, ".archon"), { recursive: true });
+		writeFileSync(join(repo, ".archon", ".env"), "FACTORY_CHECK=true\n");
+		writeFileSync(join(mac.home, ".config", "factory", "projects"), `${repo}\n`);
+
+		const result = mac.install();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		const env = readFileSync(join(repo, ".archon", ".env"), "utf8");
+		assert.equal(env.includes("GIT_AUTHOR_NAME"), false, "project setup writes no identity");
+		const config = (key: string) =>
+			execFileSync("git", ["-C", repo, "config", "--local", key], { encoding: "utf8" }).trim();
+		assert.equal(config("user.name"), "The repo's own name", "the repo's own name is left alone");
+		assert.equal(config("user.email"), "someone@example.test", "the repo's own email is left alone");
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
 test("the one shipped Profile names the personal Mac's choices", () => {
 	const mac = makeMac();
 	const example = join(root, "config", "profile");
@@ -137,6 +206,11 @@ test("the one shipped Profile names the personal Mac's choices", () => {
 		assert.equal(value("PROTECTED_TARGETS"), "");
 		assert.equal(value("ARCHON_HOME"), join(mac.home, ".local", "share", "factory", "archon"));
 		assert.equal(value("LIBRARY"), join(mac.home, ".local", "share", "factory", "archon", "workflows"));
+
+		// The identity a Run commits as, from the hard rule that the work email never reaches
+		// a public repo: the example names the GitHub private address (fac-woi).
+		assert.equal(value("GIT_NAME"), "Bradley Mankoff");
+		assert.equal(value("GIT_EMAIL"), "52721920+bradley-mankoff@users.noreply.github.com");
 
 		// It names the Chains file install fills in, the Project Manager's role, and the
 		// port the board and its links use.

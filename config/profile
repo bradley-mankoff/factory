@@ -9,6 +9,16 @@
 # whose Profile chooses otherwise writes its own file with the same keys, and install
 # leaves it as it is.
 
+# The identity a Run commits as. install writes GIT_AUTHOR_NAME, GIT_COMMITTER_NAME,
+# GIT_AUTHOR_EMAIL and GIT_COMMITTER_EMAIL from these into each project's .archon/.env, and
+# sets user.name and user.email in the project's repo, so a Run commits as this whatever the
+# Mac's global git email is. These values are the example's, the personal Mac's; a Mac with
+# another identity writes its own. A public repo must use GitHub's private address,
+# 52721920+bradley-mankoff@users.noreply.github.com, never the Human's work email
+# (~/AGENTS.md, 2026-11-08). A Profile that names neither leaves a project's git as it is.
+GIT_NAME='Bradley Mankoff'
+GIT_EMAIL=52721920+bradley-mankoff@users.noreply.github.com
+
 # The model a Project Manager starts on. It names the role's Chain in the Chains file,
 # and the Chain entry sets the thinking level (fac-qpv.1).
 PM_MODEL=chain/pm

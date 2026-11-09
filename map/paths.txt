@@ -15,7 +15,7 @@
     chains-config.test.ts  — The Factory's own Chains: every role it names has a Chain of models and thinking levels, the shipped Chains are the personal Mac's from the Epic, and the Scout's definition names chain/scout (fac-qpv.1.1, fac-qpv.8.1)
     archon-roles.test.ts  — bin/archon-roles against a temporary Archon home: the tiers and @aliases all name Chain models, and a second run changes nothing (fac-qpv.1.4)
     install-workflows.test.ts  — The core Workflows installed into a temporary Archon home: the core group is this repo's copy with a stale file gone, another group is untouched, and archon workflow test passes on every core Workflow (fac-qpv.6.2)
-    profile.test.ts  — install against a temporary HOME with stand-ins at the system's edges: the one example Profile is shipped when none exists and never overwritten, the example installs FactoryClaw as today, and a Mac whose Profile chooses the squash landing writes no FactoryClaw or OpenClaw file and puts the Archon home and library where its Profile says (fac-qpv.6.3, fac-qpv.6.7)
+    profile.test.ts  — install against a temporary HOME with stand-ins at the system's edges: the one example Profile is shipped when none exists and never overwritten, the example installs FactoryClaw as today, a Mac whose Profile chooses the squash landing writes no FactoryClaw or OpenClaw file and puts the Archon home and library where its Profile says, and project setup writes the Profile's commit identity into the project's .env and its repo (fac-qpv.6.3, fac-qpv.6.7, fac-woi)
     core-names.test.ts  — the repo's files read as a stranger publishing them would: no work name anywhere outside the Beads database, and config/profile the one example Profile, whose comments give the other choices with placeholder names (fac-qpv.6.7)
     land.test.ts  — bin/land against a real repo, a Run's worktree, a bare remote and a Profile the test writes: the squash landing squashes onto the Project Manager's branch and pushes it, main and develop never move, a protected or unnamed target is refused before anything moves, and the pull-request landing merges a pull request into main (fac-qpv.6.4, fac-qpv.6.7)
     node-prompts.test.ts  — bin/node-prompts' Flows marker, naming the node, Bead, folders and the project's FACTORY_CHECK (fac-qpv.3.1, fac-qpv.8.1)
@@ -71,7 +71,7 @@
     README.md
     agents/scout.md  — The Scout: on the Scout Chain, chain/scout, for the subagent tool; copied to the Factory's pi folder, linked into yours
   demo/trim-idle  — Cuts idle stretches out of demo videos
-  config/profile  — The one shipped example Profile, the personal Mac's: pull-request landing, no protected targets, FactoryClaw and Telegram, one Project Manager per project, the Chains file, and the Archon home and Workflow library under ~/.local/share/factory; its comments give the other choices generically, with placeholder repo names such as myrepo; copied to ~/.config/factory/profile when missing and never overwritten (fac-qpv.6.3, fac-qpv.6.7)
+  config/profile  — The one shipped example Profile, the personal Mac's: pull-request landing, no protected targets, FactoryClaw and Telegram, one Project Manager per project, the commit identity its projects commit as, the Chains file, and the Archon home and Workflow library under ~/.local/share/factory; its comments give the other choices generically, with placeholder repo names such as myrepo; copied to ~/.config/factory/profile when missing and never overwritten (fac-qpv.6.3, fac-qpv.6.7)
   config/chains.json  — Default Chains (the personal Mac's): Opus at medium then Muse Spark at xhigh for chain/pm and chain/spec-review, DeepSeek at max for chain/work and chain/scout; copied to the Chains file the Profile names when missing (fac-qpv.1.1, fac-qpv.1.4, fac-qpv.6.3)
   map/  — This map
     paths.txt  — The tree: one path a line, indented under its parent, a note after " — ", tags in brackets
@@ -111,7 +111,7 @@
 ## Settings
 > What a person edits. install.sh never overwrites it.
 ~/.config/factory
-  profile  — This Mac's Profile: the landing, protected targets, outer layer, workspace shape, the board's port, Chains file, Archon home, Workflow library, the Project Manager's Chain and FactoryClaw's model and level; shipped from config/profile when missing, never overwritten, read by install.sh, bin/board, project-manager/start and the pi-chains package (fac-qpv.6.3, fac-qpv.7.3, fac-qpv.8.1)
+  profile  — This Mac's Profile: the landing, protected targets, outer layer, workspace shape, the board's port, the commit identity, Chains file, Archon home, Workflow library, the Project Manager's Chain and FactoryClaw's model and level; shipped from config/profile when missing, never overwritten, read by install.sh, bin/board, project-manager/start and the pi-chains package (fac-qpv.6.3, fac-qpv.7.3, fac-qpv.8.1)
   chains.json  — The Chains: each role's ordered models and thinking levels, the one place a model is changed; copied from the repo to the path the Profile names when missing, never overwritten
   projects  — The Factory's project repos, one a line; a plain install.sh sets each up again and registers each with the board
 
