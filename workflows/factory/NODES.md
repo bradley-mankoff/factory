@@ -158,9 +158,9 @@ findings-a.md` and `file-exists findings-b.md`, each with `no-changes`.
       each (file paths, URLs, command output), to $ARTIFACTS_DIR/findings-b.md.
 ```
 
-### The combining agent (`combine`)
+### The combined findings node (`combine`)
 
-Reads the two research files and writes one that opens with the answer in at most five sentences,
+Reads the two research files and writes one combined account: the answer in at most five sentences,
 then where they agree, where they disagree and what is unknown. Role `@work`; tools: read and write;
 prompt: written into the node; Flows `flows/combine`: `file-exists findings.md`, `no-changes`.
 
@@ -328,8 +328,7 @@ fits the Idea; an error is never a taste question.
 
 ### The registration and the notice (`registered`, `tell-project-manager`)
 
-`registered` registers a repo with Archon from its main checkout: one shell node, no model, and
-no Bead.
+`registered` registers a repo with Archon from its main checkout: one shell node, no model, no Bead.
 
 ```yaml
   - id: registered

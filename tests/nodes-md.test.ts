@@ -4,7 +4,10 @@
  * of its own. The seam is the published page and Archon's own check: a node id read from the
  * core Workflows must have a snippet in NODES.md, and pasting that snippet into a Workflow
  * that has its nodes must pass `archon workflow test`. The coverage check reads only the node
- * ids the Workflows declare; the page's words are not generated from the Workflows.
+ * ids the Workflows declare; the page's words are not generated from the Workflows. That paste
+ * is why each review node in the Workflows spells its `output_format` out in full instead of
+ * sharing a YAML anchor: a pasted snippet replaces the node the anchor hangs on, and an alias
+ * left behind would fail Archon's own check.
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
