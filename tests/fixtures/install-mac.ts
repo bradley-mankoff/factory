@@ -48,6 +48,8 @@ export type Mac = {
 	env: NodeJS.ProcessEnv;
 	logs: {
 		openclaw: string;
+		// The approvals file install sends back with `openclaw approvals set`.
+		approvals: string;
 		archon: string;
 		launchctl: string;
 		bdui: string;
@@ -77,6 +79,7 @@ export const makeMac = (options: { profile?: string; profileExtra?: string } = {
 	const bin = join(dir, "bin");
 	const logs = {
 		openclaw: join(dir, "openclaw.log"),
+		approvals: join(dir, "approvals.log"),
 		archon: join(dir, "archon.log"),
 		launchctl: join(dir, "launchctl.log"),
 		bdui: join(dir, "bdui.log"),
@@ -151,7 +154,7 @@ exit 0`,
 case "$1 $2" in
 	"plugins inspect") exit 0 ;;
 	"approvals get") printf '{"file":{}}\\n' ;;
-	"approvals set") cat >/dev/null ;;
+	"approvals set") cat >> "$APPROVALS_LOG" ;;
 esac
 exit 0`,
 	);
@@ -210,6 +213,7 @@ exit 0`,
 		HOME: home,
 		PATH: `${bin}:${process.env.PATH}`,
 		OPENCLAW_LOG: logs.openclaw,
+		APPROVALS_LOG: logs.approvals,
 		ARCHON_LOG: logs.archon,
 		LAUNCHCTL_LOG: logs.launchctl,
 		BDUI_LOG: logs.bdui,

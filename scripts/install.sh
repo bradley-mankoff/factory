@@ -92,7 +92,7 @@ WRAPPER
 	rsync -a --delete "$src/project-manager/" "$factory/project-manager/"
 	# pm: the shorthand a session starts with, in the project folder it is in.
 	ln -sfn "$factory/project-manager/pm" "$HOME/.local/bin/pm"
-	# claude-usage, node-prompts, work-finished, finish, land, pm-pane and archon-roles,
+	# node-prompts, work-finished, finish, land, pm-pane and archon-roles,
 	# for project-manager/start and the Workflows.
 	rsync -a --delete "$src/bin/" "$factory/bin/"
 	# The node prompts that bin/node-prompts reads into every build Workflow.
@@ -334,7 +334,6 @@ want = [
     {"pattern": "launchctl", "argPattern": "^start factory\\.herdr$"},
     {"pattern": "bd", "argPattern": "^-C \\S+ (show|list|ready|comments)( |$)"},
     {"pattern": os.path.expanduser("~/.local/bin/archon"), "argPattern": "^workflow (status|runs)( |$)"},
-    {"pattern": os.path.expanduser("~/.local/share/factory/bin/claude-usage")},
 ]
 snap = json.load(sys.stdin)["file"]
 agent = snap.setdefault("agents", {}).setdefault("factoryclaw", {})
