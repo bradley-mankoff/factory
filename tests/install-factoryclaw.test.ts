@@ -9,13 +9,15 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { logOf, makeMac } from "./fixtures/install-mac.ts";
+import { logOf, makeMac, type Mac } from "./fixtures/install-mac.ts";
 
 /** Install into a fresh Mac, the way the example Profile names FactoryClaw as the outer layer. */
-const installed = () => {
+const installedMac = (): Mac => {
 	const mac = makeMac();
 	const result = mac.install();
 	if (result.status !== 0) {
+		// The test's own finally has not started yet, so this path tidies up after a failed
+		// install itself rather than leaving the temporary Mac behind.
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 		assert.fail(result.stderr || result.stdout);
 	}
@@ -23,7 +25,7 @@ const installed = () => {
 };
 
 /** FactoryClaw's own instructions: its three files and the skills install copies beside them. */
-const instructions = (mac: ReturnType<typeof makeMac>): { file: string; text: string }[] => {
+const instructions = (mac: Mac): { file: string; text: string }[] => {
 	const workspace = join(mac.home, ".openclaw", "workspace-factoryclaw");
 	const files = ["AGENTS.md", "BOOT.md", "HEARTBEAT.md"].map((name) => join(workspace, name));
 	for (const skill of readdirSync(join(workspace, "skills"))) {
@@ -33,8 +35,8 @@ const instructions = (mac: ReturnType<typeof makeMac>): { file: string; text: st
 	return files.map((file) => ({ file, text: readFileSync(file, "utf8") }));
 };
 
-test("install gives FactoryClaw exactly the commands its AGENTS.md allows", () => {
-	const mac = installed();
+test("install gives FactoryClaw exactly the four commands, with no Claude usage check among them", () => {
+	const mac = installedMac();
 	try {
 		// The four commands, and no Claude usage check among them (fac-vse).
 		const allowed = JSON.parse(logOf(mac.logs.approvals)).agents.factoryclaw.allowlist;
@@ -50,7 +52,7 @@ test("install gives FactoryClaw exactly the commands its AGENTS.md allows", () =
 });
 
 test("install leaves no Claude usage helper among the installed helpers", () => {
-	const mac = installed();
+	const mac = installedMac();
 	try {
 		const bin = join(mac.home, ".local", "share", "factory", "bin");
 		assert.equal(existsSync(join(bin, "claude-usage")), false, "the Claude usage helper is not installed");
@@ -64,10 +66,10 @@ test("install leaves no Claude usage helper among the installed helpers", () => 
 });
 
 test("FactoryClaw's installed instructions say nothing about Claude", () => {
-	const mac = installed();
+	const mac = installedMac();
 	try {
 		for (const { file, text } of instructions(mac)) {
-			assert.doesNotMatch(text, /claude/i, `${file} tells FactoryClaw nothing about Claude`);
+			assert.doesNotMatch(text, /claude/i, `${file} says nothing about Claude`);
 		}
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });

@@ -48,7 +48,8 @@ export type Mac = {
 	env: NodeJS.ProcessEnv;
 	logs: {
 		openclaw: string;
-		// The approvals file install sends back with `openclaw approvals set`.
+		// The approvals file install last sent back with `openclaw approvals set`, whole: a
+		// test reads it as one JSON document.
 		approvals: string;
 		archon: string;
 		launchctl: string;
@@ -154,7 +155,7 @@ exit 0`,
 case "$1 $2" in
 	"plugins inspect") exit 0 ;;
 	"approvals get") printf '{"file":{}}\\n' ;;
-	"approvals set") cat >> "$APPROVALS_LOG" ;;
+	"approvals set") cat > "$APPROVALS_LOG" ;;
 esac
 exit 0`,
 	);
