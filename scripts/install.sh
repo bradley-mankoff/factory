@@ -231,6 +231,10 @@ login_job() {
 # at login. Started by FactoryClaw instead, it ran inside OpenClaw's process group: its
 # panes inherited OPENCLAW_SHELL, so OpenClaw refused every Project Manager's message
 # ("would lose inter-session attribution"), and a gateway restart could end every pane.
+# launchd hands the job a bare PATH, and herdr-sidebar draws Markdown by running glow by
+# name (fac-0se), so the plist carries the folders glow is installed in: Homebrew's and the
+# person's own, ahead of the standard ones. The job is only reloaded when its text changes,
+# so the new PATH reaches a Mac at its next herdr restart, which is its next macOS update.
 herdr_job() {
 	new=$(cat <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -240,6 +244,8 @@ herdr_job() {
 	<key>Label</key><string>factory.herdr</string>
 	<key>ProgramArguments</key>
 	<array><string>$(command -v herdr)</string><string>--session</string><string>factory</string><string>server</string></array>
+	<key>EnvironmentVariables</key>
+	<dict><key>PATH</key><string>/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
 	<key>RunAtLoad</key><true/>
 </dict>
 </plist>
