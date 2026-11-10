@@ -10,7 +10,8 @@ its diffs show what moved.
 
 paths.txt: `## <area>` starts an area and `> <note>` describes it. Every other line is
 a path, indented two spaces per level under its parent, then optionally `  — <note>`
-and `  [<tag>, ...]` (source, installed, runtime, secret).
+and `  [<tag>, ...]` (source, installed, runtime, secret). The tag may sit anywhere on
+the line, before or after the note, so it is never part of the path the map checks.
 
 It also prints each listed path that does not exist. An entry that is not one literal
 path (several names joined by commas, a wildcard, a description in brackets) is not
@@ -38,10 +39,10 @@ for line in (here / "paths.txt").read_text().splitlines():
     depth = (len(line) - len(line.lstrip(" "))) // 2
     text = line.strip()
     node = {}
-    tags = re.search(r"  \[([^\]]+)\]$", text)
+    tags = re.search(r"  \[([^\]]+)\]", text)
     if tags:
         node["t"] = [t.strip() for t in tags.group(1).split(",")]
-        text = text[: tags.start()]
+        text = text[: tags.start()] + text[tags.end() :]
     path, _, note = text.partition("  — ")
     node["p"] = path
     if note:
