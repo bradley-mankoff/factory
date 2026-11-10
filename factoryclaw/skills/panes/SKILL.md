@@ -21,16 +21,15 @@ The session's server runs as the launchd job `factory.herdr`, started at login. 
 
 When the Human asks a project to get to work, start, carry on or pick up its work:
 
-1. Run `~/.local/share/factory/bin/claude-usage`: its line is a warning for the Human, never a reason to wait, because the Project Manager and its reviews run on Chains and move to the next model when an account runs out (fac-qpv.1.4). When it says the usage is low or very low, add that to the reply in step 4 in plain words. When it says the usage is used up, say in the reply that Claude is used up and the work will start on the next model in its Chain. When it begins `Claude usage OK` or says the usage could not be read, say nothing about usage: unreadable usage means silence, not a status update. Then go on.
-2. If its pane is closed (`herdr --session factory agent get <pane>` fails), open it as "Open" below says, giving `project-manager/start` the message `FactoryClaw: The Human asks you to get to work.` on its command line the way Open's step 2 shows. The Project Manager acts on that message at once rather than proposing.
-3. If its pane is open, tell the Project Manager to get to work, without `--wait`:
+1. If its pane is closed (`herdr --session factory agent get <pane>` fails), open it as "Open" below says, giving `project-manager/start` the message `FactoryClaw: The Human asks you to get to work.` on its command line the way Open's step 2 shows. The Project Manager acts on that message at once rather than proposing.
+2. If its pane is open, tell the Project Manager to get to work, without `--wait`:
 
    ```bash
    herdr --session factory agent prompt <pane> "FactoryClaw: The Human asks you to get to work."
    ```
 
    A Project Manager that is already working carries on.
-4. Reply with one line: `→ <Product>: getting to work`. The Project Manager messages the Human only when it needs the Human, so a quiet project is a working or an idle one; the Human asks how it is doing with `report-state`.
+3. Reply with one line: `→ <Product>: getting to work`. The Project Manager messages the Human only when it needs the Human, so a quiet project is a working or an idle one; the Human asks how it is doing with `report-state`.
 
 ## Stop
 

@@ -106,7 +106,7 @@ This is guidance, not a rule; any Workflow that passes `archon workflow test` ma
   - `@work`: work, demos, research, the standards review and any other node.
   - `@spec-review`: the spec review, whose Chain is its own because that review matters most.
   - A tier (`small`, `medium`, `large`) or `@reviewer` only when a Bead says to rebind the roles with `--config`.
-  Write no `model:` or `effort:` of a physical model, and no seat: the Chain's entry sets the level. Do not add a usage node. A Run's nodes move down their Chains when an account runs out, so the Claude plan's usage is never a reason to stop, wait or check; FactoryClaw reports it to you when it relays a message that starts a Run.
+  Write no `model:` or `effort:` of a physical model, and no seat: the Chain's entry sets the level. Do not add a usage node. A Run's nodes move down their Chains when an account runs out, so the Claude plan's usage is never a reason to stop, wait or check.
 - **Say when each AI node's agent may finish, with a Flow.** A Workflow assigns checks to its AI nodes in a `flows/` folder beside its YAML: one file per node, named after the node id, one check per line with the check's arguments after its name. The core Workflows ship with theirs and a fork copies them; a new Workflow writes its own. The checks:
   - `changed-files`: the worktree's tree differs from where the node started, so an empty commit fails. For a build's work node.
   - `check-passes`: the project's check command, `FACTORY_CHECK`, passes. For a build's work node.
