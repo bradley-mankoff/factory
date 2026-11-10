@@ -76,7 +76,9 @@ function makeHarness(options: { shippedSettings?: boolean; profile?: string; wor
 	printf 'env.PI_SKIP_VERSION_CHECK=%s\\n' "\${PI_SKIP_VERSION_CHECK-<unset>}"
 	printf 'env.LIBRARY=%s\\n' "\${LIBRARY-<unset>}"
 	printf 'env.FACTORY_PM_AGENT=%s\\n' "\${FACTORY_PM_AGENT-<unset>}"
+	printf 'env.WORKSPACE=%s\\n' "\${WORKSPACE-<unset>}"
 	printf 'env.FACTORY_DEMOS=%s\\n' "\${FACTORY_DEMOS-<unset>}"
+	printf 'env.FACTORY_CHECK=%s\\n' "\${FACTORY_CHECK-<unset>}"
 	printf 'env.PI_NOTICES_FILE=%s\\n' "\${PI_NOTICES_FILE-<unset>}"
 	printf 'env.BEADS_BOARD_PORT=%s\\n' "\${BEADS_BOARD_PORT-<unset>}"
 	for arg in "$@"; do printf 'arg=%s\\n' "$arg"; done
@@ -99,6 +101,9 @@ exit 0
 	for (const key of Object.keys(baseEnv)) {
 		if (key.startsWith("HERDR_")) delete baseEnv[key];
 	}
+	// A Run of this repo carries FACTORY_CHECK in its own environment; a test that reads
+	// a .env must see the file's value, never one inherited from the Run.
+	delete baseEnv.FACTORY_CHECK;
 	let count = 0;
 
 	function childEnv(extraEnv: Record<string, string> = {}): NodeJS.ProcessEnv {
@@ -304,6 +309,59 @@ test("with the worktree shape, start leads the worktree, names its pane pm-<work
 	assert.deepEqual(archonCalls(h.archonLog), [
 		`${fs.realpathSync(h.repo)}|workflow run factory-register --no-worktree --base-branch main register`,
 	]);
+});
+
+test("with the worktree shape, start links the main checkout's .archon/.env into a worktree that has none, and reads it", () => {
+	// A linked worktree holds only what is committed, so the project's uncommitted
+	// .archon/.env is missing there and a Run started from the worktree would read an
+	// empty FACTORY_CHECK. start links the main checkout's file in, one file behind a
+	// symlink, so every Project Manager worktree gets the project's settings (fac-u2c).
+	const h = makeHarness({ worktree: true });
+	fs.mkdirSync(path.join(h.repo, ".archon"));
+	fs.writeFileSync(path.join(h.repo, ".archon", ".env"), "FACTORY_CHECK=make-check\n");
+
+	const result = h.run(path.join(repoRoot, "project-manager", "start"), { cwd: h.worktree });
+
+	assert.equal(result.status, 0, result.stderr);
+	const link = path.join(h.worktree, ".archon", ".env");
+	assert.ok(fs.lstatSync(link).isSymbolicLink(), "one file: the worktree's .env is a symlink, not a copy");
+	assert.equal(fs.realpathSync(link), fs.realpathSync(path.join(h.repo, ".archon", ".env")));
+	assert.equal(
+		h.readLaunch(result.capture).env.FACTORY_CHECK,
+		"make-check",
+		"the linked settings reach the Project Manager's pi",
+	);
+});
+
+test("with the worktree shape, start leaves a worktree's own .archon/.env as it is", () => {
+	const h = makeHarness({ worktree: true });
+	fs.mkdirSync(path.join(h.repo, ".archon"));
+	fs.writeFileSync(path.join(h.repo, ".archon", ".env"), "FACTORY_CHECK=the-main-checkouts-check\n");
+	fs.mkdirSync(path.join(h.worktree, ".archon"));
+	fs.writeFileSync(path.join(h.worktree, ".archon", ".env"), "FACTORY_CHECK=the-worktrees-own-check\n");
+
+	const result = h.run(path.join(repoRoot, "project-manager", "start"), { cwd: h.worktree });
+
+	assert.equal(result.status, 0, result.stderr);
+	const own = path.join(h.worktree, ".archon", ".env");
+	assert.ok(!fs.lstatSync(own).isSymbolicLink(), "the worktree's own file stays a file");
+	assert.equal(fs.readFileSync(own, "utf8"), "FACTORY_CHECK=the-worktrees-own-check\n");
+	assert.equal(h.readLaunch(result.capture).env.FACTORY_CHECK, "the-worktrees-own-check");
+});
+
+test("the Profile's settings win when a project's .env names the same keys", () => {
+	// A .env is read for the project's values, but PM_MODEL and WORKSPACE belong to the
+	// Mac, so a project file that names them changes neither.
+	const h = makeHarness({ profile: "PM_MODEL=test-provider/from-the-profile\nLIBRARY=/from/the/profile\n" });
+	fs.mkdirSync(path.join(h.repo, ".archon"));
+	fs.writeFileSync(path.join(h.repo, ".archon", ".env"), "PM_MODEL=test-provider/from-the-env\nWORKSPACE=worktree\n");
+
+	const result = h.run(path.join(repoRoot, "project-manager", "start"));
+
+	assert.equal(result.status, 0, result.stderr);
+	const launch = h.readLaunch(result.capture);
+	assert.equal(launch.env.WORKSPACE, "project", "the shape stays the Mac's");
+	assert.equal(launch.args[1], "test-provider/from-the-profile", "the model stays the Mac's");
 });
 
 test("pm-pane prints a pane name herdr accepts whatever the folder is called", () => {
