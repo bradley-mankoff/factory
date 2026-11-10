@@ -231,7 +231,7 @@ Two toy repos exist to exercise the Factory end to end: `~/Developer/personal_co
 
 Judge the Factory's behaviour on them, not the toys' code.
 
-On 2026-10-28 the Human took the toy repos off the project list and added health-chat and news, beside socratic-dialogue-facilitator. On 2026-10-31 the Human added bad_game_warning, no_spoilers_reddit, usage-bar, pi-plain-voice, pi-draft-stash and auto-close-tab-ext, and deleted the toy repos locally. The list is `~/.config/factory/projects`; `scripts/install.sh` rebuilds FactoryClaw's `TOOLS.md` from it, so removing a line there and running the script removes a project.
+On 2026-10-28 the Human took the toy repos off the project list and added health-chat and news, beside socratic-dialogue-facilitator. On 2026-10-31 the Human added bad_game_warning, no_spoilers_reddit, usage-bar, pi-plain-voice, pi-draft-stash and auto-close-tab-ext, and deleted the toy repos locally. On 2026-11-09 the Human deleted no_spoilers_reddit from this Mac and took it off the list; its GitHub repo stays, private. The list is `~/.config/factory/projects`; `scripts/install.sh` rebuilds FactoryClaw's `TOOLS.md` from it, so removing a line there and running the script removes a project.
 
 ## Settled on 2026-10-16
 

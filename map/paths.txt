@@ -266,9 +266,6 @@
 ~/Developer/personal_code/bad_game_warning  — Mavericks game verdict page; pane pm-bad_game_warning; Beads prefix bad; check python3 -m unittest (since 2026-10-28)
   .beads/  [runtime]
   .archon/.env  [secret]
-~/Developer/personal_code/no_spoilers_reddit  — Delayed team-subreddit reader; pane pm-no_spoilers_reddit; check python3 -m pytest -q (since 2026-10-28)
-  .beads/  [runtime]
-  .archon/.env  [secret]
 ~/Developer/personal_code/usage-bar  — macOS menu bar usage app (Swift); pane pm-usage-bar; Beads prefix usage-bar; check swift test (since 2026-10-31)
   .beads/  [runtime]
   .archon/.env  [secret]
