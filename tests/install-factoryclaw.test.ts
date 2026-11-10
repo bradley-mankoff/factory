@@ -3,7 +3,8 @@
  * the Chains carry a Project Manager and its reviews past an account that runs out, and the
  * model-roles skill holds the Human's model preferences (fac-vse). The seam is installation:
  * scripts/install.sh runs against a temporary Mac, and the test reads back the allowlist it
- * sent OpenClaw and the instructions it put in FactoryClaw's workspace.
+ * sent OpenClaw, the helpers it installed and the instructions it put in FactoryClaw's
+ * workspace.
  */
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
@@ -11,7 +12,7 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { logOf, makeMac, type Mac } from "./fixtures/install-mac.ts";
 
-/** Install into a fresh Mac, the way the example Profile names FactoryClaw as the outer layer. */
+/** Install into a fresh Mac with the example Profile, which names FactoryClaw as the outer layer. */
 const installedMac = (): Mac => {
 	const mac = makeMac();
 	const result = mac.install();
@@ -24,8 +25,8 @@ const installedMac = (): Mac => {
 	return mac;
 };
 
-/** FactoryClaw's own instructions: its three files and the skills install copies beside them. */
-const instructions = (mac: Mac): { file: string; text: string }[] => {
+/** FactoryClaw's own instruction files: its three files and the skills install copies beside them. */
+const instructionFiles = (mac: Mac): { file: string; text: string }[] => {
 	const workspace = join(mac.home, ".openclaw", "workspace-factoryclaw");
 	const files = ["AGENTS.md", "BOOT.md", "HEARTBEAT.md"].map((name) => join(workspace, name));
 	for (const skill of readdirSync(join(workspace, "skills"))) {
@@ -56,10 +57,9 @@ test("install leaves no Claude usage helper among the installed helpers", () => 
 	try {
 		const bin = join(mac.home, ".local", "share", "factory", "bin");
 		assert.equal(existsSync(join(bin, "claude-usage")), false, "the Claude usage helper is not installed");
-		// The helpers the Workflows and the Project Manager call still are, so the check
+		// The helpers the Workflows and the Project Manager call are installed too, so the check
 		// above is about this one helper rather than an install that copied no helper.
-		assert.ok(existsSync(join(bin, "node-prompts")), "the other helpers are installed");
-		assert.ok(existsSync(join(bin, "land")), "the other helpers are installed");
+		for (const helper of ["node-prompts", "land"]) assert.ok(existsSync(join(bin, helper)), `${helper} is installed`);
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}
@@ -68,7 +68,7 @@ test("install leaves no Claude usage helper among the installed helpers", () => 
 test("FactoryClaw's installed instructions say nothing about Claude", () => {
 	const mac = installedMac();
 	try {
-		for (const { file, text } of instructions(mac)) {
+		for (const { file, text } of instructionFiles(mac)) {
 			assert.doesNotMatch(text, /claude/i, `${file} says nothing about Claude`);
 		}
 	} finally {
