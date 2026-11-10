@@ -227,10 +227,20 @@ login_job() {
 	launchctl print "gui/$(id -u)/$1" >/dev/null 2>&1 || launchctl bootstrap "gui/$(id -u)" "$plist"
 }
 
+# The folders every login job's PATH ends with, after the ones that job needs itself:
+# Homebrew's on an Intel Mac, then the standard ones launchd's bare PATH leaves out. One
+# copy, so the two jobs' PATHs cannot drift apart.
+standard_path=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+
 # The herdr session factory, where Project Managers run, as its own launchd job started
 # at login. Started by FactoryClaw instead, it ran inside OpenClaw's process group: its
 # panes inherited OPENCLAW_SHELL, so OpenClaw refused every Project Manager's message
 # ("would lose inter-session attribution"), and a gateway restart could end every pane.
+# launchd hands the job a bare PATH, and herdr-sidebar draws Markdown by running glow by
+# name (fac-0se), so the plist carries the folders glow is installed in, Homebrew's and the
+# person's own, ahead of the standard ones. login_job writes the file again and reloads the
+# job only when the text differs, so the install that first writes this PATH restarts herdr
+# with it, and a later install that writes the same text leaves the running server alone.
 herdr_job() {
 	new=$(cat <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -240,6 +250,8 @@ herdr_job() {
 	<key>Label</key><string>factory.herdr</string>
 	<key>ProgramArguments</key>
 	<array><string>$(command -v herdr)</string><string>--session</string><string>factory</string><string>server</string></array>
+	<key>EnvironmentVariables</key>
+	<dict><key>PATH</key><string>/opt/homebrew/bin:$HOME/.local/bin:$standard_path</string></dict>
 	<key>RunAtLoad</key><true/>
 </dict>
 </plist>
@@ -269,7 +281,7 @@ board_job() {
 	<key>ProgramArguments</key>
 	<array><string>$factory/bin/board</string></array>
 	<key>EnvironmentVariables</key>
-	<dict><key>PATH</key><string>$(dirname "$(command -v bdui)"):/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
+	<dict><key>PATH</key><string>$(dirname "$(command -v bdui)"):$standard_path</string></dict>
 	<key>RunAtLoad</key><true/>
 </dict>
 </plist>
