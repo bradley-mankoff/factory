@@ -32,23 +32,49 @@ top=$(git rev-parse --show-toplevel 2>/dev/null) || {
 	exit 2
 }
 cd "$top" || exit 2
+
+# The Profile, this Mac's settings file: install.sh ships the personal one when it is
+# missing. Without one, say how to make it rather than start with no model. One place reads
+# it because start reads it twice: before the project's .env, for the workspace shape that
+# says whether that file needs a link, and again after it, so the Mac's settings win.
+profile=$HOME/.config/factory/profile
+read_profile() {
+	[ -f "$profile" ] || { echo "start: no Profile at $profile; run scripts/install.sh" >&2; exit 2; }
+	# PM_MODEL and WORKSPACE belong to the Mac, so a project's file cannot choose either.
+	unset PM_MODEL WORKSPACE
+	# shellcheck source=/dev/null
+	. "$profile"
+	# The workspace shape, `project` unless the Profile names another: `worktree` gives this
+	# Project Manager one worktree's branch to lead, the work Mac's shape (fac-qpv.6.5). pi's
+	# shell holds it as $WORKSPACE, and the instructions read it.
+	WORKSPACE=${WORKSPACE:-project}
+}
+read_profile
+
+# A linked worktree holds only what is committed, and the project's .archon/.env is never
+# committed, so a Project Manager's worktree has none of the project's settings (fac-u2c).
+# Under the worktree shape, link the main checkout's file in, one file behind a symlink, so
+# the worktree's Runs read the values the main checkout's do, and one edit still reaches
+# every worktree. The main checkout is the first path in git worktree list, the rule
+# bin/archon-register uses.
+if [ "$WORKSPACE" = worktree ] && [ ! -f .archon/.env ] && [ ! -L .archon/.env ]; then
+	main=$(git worktree list --porcelain | sed -n '1s/^worktree //p')
+	if [ -n "$main" ] && [ -f "$main/.archon/.env" ]; then
+		mkdir -p .archon
+		ln -s "$main/.archon/.env" .archon/.env
+	fi
+fi
+
 # The project's .archon/.env holds values the Project Manager uses, such as
 # FACTORY_DEMOS. Its PI_CODING_AGENT_DIR is for Runs and is dropped below.
 [ ! -f .archon/.env ] || { set -a; . .archon/.env; set +a; }
+# The Profile is this Mac's settings, so it is read again over the project's, which leaves
+# the Mac's value or the default standing on every key the two files share.
+read_profile
 # The pane's herdr name, from the one rule in bin/pm-pane; install.sh writes the same
 # name into the project's .archon/.env and FactoryClaw's TOOLS.md.
 pane=$("$factory/bin/pm-pane" "$PWD")
 
-# The Profile, this Mac's settings file: install.sh ships the personal one when it is
-# missing. Without one, say how to make it rather than start with no model.
-profile=$HOME/.config/factory/profile
-[ -f "$profile" ] || { echo "start: no Profile at $profile; run scripts/install.sh" >&2; exit 2; }
-# shellcheck source=/dev/null
-. "$profile"
-# The workspace shape, `project` unless the Profile names another: `worktree` gives this
-# Project Manager one worktree's branch to lead, the work Mac's shape (fac-qpv.6.5). pi's
-# shell holds it as $WORKSPACE, and the instructions read it.
-WORKSPACE=${WORKSPACE:-project}
 export LIBRARY ARCHON_HOME WORKSPACE
 export PI_SKIP_VERSION_CHECK=1
 unset PI_CODING_AGENT_DIR
