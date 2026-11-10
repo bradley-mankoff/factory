@@ -25,6 +25,11 @@
     finish.test.ts  — bin/finish against a temporary home and a Run's artifacts: landed, held, no-commits, failed-checks and failed-node endings leave the Notice the Workflows left before, and a research Run keeps its own shape (fac-3fy)
     install-packages.test.ts  — install with a temporary HOME and a stand-in pi: each package goes into the pi folder that needs it, both pi folders link chains.json to the Profile's Chains, and install repairs nothing an earlier install left (fac-qpv.8.1)
     install-status-bar.test.ts  — install on a temporary Mac that already has the status bar app and its login job: the binary, the app's Info.plist and the job plist are left as they were, and install builds and signs no app (fac-2na)
+    board.test.ts  — install on a temporary Mac with stand-ins at the edges: the launchd job it writes for the board, that job run the way launchd would, and what the board was asked for in its stand-in's log (fac-qpv.7.3)
+    work-finished.test.ts  — bin/work-finished on a temporary artifacts folder with a stand-in for bd: the work node's failed checks are commented on the Bead and the node fails, so the reviews do not run (fac-qpv.3.3)
+    size.test.ts  — scripts/size on a throwaway repo of one file per kind: policy lines counted, comments, docstrings and blanks left out, and the folders the Factory does not depend on skipped (fac-4tn)
+    map-render.test.ts  — map/render beside a paths.txt the test writes: a tag before or after a note is never part of the path it checks, and a path with no folder is still reported missing (fac-fca)
+    fixtures/install-mac.ts  — One temporary Mac for the install tests: a HOME with the files a Mac already has and stand-ins on PATH for the commands install calls outside the Factory
   project-manager/  — The Project Manager's definition
     instructions.md  — Appended to pi's system prompt; under the worktree shape its Runs start from the worktree's branch with --base, pushed first (fac-qpv.6.5)
     start  — Starts your own pi with the Project Manager's role added, opening the session with a message asking for the start routine and the next steps it proposes; the model, the Workflow library and the workspace shape come from ~/.config/factory/profile, the model naming chain/pm, whose Chain sets the thinking level, and under the worktree shape it registers the repo with Archon from its main checkout (fac-qpv.1.4, fac-qpv.2.2, fac-qpv.6.3, fac-qpv.6.5)
@@ -38,6 +43,7 @@
   bin/  — Helpers for the start script and the Workflows
     claude-usage  — Says how much of the Claude plan is left, for FactoryClaw's warning before a Run; at 0% a Run carries on down its Chain (fac-qpv.1.4)
     node-prompts  — Prints prompts/ as JSON for a Workflow's prompts node, with a Flows marker per checked node when given the Workflow folder, and fails, naming the file, when the flows files and the Workflow YAML disagree (fac-wtw)
+    bead  — Reads the Bead id out of a Run's message: a Run's message ends with its Bead after " · ", so a Mac that starts Runs through a helper of its own finds the Bead the same way
     work-finished  — A build's node after its work node: comments the work node's failed checks on the Bead and fails, so the reviews do not run (fac-qpv.3.3)
     finish  — Reads the notes a Run leaves in its artifacts — bin/land's landing and held, pi-flows' flows-failed.txt, a task's no-commits, a research Run's findings.md — composes the one Notice line and leaves it with tell-pm; every core Workflow's last node calls it with the Workflow's name (fac-3fy)
     land  — Lands a Run's commits the way the Profile says: a pull request into the base branch and its squash merge, or the commits squashed onto the base branch, checked again and pushed; refuses a protected or unnamed target before any git command moves one (fac-qpv.6.4)
@@ -50,9 +56,15 @@
     README.md  — The router: what each core Workflow is for, when to pick it, and where a Workflow of your own goes
     NODES.md  — The node library: every kind of node the core Workflows use, with its prompt, role, tools, Flows file and a YAML snippet to paste into a Workflow of your own (fac-60v.20.8)
     build/  — factory-build: work, checks, two reviews, the landing (bin/land)
+      flows/work  — The work node's checks, which its agent must pass before it may finish (fac-qpv.3)
     build-gated/  — factory-build-gated, a fork of build: adds a demo and a Human gate
+      flows/work  — The work node's checks, as in build (fac-qpv.3)
     research/  — factory-research: two research agents and a combined findings file
+      flows/look-a  — The first research agent's checks (fac-qpv.3)
+      flows/look-b  — The second research agent's checks (fac-qpv.3)
+      flows/combine  — The checks on the node that combines the two findings files (fac-qpv.3)
     task/  — factory-task: one node with no review, for an answer or a change the Bead spells out
+      flows/task  — The task node's checks (fac-qpv.3)
     register/  — factory-register: registers a repo with Archon from its main checkout, one shell node and no model (fac-qpv.6.5)
   skills/  — Factory skills
     grilling/  — Interview the Human about an Idea
@@ -85,6 +97,7 @@
   reference/  — Copied evidence, not part of the Factory
     archon-pi-spike/RESULTS.md  — What Archon on pi can and cannot do
   .beads/  — The Beads database (git and Dolt remote)  [runtime]
+  .archon/.env  — This project's Factory environment, written by project setup  [secret]
 
 ## Installed Factory files
 > Copies install.sh keeps in step with the repo. Project Managers and Runs read these.
@@ -92,7 +105,7 @@
 ~/.local/share/factory  — Installed copies  [installed]
   notices/  — One Notice file per Project Manager, <pane>.md: bin/tell-pm appends a Run's ending, and the pi-notices package delivers each new line into the conversation (fac-qpv.2.1)  [runtime]
   project-manager/  — instructions.md, pm and start; FactoryClaw's panes skill runs start, which opens the session with the start routine's proposal when it gets no first message (fac-qpv.2.2)
-  bin/  — claude-usage, node-prompts, work-finished, finish, pm-pane, archon-roles, archon-register, tell-pm, land, board
+  bin/  — claude-usage, node-prompts, bead, work-finished, finish, pm-pane, archon-roles, archon-register, tell-pm, land, board
   jev-shadow.jsonl  — Jev's is-it-done answer for each Run's review pass; the record that retired Jev, kept as it stands (fac-60v.20.12, fac-qpv.3.3)
   jev-replay/  — The 2026-10-24 replay of Jev over 35 past review passes: cases, states, scripts, results (fac-60v.20.12)
   prompts/  — work.md, task.md, review_spec.md, review_standards.md
@@ -106,6 +119,7 @@
     settings.json  — Merged from the repo; lists pi-claude-bridge, pi-chains and pi-flows, and pi adds its own keys
     trust.json  — Trusted folders: the three projects and Archon's workspaces
     claude-bridge.json
+    extensions/  — Empty by design: the Factory holds no pi extension of its own (fac-qpv.8.1)
     chains.json  — Link to the Chains file the Profile names; the pi-chains package reads it here, so every Run node runs on its Chain (fac-qpv.8.1)
     agents/scout.md  — The Scout, copied from the repo; the subagent tool reads agents/
     npm/node_modules/pi-claude-bridge  — v0.9.3, the Factory's own copy; Run nodes load it through settings.json
@@ -120,10 +134,11 @@
   profile  — This Mac's Profile: the landing, protected targets, outer layer, workspace shape, the board's port, the commit identity, Chains file, Archon home, Workflow library, the Project Manager's Chain and FactoryClaw's model and level; shipped from config/profile when missing, never overwritten, read by install.sh, bin/board, project-manager/start and the pi-chains package (fac-qpv.6.3, fac-qpv.7.3, fac-qpv.8.1)
   chains.json  — The Chains: each role's ordered models and thinking levels, the one place a model is changed; copied from the repo to the path the Profile names when missing, never overwritten
   projects  — The Factory's project repos, one a line; a plain install.sh sets each up again and registers each with the board
+  factory.env  — The settings file the Profile replaced, read by nothing: PM_MODEL, FACTORYCLAW_MODEL and FACTORYCLAW_THINKING live in the Profile now (fac-qpv.6.3)
 
 ## State
 > What the tools write as they run, outside the folders they install into.
-~/.local/state/pi-chains  — pi-chains' own folder: accounts.json marks each account used up and when it resets, which every agent on the Mac reads (fac-qpv.1.2, fac-qpv.8.1)  [runtime]
+~/.local/state/pi-chains  — pi-chains' own folder, created on first use: accounts.json marks each account used up and when it resets, which every agent on the Mac reads, and pi-chains writes it only when an account is marked used up, so its absence is expected (fac-qpv.1.2, fac-qpv.8.1)  [runtime]
 
 ## Archon and the Workflow library
 > Archon 0.12.1 runs Workflows on pi. Its home is the Profile's ARCHON_HOME, wherever that Mac's Profile names it, and holds the Workflow library: the core group that install writes from this repo, and the person's own groups beside it.
@@ -139,21 +154,32 @@
       NODES.md  — The node library, installed beside the router (fac-60v.20.8)
       build/  — factory-build: work, checks, two reviews, the landing (bin/land)
         build.yaml
+        flows/work  — The work node's checks (fac-qpv.3)
         fixtures/approved.stubs.yaml
       build-gated/  — factory-build-gated, a fork of build: adds a demo and a Human gate
         build-gated.yaml
+        flows/work  — The work node's checks, as in build (fac-qpv.3)
         fixtures/  — approved and rejected stubs
       research/  — factory-research: two research agents and a combined findings file
         research.yaml
+        flows/look-a  — The first research agent's checks (fac-qpv.3)
+        flows/look-b  — The second research agent's checks (fac-qpv.3)
+        flows/combine  — The checks on the node that combines the two findings files (fac-qpv.3)
         fixtures/answered.stubs.yaml
-    other/  — The personal Mac's own Workflows, beside the core ones; install never writes here
+      task/  — factory-task: one node with no review, for an answer or a change the Bead spells out
+        task.yaml
+        flows/task  — The task node's checks (fac-qpv.3)
+      register/  — factory-register: registers a repo with Archon from its main checkout, one shell node and no model (fac-qpv.6.5)
+        register.yaml
+    other/  — The person's own group, beside the core one; it holds only a README.md so far, and install never writes here
   config.yaml  — Default assistant pi; the small, medium and large tiers and the @aliases (@work, @standards-review, @reviewer and @spec-review), all Chain models set by bin/archon-roles (fac-qpv.1.4)
   .env  — Archon environment  [secret]
   credential-key  [secret]
   archon.db  — Runs and conversations  [runtime]
-  workspaces/  — Each Run's checkout and worktree  [runtime]
-    _local/
-    bradley-mankoff/  — factory-toy-calc, factory-toy-todo, news, health-chat
+  workspaces/  — Each Run's checkout and worktree: one folder per Run, under the owner Archon has for the repo  [runtime]
+    _folder/  — Runs on a folder rather than a repo
+    _local/  — Runs of a repo Archon has no owner for, such as one never registered
+    bradley-mankoff/  — The projects' Run folders, including the deleted toy repos' leftovers and older names such as runbar and memory_bar
   logs/  — Detached-run logs since 2026-10-16  [runtime]
   plugins/archon-provider-pi  — Archon's pi provider, with its own bundled copy of pi 1.3.0 (Archon 0.12.1's lock file): AI nodes run this, not /opt/homebrew/bin/pi
   commands/  — Two fusion-judge command files from September
@@ -162,7 +188,7 @@
 ## pi
 > Your personal pi folder, where Project Managers run. Runs use the Factory's own pi folder instead (Installed Factory files).
 ~/.pi/agent  — Your personal pi
-  settings.json  — Default model Opus 5.5 at high on claude-bridge; packages: plain-voice, draft-stash, image-paste, the bridge, and the Factory's pi-beads, pi-links, pi-chains and pi-notices (fac-qpv.8.1)
+  settings.json  — Default model Opus 5.5 at high on claude-bridge; packages: plain-voice, draft-stash, image-paste, pi-stretchtext, the bridge, and the Factory's pi-beads, pi-links, pi-chains and pi-notices (fac-qpv.8.1)
   mcp.json  — MCP servers: gitnexus
   auth.json  — pi logins; the Factory's pi folder links here  [secret]
   npm/node_modules/pi-claude-bridge  — v0.9.3: Claude through your Claude Code login, for your own sessions
@@ -203,6 +229,8 @@
 ~/Library/LaunchAgents/ai.openclaw.gateway.plist  — The OpenClaw gateway; restart with launchctl kickstart -k
 ~/.config/herdr/  — herdr's config and state
   config.toml
+  plugins.json  — The plugins herdr registers: click-open and herdr-sidebar  [runtime]
+  plugins/  — Each installed plugin's config and its GitHub-installed copy  [runtime]
   sessions/factory/  — The factory session's sockets, logs and snapshots  [runtime]
 /opt/homebrew/bin/herdr  — herdr 0.9.4
 
@@ -253,6 +281,22 @@
 ~/Developer/personal_code/auto-close-tab-ext  — Aging Tabs browser extension; pane pm-auto-close-tab-ext; forked to bradley-mankoff on 2026-10-31, upstream ndokutovich; check npm ci && npx tsc --noEmit && npm test (since 2026-10-31)
   .beads/  [runtime]
   .archon/.env  [secret]
+~/Developer/personal_code/factory  — The Factory's own repo, which is a Factory project too; pane pm-factory; Beads prefix fac; check scripts/check; its files are listed above under "Source repo"
+~/Developer/personal_code/pi-links  — The pi-links package: a Bead id in a reply becomes a terminal link to that Bead on the board; pane pm-pi-links; check npm test
+  .beads/  [runtime]
+  .archon/.env  [secret]
+~/Developer/personal_code/pi-chains  — The pi-chains package: one model per role, falling back through models when an account runs out; pane pm-pi-chains; check npm test
+  .beads/  [runtime]
+  .archon/.env  [secret]
+~/Developer/personal_code/pi-flows  — The pi-flows package: the checks named in a prompt that run when the agent tries to finish; pane pm-pi-flows; check npm test
+  .beads/  [runtime]
+  .archon/.env  [secret]
+~/Developer/personal_code/pi-notices  — The pi-notices package: each new line of a watched file arrives as its own message; pane pm-pi-notices; check npm test
+  .beads/  [runtime]
+  .archon/.env  [secret]
+~/Developer/personal_code/herdr-click-open  — A herdr plugin: ctrl-click a link in a pane to open the Bead, file or page beside the conversation; pane pm-herdr-click-open; check npm test
+  .beads/  [runtime]
+  .archon/.env  [secret]
 ~/Developer/personal_code/archon-workflow-status-bar  — ArchonWorkflowStatusBar, formerly RunBar, the menu bar item that lists the active Workflows: one line per Run with its project and Bead, opened to that Workflow's nodes; pane pm-archon-workflow-status-bar; Beads prefix runbar; check swift test -q; github.com/bradley-mankoff/archon-workflow-status-bar, private (fac-s6f, fac-2na)
   install.sh  — Builds the app into ~/Applications/ArchonWorkflowStatusBar.app, signed ad hoc, writes the login job com.bradley-mankoff.archon-workflow-status-bar, and removes the old RunBar.app and com.bradley-mankoff.runbar job; the Factory's install builds and writes neither
   .beads/  [runtime]
@@ -261,6 +305,7 @@
 ## Related
 > Outside the Factory, but it leans on them.
 /opt/homebrew/bin/bdui  — beads-ui 0.12.6, the Beads board on 127.0.0.1:3917; the launchd job factory.bdui starts it at login with bin/board, which adds each Factory project to the dropdown (fac-qpv.5, fac-qpv.7.3)
+~/.local/bin/factory  — Link into the retired earlier Factory's ~/Developer/graph_engineering/scripts/factory; on PATH, and not this Factory's
 ~/AGENTS.md  — Home instructions: words, finding things, working with you
 ~/Developer/personal_code/AGENTS.md  — The universal law and the project list
 ~/Developer/personal_code/claw-setup  — The OpenClaw setup shared by both Macs; its factoryclaw/ folder is gone

@@ -24,7 +24,7 @@ Track all work in Beads (`bd`); markdown holds specs and decisions, never status
 - `bd prime` at session start: the `pi-beads` pi package adds its output to the first prompt; without it, run it yourself. `bd ready` shows what can start.
 - `bd update <id> --claim` before starting, `bd comments add <id> "..."` for evidence, `bd close <id> --reason "..."` when done and checked. Edit fields with `bd update` flags; `bd edit` opens an editor and hangs.
 - `bd remember "..."` for a lesson about this repo.
-- Commit when a Bead's work is done and checked, with the Bead id in the message. The remote is the private repo `github.com/bradley-mankoff/factory` (set up 2026-10-17); it holds both git and the Beads database (`bd dolt push`, Dolt remote `origin`). Commit often. The MVP was pushed on 2026-10-21 at the Human's word; push again when the Human says.
+- Commit when a Bead's work is done and checked, with the Bead id in the message. The remote is the public repo `github.com/bradley-mankoff/factory` (set up 2026-10-17, public since 2026-11-09), whose history carries only GitHub's private address. The full history and the Beads database are in the private repo `github.com/bradley-mankoff/factory-history`, reached as the git remote `history` and as the Dolt remote `origin` (`bd dolt push`). Commit often. The MVP was pushed on 2026-10-21 at the Human's word; push again when the Human says.
 
 ## Size
 
