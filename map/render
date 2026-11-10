@@ -14,7 +14,7 @@ and `  [<tag>, ...]` (source, installed, runtime, secret). The tag may sit anywh
 the line, before or after the note, so it is never part of the path the map checks.
 
 It also prints each listed path that does not exist. An entry that is not one literal
-path (several names joined by commas, a wildcard, a description in brackets) is not
+path (several names joined by commas, a wildcard, a description in parentheses) is not
 checked.
 """
 import json

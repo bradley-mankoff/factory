@@ -171,13 +171,14 @@
         flows/task  — The task node's checks (fac-qpv.3)
       register/  — factory-register: registers a repo with Archon from its main checkout, one shell node and no model (fac-qpv.6.5)
         register.yaml
-    other/  — The library's own group, beside the core ones; it holds only a README.md, and install never writes here
+    other/  — The person's own group, beside the core one; it holds only a README.md so far, and install never writes here
   config.yaml  — Default assistant pi; the small, medium and large tiers and the @aliases (@work, @standards-review, @reviewer and @spec-review), all Chain models set by bin/archon-roles (fac-qpv.1.4)
   .env  — Archon environment  [secret]
   credential-key  [secret]
   archon.db  — Runs and conversations  [runtime]
-  workspaces/  — Each Run's checkout and worktree: 14 Run folders under bradley-mankoff, 3 under _local and 2 under _folder (counted 2026-11-10)  [runtime]
-    _local/  — Run folders for repos kept outside the projects list
+  workspaces/  — Each Run's checkout and worktree: one folder per Run, under the owner Archon has for the repo  [runtime]
+    _folder/  — Runs on a folder rather than a repo
+    _local/  — Runs of a repo Archon has no owner for, such as one never registered
     bradley-mankoff/  — The projects' Run folders, including the deleted toy repos' leftovers and older names such as runbar and memory_bar
   logs/  — Detached-run logs since 2026-10-16  [runtime]
   plugins/archon-provider-pi  — Archon's pi provider, with its own bundled copy of pi 1.3.0 (Archon 0.12.1's lock file): AI nodes run this, not /opt/homebrew/bin/pi
