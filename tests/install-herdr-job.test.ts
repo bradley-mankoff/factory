@@ -27,18 +27,18 @@ const jobAt = (mac: Mac): Job =>
 	JSON.parse(execFileSync("plutil", ["-convert", "json", "-o", "-", jobPath(mac)], { encoding: "utf8" }));
 
 /** Where a PATH names one command, asked of a shell the way the sidebar's own lookup would. */
-const which = (command: string, mac: Mac, path: string): string =>
+const which = (command: string, path: string): string =>
 	execFileSync("/bin/sh", ["-c", 'command -v "$1"', "sh", command], {
 		encoding: "utf8",
-		env: { HOME: mac.home, PATH: path },
+		env: { PATH: path },
 	}).trim();
 
 test("the herdr login job carries a PATH in which herdr-sidebar finds glow", () => {
 	const mac = makeMac();
 	try {
-		// glow, as the Human has it beside herdr: installed by Homebrew, and reachable from the
-		// person's own bin folder too. The temp Mac has no Homebrew, so only this copy exists
-		// to be found, and the plist still has to name Homebrew's folder.
+		// The Human has glow from Homebrew, and the person's own bin folder may hold one too,
+		// so the plist names both. The temp Mac has no Homebrew, so this copy in the person's
+		// folder is the only one to be found, and the plist still has to name Homebrew's.
 		const glow = join(mac.home, ".local", "bin", "glow");
 		stub(glow, "exit 0");
 
@@ -49,22 +49,22 @@ test("the herdr login job carries a PATH in which herdr-sidebar finds glow", () 
 		assert.equal(job.Label, "factory.herdr");
 		assert.equal(job.RunAtLoad, true, "the herdr server starts at login");
 
-		const ours = ["/opt/homebrew/bin", join(mac.home, ".local", "bin")];
-		const standard = ["/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"];
-		const dirs = job.EnvironmentVariables.PATH.split(":");
-		for (const dir of ours) {
-			assert.ok(dirs.includes(dir), `the job's PATH names ${dir}: ${job.EnvironmentVariables.PATH}`);
-			for (const other of standard) {
-				assert.ok(
-					dirs.indexOf(dir) < dirs.indexOf(other),
-					`${dir} comes before ${other}: ${job.EnvironmentVariables.PATH}`,
-				);
+		const path = job.EnvironmentVariables.PATH;
+		// The two folders glow lives in come first, so Homebrew's glow wins over a copy in a
+		// standard folder.
+		const glowFolders = ["/opt/homebrew/bin", join(mac.home, ".local", "bin")];
+		const standardFolders = ["/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"];
+		const dirs = path.split(":");
+		for (const folder of glowFolders) {
+			assert.ok(dirs.includes(folder), `the job's PATH names ${folder}: ${path}`);
+			for (const standard of standardFolders) {
+				assert.ok(dirs.indexOf(folder) < dirs.indexOf(standard), `${folder} comes before ${standard}: ${path}`);
 			}
 		}
 		// The machine running the test may have Homebrew's real glow, so the answer is checked as
 		// the folder glow was found in, not as the temp Mac's copy.
-		const found = which("glow", mac, job.EnvironmentVariables.PATH);
-		assert.ok(ours.includes(dirname(found)), `the job's PATH finds glow, at ${found}: ${job.EnvironmentVariables.PATH}`);
+		const found = which("glow", path);
+		assert.ok(glowFolders.includes(dirname(found)), `the job's PATH finds glow, at ${found}: ${path}`);
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}
