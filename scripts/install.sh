@@ -448,8 +448,12 @@ if [ $# -eq 0 ]; then
 	if [ "$OUTER_LAYER" = factoryclaw ]; then
 		rm -f "$claw/TOOLS.md"
 	fi
+	# A listed folder that is gone from this Mac is skipped with a note rather than
+	# stopping install, which would leave TOOLS.md naming only the projects before it.
 	while IFS= read -r repo; do
-		[ -z "$repo" ] || setup_project "$repo"
+		if [ -z "$repo" ]; then continue; fi
+		if [ ! -d "$repo" ]; then echo "skipped: $repo is in $config/projects but not on this Mac" >&2; continue; fi
+		setup_project "$repo"
 	done < "$config/projects"
 else
 	setup_project "$@"

@@ -64,6 +64,23 @@ test("install copies the one example Profile when none exists and never overwrit
 	}
 });
 
+test("install skips a listed project whose folder is gone and still sets up the ones after it", () => {
+	// The squash Profile, because the stand-in Mac cannot answer FactoryClaw's project setup;
+	// the loop that skips the folder is the same under either Profile.
+	const mac = makeMac({ profile: squashProfile });
+	try {
+		const repo = projectRepo(mac);
+		const gone = join(mac.home, "gone");
+		writeFileSync(join(mac.home, ".config", "factory", "projects"), `${gone}\n${repo}\n`);
+		const result = mac.install();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+		assert.match(result.stderr, /skipped: .*gone is in .*projects but not on this Mac/);
+		assert.match(readFileSync(join(repo, ".archon", ".env"), "utf8"), /FACTORY_PM_AGENT=pm-repo/, "the project after the missing one is set up");
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
 test("with the example Profile install writes FactoryClaw's files and uses the default Archon home", () => {
 	const mac = makeMac();
 	try {
