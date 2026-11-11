@@ -222,10 +222,10 @@
 
 ## herdr and launchd
 > Project Managers run in panes of the herdr session factory, named pm-<project>.
-~/Applications/ArchonWorkflowStatusBar.app  — ArchonWorkflowStatusBar: one menu bar item with the number of active Workflows, each with its project and Bead, opened to its nodes (fac-s6f)
+~/Applications/ArchonBar.app  — ArchonBar: one menu bar item with the number of active Workflows, each with its project and Bead, opened to its nodes (fac-s6f)
 ~/Library/LaunchAgents/factory.herdr.plist  — Starts herdr --session factory server at login
 ~/Library/LaunchAgents/factory.bdui.plist  — Starts the Beads board at login with bin/board, which starts it from the first project with Beads and registers every Factory project with it (fac-qpv.7.3)
-~/Library/LaunchAgents/com.bradley-mankoff.archon-workflow-status-bar.plist  — Opens ArchonWorkflowStatusBar at login and starts it again if it dies; the app's own install.sh loads it again only when the app or job changed, since launchd pins a loaded job to the binary it saw (fac-s6f)
+~/Library/LaunchAgents/com.bradley-mankoff.archon-bar.plist  — Opens ArchonBar at login and starts it again if it dies; the app's own install.sh loads it again only when the app or job changed, since launchd pins a loaded job to the binary it saw (fac-s6f)
 ~/Library/LaunchAgents/ai.openclaw.gateway.plist  — The OpenClaw gateway; restart with launchctl kickstart -k
 ~/.config/herdr/  — herdr's config and state
   config.toml
@@ -294,8 +294,8 @@
 ~/Developer/personal_code/herdr-click-open  — A herdr plugin: ctrl-click a link in a pane to open the Bead, file or page beside the conversation; pane pm-herdr-click-open; check npm test
   .beads/  [runtime]
   .archon/.env  [secret]
-~/Developer/personal_code/archon-workflow-status-bar  — ArchonWorkflowStatusBar, formerly RunBar, the menu bar item that lists the active Workflows: one line per Run with its project and Bead, opened to that Workflow's nodes; pane pm-archon-workflow-status-bar; Beads prefix runbar; check swift test -q; github.com/bradley-mankoff/archon-workflow-status-bar, private (fac-s6f, fac-2na)
-  install.sh  — Builds the app into ~/Applications/ArchonWorkflowStatusBar.app, signed ad hoc, writes the login job com.bradley-mankoff.archon-workflow-status-bar, and removes the old RunBar.app and com.bradley-mankoff.runbar job; the Factory's install builds and writes neither
+~/Developer/personal_code/archon-bar  — ArchonBar, formerly RunBar, the menu bar item that lists the active Workflows: one line per Run with its project and Bead, opened to that Workflow's nodes; pane pm-archon-bar; Beads prefix runbar; check swift test -q; github.com/bradley-mankoff/archon-bar, private (fac-s6f, fac-2na)
+  install.sh  — Builds the app into ~/Applications/ArchonBar.app, signed ad hoc, writes the login job com.bradley-mankoff.archon-bar, and removes the old RunBar.app and com.bradley-mankoff.runbar job; the Factory's install builds and writes neither
   .beads/  [runtime]
   .archon/.env  [secret]
 

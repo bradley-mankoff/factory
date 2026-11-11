@@ -1,5 +1,5 @@
 /**
- * The status bar app, ArchonWorkflowStatusBar, is a repo of its own (fac-2na; fac-s6f), and
+ * The status bar app, ArchonBar, is a repo of its own (fac-2na; fac-s6f), and
  * the Factory neither builds it nor writes its login job. The seam is installation:
  * scripts/install.sh runs on a temporary Mac that already has the app and its job, and the
  * test reads back that app and job as they were, and the old RunBar app and job that no
@@ -11,10 +11,10 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { logOf, makeMac, type Mac } from "./fixtures/install-mac.ts";
 
-const label = "com.bradley-mankoff.archon-workflow-status-bar";
+const label = "com.bradley-mankoff.archon-bar";
 
-const appPath = (mac: Mac): string => join(mac.home, "Applications", "ArchonWorkflowStatusBar.app");
-const binaryPath = (mac: Mac): string => join(appPath(mac), "Contents", "MacOS", "ArchonWorkflowStatusBar");
+const appPath = (mac: Mac): string => join(mac.home, "Applications", "ArchonBar.app");
+const binaryPath = (mac: Mac): string => join(appPath(mac), "Contents", "MacOS", "ArchonBar");
 const jobPath = (mac: Mac): string => join(mac.home, "Library", "LaunchAgents", `${label}.plist`);
 
 test("installing the Factory leaves the status bar app and its login job alone", () => {
