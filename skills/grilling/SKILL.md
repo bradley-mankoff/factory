@@ -18,21 +18,25 @@ Map the Idea as a design tree: every decision branches into the decisions that h
 
 Work the tree in rounds. Ask the whole frontier in one round: number each question and give your recommended answer. Then wait for the Human's answers. A question whose answer depends on another question still open in the same round belongs to a later round. Each round of answers settles decisions and opens new ones, so recompute the frontier and ask the next round.
 
+Number the questions across the whole interview, never starting again at Q1: if Round 1 asked Q1 to Q3, Round 2 starts at Q4. Head each round with its number. A question that follows up an earlier one repeats, in plain text, that earlier question and the Human's answer to it before asking the new one. The Human may read the round hours later on a phone, where a bare "following up Q1" means nothing, and FactoryClaw's rewrite for the phone drops links and folded text, so only the repeated words are sure to arrive.
+
 Format a round like this:
 
 ```
-❓ **Q1** - **<question title>**: <the question, with the choices if there are any>
+**Round 2**
+
+❓ **Q4** - **<question title>**: <the question, with the choices if there are any>
 
 ➡️ <your recommended answer>
 
 ---
 
-❓ **Q2** - **<question title>**: <the question>
+❓ **Q5** - **<question title>**: In Q2 I asked <the earlier question>, and you answered <the Human's answer>. <the follow-up question>
 
 ➡️ <your recommended answer>
 ```
 
-Word each question so "yes" accepts your recommended answer. The Human may answer a whole round with one "yes", or question by question ("Q2: no, …"). A question the Human skips stays open for the next round.
+Word each question so "yes" accepts your recommended answer. The Human may answer a whole round with one "yes", or question by question ("Q5: no, …"). A question the Human skips stays open for the next round and keeps its number.
 
 The Human often reads rounds on a phone, so keep each question to a few short lines in plain words, with choices as a short list and no tables.
 
