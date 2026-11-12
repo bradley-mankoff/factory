@@ -30,6 +30,7 @@
     work-finished.test.ts  — bin/work-finished on a temporary artifacts folder with a stand-in for bd: the work node's failed checks are commented on the Bead and the node fails, so the reviews do not run (fac-qpv.3.3)
     size.test.ts  — scripts/size on a throwaway repo of one file per kind: policy lines counted, comments, docstrings and blanks left out, and the folders the Factory does not depend on skipped (fac-4tn)
     map-render.test.ts  — map/render beside a paths.txt the test writes: a tag before or after a note is never part of the path it checks, and a path with no folder is still reported missing (fac-fca)
+    prompt-guidance.test.ts  — The prompts and guides read as a Run reads them: the module and test design rules each prompt carries, the guides' own content, no prompt or guide naming Pocock's setup, and both build Workflows gating the standards review on the spec review's approval (fac-6a7.2)
     fixtures/install-mac.ts  — One temporary Mac for the install tests: a HOME with the files a Mac already has and stand-ins on PATH for the commands install calls outside the Factory
   project-manager/  — The Project Manager's definition
     instructions.md  — Appended to pi's system prompt; under the worktree shape its Runs start from the worktree's branch with --base, pushed first (fac-qpv.6.5)
@@ -39,7 +40,10 @@
     work.md  — The work agent: build the Bead test first
     task.md  — The task agent: do the Bead in one step, answer or change it
     review_spec.md  — The spec review agent: did it do what the Bead asked
-    review_standards.md  — The standards review agent: coding standards and code smells
+    review_standards.md  — The standards review agent: coding standards, code smells and the four design judgements
+    guides/  — The fuller guidance a prompt sends its agent to read on a named condition
+      module-design.md  — The design words, depth, the deletion test, where a seam goes and what an interface must say (fac-6a7.2)
+      test-design.md  — Reaching a database, network service, file system or clock in a test, and judging a test as code (fac-6a7.2)
     LICENSE.txt  — MIT, for what was adapted from Matt Pocock
   bin/  — Helpers for the start script and the Workflows
     node-prompts  — Prints prompts/ as JSON for a Workflow's prompts node, with a Flows marker per checked node when given the Workflow folder, and fails, naming the file, when the flows files and the Workflow YAML disagree (fac-wtw)
@@ -108,7 +112,7 @@
   bin/  — node-prompts, bead, work-finished, finish, pm-pane, archon-roles, archon-register, tell-pm, land, board
   jev-shadow.jsonl  — Jev's is-it-done answer for each Run's review pass; the record that retired Jev, kept as it stands (fac-60v.20.12, fac-qpv.3.3)
   jev-replay/  — The 2026-10-24 replay of Jev over 35 past review passes: cases, states, scripts, results (fac-60v.20.12)
-  prompts/  — work.md, task.md, review_spec.md, review_standards.md
+  prompts/  — work.md, task.md, review_spec.md, review_standards.md and guides/ for the fuller design guidance
   skills/  — grilling, wayfinder, to-spec, to-beads and record-demo (all linked into ~/.agents/skills)
   GLOSSARY.md  — Appended to the Project Manager's system prompt
   demo/  — trim-idle and playwright-core 1.63.0
