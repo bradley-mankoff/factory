@@ -13,7 +13,6 @@ On top of what the repo documents, check this baseline of code smells, adapted f
 - **Divergent change**: one module edited for several unrelated reasons. Split it.
 - **Speculative generality**: abstractions, parameters or hooks the Bead does not need. Delete them.
 - **Message chains**: long `a.b().c().d()` walks a caller should not depend on. Hide the walk behind one call.
-- **Middle man**: a module or function that only passes calls on. Call the real target.
 - **Refused bequest**: a subtype that ignores most of what it inherits. Use composition.
 
 Beyond the smells, judge the design of every module the diff adds, changes or reshapes against four judgements, adapted from Ousterhout's *A Philosophy of Software Design*:

@@ -22,10 +22,15 @@ const buildPrompts = (): Record<string, string> => {
 	return JSON.parse(result.stdout) as Record<string, string>;
 };
 
-/** The first line of a prompt that matches, so a rule is checked where its agent reads it. */
-const lineMatching = (text: string, pattern: RegExp | string): string => {
+/** Every line of a prompt that matches, so a rule is checked where its agent reads it. */
+const linesMatching = (text: string, pattern: RegExp | string): string[] => {
 	const matches = (each: string) => (typeof pattern === "string" ? each.includes(pattern) : pattern.test(each));
-	const line = text.split("\n").find(matches);
+	return text.split("\n").filter(matches);
+};
+
+/** The first line of a prompt that matches, for a rule stated once. */
+const lineMatching = (text: string, pattern: RegExp | string): string => {
+	const [line] = linesMatching(text, pattern);
 	assert.ok(line, `a line of the prompt matches ${pattern}`);
 	return line;
 };
@@ -69,6 +74,12 @@ test("the work prompt asks for one thing checked per test", () => {
 	assert.match(prompts.work, /one thing checked per test/);
 });
 
+test("the work prompt's test-name example names a caller of the project's domain, not a person", () => {
+	const line = lineMatching(prompts.work, /reads like a specification/);
+	assert.match(line, /a caller can check out with a valid cart/);
+	assert.doesNotMatch(line, /\ba user\b/i);
+});
+
 test("the work prompt gives depth a sentence", () => {
 	const line = lineMatching(prompts.work, /depth/i);
 	assert.match(line, /a lot of behaviour behind a small interface/);
@@ -98,6 +109,16 @@ test("the work prompt asks the commit message to name the interface built and th
 	assert.match(line, /which interface you built/);
 });
 
+test("the work prompt makes a refactor its Bead asks for part of the work loop", () => {
+	const line = lineMatching(prompts.work, /refactoring the Bead asks for/i);
+	assert.match(line, /is this loop's work/);
+});
+
+test("the work prompt leaves refactoring its Bead does not ask for to the review", () => {
+	const line = lineMatching(prompts.work, /refactoring it does not ask for/i);
+	assert.match(line, /belongs to the review/);
+});
+
 test("the standards review sends the agent to the module guide when a module, an interface or a seam changes", () => {
 	const line = lineMatching(prompts.review_standards, moduleGuide);
 	assert.match(line, /when the diff adds a module, changes an interface or moves a seam/);
@@ -115,6 +136,11 @@ test("the standards review names the four design judgements", () => {
 	assert.match(text, /interface grown to match its implementation/i);
 	assert.match(text, /pass-through/i);
 	assert.match(text, /indirection with one adapter/i);
+});
+
+test("the standards review gives a module that only passes calls on one finding, not two", () => {
+	const findings = linesMatching(prompts.review_standards, /middle man|only passes calls on/i);
+	assert.equal(findings.length, 1, findings.join("\n"));
 });
 
 test("the standards review judges the tests as code, after the spec review judged whether they reach the seam", () => {
