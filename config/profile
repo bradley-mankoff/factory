@@ -32,6 +32,13 @@ BOARD_PORT=3917
 # overwrites it.
 CHAINS=$HOME/.config/factory/chains.json
 
+# Extra pi extensions the Runs pi folder loads, as a space-separated list of absolute paths
+# to extension files. The core's pi folder loads only what it ships; a Mac whose Chains need
+# a registration this public repo must not hold names the file here, and install.sh links it
+# into the Runs pi folder's extensions/ and removes a link there to a path no longer listed.
+# Unset or empty leaves that folder as it is. The personal Mac needs none.
+# RUN_EXTENSIONS=$HOME/.pi/agent/extensions/my-extension.ts
+
 # FactoryClaw runs on OpenClaw rather than pi, so it names a model and a thinking level,
 # not a Chain. It is used only when OUTER_LAYER is factoryclaw.
 FACTORYCLAW_MODEL=opencode-go/muse-spark-1.3-contributor
