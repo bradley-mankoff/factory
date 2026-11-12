@@ -10,7 +10,7 @@ nodes:
   # Prints each checked node's Flows marker (flows/ beside this file), which the pi-flows
   # package reads to hold the node to its checks (fac-qpv.3.3).
   - id: prompts
-    bash: '"$HOME/.local/share/factory/bin/node-prompts" "${LIBRARY:-$ARCHON_HOME/workflows}/factory/research"'
+    bash: '"$HOME/.local/share/factory/bin/node-prompts" "${LIBRARY:-$ARCHON_HOME/workflows}/factory/factory-research"'
 
   - id: look-a
     depends_on: [prompts]

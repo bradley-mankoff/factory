@@ -312,7 +312,7 @@ test("the map lists both guides under prompts/", () => {
 });
 
 test("both build Workflows gate the standards review on the spec review's approval", () => {
-	for (const name of ["build", "build-gated"]) {
+	for (const name of ["factory-build", "factory-build-gated"]) {
 		const yaml = readFileSync(join(root, "workflows", "factory", name, `${name}.yaml`), "utf8");
 		const standards = yaml.split(/\n(?=  - id: )/).find((node) => node.startsWith("  - id: standards\n"));
 		assert.ok(standards, `${name} has a standards node`);

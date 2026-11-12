@@ -141,10 +141,10 @@ test("bin/node-prompts matches a flows file to a node spelled with an underscore
 test("every core Workflow's marker names the node Archon runs", () => {
 	// The checked nodes of each core Workflow, as its YAML declares them (fac-wtw).
 	const checkedNodes: Record<string, string[]> = {
-		build: ["work"],
-		"build-gated": ["work"],
-		research: ["combine", "look-a", "look-b"],
-		task: ["task"],
+		"factory-build": ["work"],
+		"factory-build-gated": ["work"],
+		"factory-research": ["combine", "look-a", "look-b"],
+		"factory-task": ["task"],
 	};
 	for (const [name, nodes] of Object.entries(checkedNodes)) {
 		const result = runNodePrompts(join(root, "workflows", "factory", name));
