@@ -164,6 +164,27 @@ WRAPPER
 	merge_json "$pi_dir/settings.json" "$src/pi-agent/settings.json"
 	merge_json "$pi_dir/trust.json" "$src/pi-agent/trust.json"
 	merge_json "$pi_dir/claude-bridge.json" "$src/pi-agent/claude-bridge.json"
+	# Extra pi extensions this Mac's Runs load, which the core cannot ship: the work Mac's
+	# Chains reach GPT through two ChatGPT logins, registered by an extension that names work
+	# accounts (fac-pbg). The Profile's RUN_EXTENSIONS lists absolute paths to extension files;
+	# each is linked into the folder's extensions/, and a link there to a path no longer listed
+	# is removed, so dropping one from the Profile undoes it at the next install. An unset or
+	# empty key leaves the folder as it is: the Factory holds no extension of its own, so there
+	# is nothing to tidy up for a Mac that names none.
+	run_extensions=${RUN_EXTENSIONS-}
+	if [ -n "$run_extensions" ]; then
+		mkdir -p "$pi_dir/extensions"
+		for extension in $run_extensions; do
+			ln -sfn "$extension" "$pi_dir/extensions/$(basename "$extension")"
+		done
+		for link in "$pi_dir/extensions"/*; do
+			[ -L "$link" ] || continue
+			case " $run_extensions " in
+			*" $(readlink "$link") "*) ;;
+			*) rm -f "$link" ;;
+			esac
+		done
+	fi
 	# The subagent extension reads agent definitions from <pi folder>/agents, so the scout
 	# goes into this folder for Project Managers and is linked into the Human's.
 	rsync -a --delete "$src/pi-agent/agents/" "$pi_dir/agents/"
