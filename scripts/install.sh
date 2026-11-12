@@ -23,6 +23,10 @@ set -eu
 
 src=$(cd "$(dirname "$0")/.." && pwd)
 factory=$HOME/.local/share/factory
+# The archon wrapper install keeps for itself and links into ~/.local/bin; FactoryClaw's
+# allowlist names this file's real path, because OpenClaw matches the entry against what
+# the link resolves to (fac-lw9). The write gives the reasons for both.
+archon_wrapper=$factory/commands/archon
 pi_dir=$factory/pi-agent
 config=$HOME/.config/factory
 profile=$config/profile
@@ -77,7 +81,7 @@ install_factory() {
 	# whatever stands at that path is replaced: writing there would follow a link a Mac's
 	# earlier Factory left and overwrite the file it points at (fac-lw9).
 	mkdir -p "$factory/commands" "$HOME/.local/bin"
-	cat > "$factory/commands/archon" <<WRAPPER
+	cat > "$archon_wrapper" <<WRAPPER
 #!/bin/sh
 # Written by the Factory's scripts/install.sh: runs Archon with the Factory's Archon home
 # and Workflow library, both from the Mac's Profile.
@@ -87,8 +91,8 @@ export DEFAULT_AI_ASSISTANT="\${DEFAULT_AI_ASSISTANT:-pi}"
 export ARCHON_TELEMETRY_DISABLED=1 DO_NOT_TRACK=1 PI_SKIP_VERSION_CHECK=1
 exec "$ARCHON_HOME/bin/archon" "\$@"
 WRAPPER
-	chmod +x "$factory/commands/archon"
-	ln -sfn "$factory/commands/archon" "$HOME/.local/bin/archon"
+	chmod +x "$archon_wrapper"
+	ln -sfn "$archon_wrapper" "$HOME/.local/bin/archon"
 	# Archon's small, medium and large tiers and its @aliases name the Mac's Chain roles, so
 	# a Workflow names a role and never a model or a seat (fac-qpv.1.4).
 	"$src/bin/archon-roles"
@@ -347,7 +351,7 @@ have = [{k: e[k] for k in ("pattern", "argPattern") if k in e} for e in agent.ge
 if have != want:
     agent["allowlist"] = want
     subprocess.run(["openclaw", "approvals", "set", "--stdin"], input=json.dumps(snap), text=True, check=True, stdout=subprocess.DEVNULL)
-' "$factory/commands/archon"
+' "$archon_wrapper"
 }
 
 setup_project() {
