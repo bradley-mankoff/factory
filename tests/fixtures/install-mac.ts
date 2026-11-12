@@ -1,9 +1,9 @@
 /**
  * One temporary Mac, for the tests whose seam is installation: a HOME with the files a Mac
  * already has, and stand-ins on PATH for the commands scripts/install.sh calls outside the
- * Factory (OpenClaw, Archon, herdr, launchd, pi, npm and bdui). A test reads back the files
- * install leaves on that Mac and the log each stand-in wrote; nothing looks inside
- * install.sh.
+ * Factory (OpenClaw, Archon, the release's curl, herdr, launchd, pi, npm and bdui). A test
+ * reads back the files install leaves on that Mac and the log each stand-in wrote; nothing
+ * looks inside install.sh.
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -15,6 +15,19 @@ export const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", ".."
 
 /** The example Profile this repo ships, before install copies it to a Mac. */
 export const shippedProfile = (): string => readFileSync(join(repoRoot, "config", "profile"), "utf8");
+
+/**
+ * The value scripts/install.sh pins under one name at its top, read the way the installer
+ * reads it. Its top is the one place the version set lives (`map/paths.txt`), so a Mac that
+ * stands in for this one reports that release rather than a copy of the number here.
+ */
+export const pinnedValue = (name: string): string => {
+	const line = readFileSync(join(repoRoot, "scripts", "install.sh"), "utf8")
+		.split("\n")
+		.find((each) => each.startsWith(`${name}=`));
+	if (!line) throw new Error(`scripts/install.sh pins no ${name}`);
+	return line.slice(name.length + 1);
+};
 
 /**
  * A Profile a Mac that keeps its work local writes for itself: the squash landing, the
@@ -125,7 +138,8 @@ export const makeMac = (options: { profile?: string; profileExtra?: string; arch
 		? profileValue(home, profile, "ARCHON_HOME")
 		: join(home, ".local", "share", "factory", "archon");
 	const library = options.profile ? profileValue(home, profile, "LIBRARY") : join(archonHome, "workflows");
-	const archonVersion = options.archonVersion ?? "v0.14.0";
+	const pinnedArchon = `v${pinnedValue("archon_version")}`;
+	const archonVersion = options.archonVersion ?? pinnedArchon;
 	const receipt = join(archonHome, "plugins", "installed", "coleam00", "Archon", "plugins", "provider-pi", "receipt.json");
 	/** An Archon binary that behaves as far as install can tell: it names its version, logs
 	 * each call, writes its provider receipt on `provider add`, and lists no aliases. */
@@ -149,7 +163,7 @@ exit 0`;
 	// the pinned release, so a Mac on an earlier one can be moved without the network.
 	const asset = join(dir, "archon-release");
 	const assetName = `archon-${process.platform === "darwin" ? "darwin" : "linux"}-${process.arch === "arm64" ? "arm64" : "x64"}`;
-	writeFileSync(asset, `#!/bin/sh\n${archonStub("v0.14.0")}\n`);
+	writeFileSync(asset, `#!/bin/sh\n${archonStub(pinnedArchon)}\n`);
 	chmodSync(asset, 0o755);
 	stub(
 		join(bin, "curl"),

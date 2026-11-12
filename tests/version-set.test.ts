@@ -10,19 +10,11 @@
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { test } from "node:test";
-import { fileURLToPath } from "node:url";
+import { pinnedValue, repoRoot } from "./fixtures/install-mac.ts";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const read = (path: string): string => readFileSync(join(root, path), "utf8");
-
-/** The value install.sh gives one of the three names at its top, as the installer reads it. */
-const pin = (name: string): string | undefined =>
-	read("scripts/install.sh")
-		.split("\n")
-		.find((line) => line.startsWith(`${name}=`))
-		?.slice(name.length + 1);
+const read = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
 
 /** The spec's current version paragraph, which ends where the Claude Code decision starts. */
 const versionSection = (): string => {
@@ -34,9 +26,9 @@ const versionSection = (): string => {
 };
 
 test("the install pins Archon 0.14.0 with pi 1.3.0 and pi-claude-bridge 0.9.3", () => {
-	assert.equal(pin("archon_version"), "0.14.0");
-	assert.equal(pin("pi_version"), "1.3.0");
-	assert.equal(pin("bridge"), "pi-claude-bridge@0.9.3");
+	assert.equal(pinnedValue("archon_version"), "0.14.0");
+	assert.equal(pinnedValue("pi_version"), "1.3.0");
+	assert.equal(pinnedValue("bridge"), "pi-claude-bridge@0.9.3");
 });
 
 test("the spec's version section names the Archon the install pins and the pi it bundles", () => {
@@ -46,12 +38,19 @@ test("the spec's version section names the Archon the install pins and the pi it
 	assert.match(section, /1\.3\.0 \(Archon's `bun\.lock` at tag v0\.14\.0\)/);
 });
 
-test("the map names the version set the install pins, and no Archon this Mac does not run", () => {
+test("the map names the version set the install pins", () => {
 	const map = read("map/paths.txt");
 	assert.match(map, /version set: Archon 0\.14\.0, pi 1\.3\.0, pi-claude-bridge 0\.9\.3/);
 	assert.match(map, /Archon 0\.14\.0 runs Workflows on pi/);
 	assert.match(map, /The Archon 0\.14\.0 binary/);
-	assert.equal(map.includes("0.12.1"), false, "the map is this Mac's, so it names no earlier Archon as installed");
+});
+
+test("the map names no Archon this Mac does not run", () => {
+	assert.equal(
+		read("map/paths.txt").includes("0.12.1"),
+		false,
+		"the map is this Mac's, so it names no earlier Archon as installed",
+	);
 });
 
 test("the pi folder's README places the package lookup in the Archon the install pins", () => {

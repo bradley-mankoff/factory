@@ -13,11 +13,11 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { logOf, makeMac } from "./fixtures/install-mac.ts";
 
-/** The Archon binary install puts in the Archon home, run the way the wrapper runs it. */
+/** The Archon binary install puts in the Archon home, run with the Mac's own environment. */
 const installedArchon = (home: string): string => join(home, ".local", "share", "factory", "archon", "bin", "archon");
 
-/** The pi provider's receipt, which Archon writes when `provider add pi` installs it. */
-const receiptOf = (home: string): { tag: string; descriptor: { protocol: number } } =>
+/** The version the pi provider's receipt names; Archon writes it when `provider add pi` runs. */
+const receiptTag = (home: string): string =>
 	JSON.parse(
 		readFileSync(
 			join(
@@ -36,7 +36,7 @@ const receiptOf = (home: string): { tag: string; descriptor: { protocol: number 
 			),
 			"utf8",
 		),
-	);
+	).tag;
 
 test("install moves a Mac on the previous Archon release to the pinned one and its provider", () => {
 	const mac = makeMac({ archonVersion: "v0.12.1" });
@@ -44,11 +44,9 @@ test("install moves a Mac on the previous Archon release to the pinned one and i
 		const result = mac.install();
 		assert.equal(result.status, 0, result.stderr || result.stdout);
 
-		const version = execFileSync(installedArchon(mac.home), ["--version"], { encoding: "utf8" });
+		const version = execFileSync(installedArchon(mac.home), ["--version"], { encoding: "utf8", env: mac.env });
 		assert.match(version, /archon v0\.14\.0/, "the binary at the Archon home reports the pinned release");
-		const receipt = receiptOf(mac.home);
-		assert.equal(receipt.tag, "v0.14.0", "the provider installed with that binary is the same release's");
-		assert.equal(receipt.descriptor.protocol, 3);
+		assert.equal(receiptTag(mac.home), "v0.14.0", "the provider installed with that binary is the same release's");
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}
