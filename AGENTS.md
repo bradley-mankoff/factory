@@ -6,7 +6,7 @@ This repo is the source of the Factory: the skills, the Project Manager's defini
 - `GLOSSARY.md` holds the words; use them in every file. It also lists the earlier Factory's words, which this repo replaces.
 - `map/paths.txt` lists every Factory path on this Mac with a line on what it is; `map/render` builds the page from it. A change that adds, moves or removes such a path updates `map/paths.txt` in the same commit.
 - `reference/` is copied evidence, chiefly the Archon and pi spike in `reference/archon-pi-spike/RESULTS.md`. Read it before writing Workflows or pi setup; it is not part of the Factory.
-- Matt Pocock's skills, which several Factory skills and node prompts adapt, are cloned at `~/Developer/reference/mattpocock-skills`. What the Factory has adapted (its planning skills and `prompts/`) is its own and no longer follows his releases (the Human, 2026-10-19); read his clone for ideas, not to sync. The Project Manager still loads his unadapted `domain-modeling`, `tdd`, `codebase-design` and `prototype` as installed in `~/.agents/skills`.
+- Matt Pocock's skills, which several Factory skills and node prompts adapt, are cloned at `~/Developer/reference/mattpocock-skills`. What the Factory has adapted (its planning skills, its engineering skills `tdd`, `codebase-design` and `code-review`, and `prompts/`) is its own and no longer follows his releases (the Human, 2026-10-19); read his clone for ideas, not to sync. The Project Manager loads the Factory's own `tdd`, `codebase-design` and `code-review`; only `domain-modeling` and `prototype` stay his, unadapted, in `~/.agents/skills` (fac-6a7.5).
 
 ## Rules
 
