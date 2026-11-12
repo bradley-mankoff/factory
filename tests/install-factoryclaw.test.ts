@@ -7,7 +7,7 @@
  * workspace.
  */
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, realpathSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { logOf, makeMac, type Mac } from "./fixtures/install-mac.ts";
@@ -45,7 +45,7 @@ test("install gives FactoryClaw exactly the four commands, with no Claude usage 
 			{ pattern: "herdr" },
 			{ pattern: "launchctl", argPattern: "^start factory\\.herdr$" },
 			{ pattern: "bd", argPattern: "^-C \\S+ (show|list|ready|comments)( |$)" },
-			{ pattern: join(mac.home, ".local", "bin", "archon"), argPattern: "^workflow (status|runs)( |$)" },
+			{ pattern: realpathSync(join(mac.home, ".local", "bin", "archon")), argPattern: "^workflow (status|runs)( |$)" },
 		]);
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });

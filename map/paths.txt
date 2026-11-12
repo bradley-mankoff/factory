@@ -26,6 +26,7 @@
     install-packages.test.ts  — install with a temporary HOME and a stand-in pi: each package goes into the pi folder that needs it, both pi folders link chains.json to the Profile's Chains, and install repairs nothing an earlier install left (fac-qpv.8.1)
     install-status-bar.test.ts  — install on a temporary Mac that already has the status bar app and its login job: the binary, the app's Info.plist and the job plist are left as they were, and install builds and signs no app (fac-2na)
     install-factoryclaw.test.ts  — install with a temporary HOME: FactoryClaw's allowlist holds exactly the four commands its AGENTS.md names, with no Claude usage check among them; no claude-usage helper is installed; and its instructions say nothing about Claude (fac-vse)
+    install-archon-wrapper.test.ts  — install on a temporary Mac whose ~/.local/bin/archon links to an earlier Factory's wrapper: the file it pointed at is unchanged, the link resolves to the wrapper install keeps in its own root, and FactoryClaw's archon allowlist names that resolved path (fac-lw9)
     board.test.ts  — install on a temporary Mac with stand-ins at the edges: the launchd job it writes for the board, that job run the way launchd would, and what the board was asked for in its stand-in's log (fac-qpv.7.3)
     work-finished.test.ts  — bin/work-finished on a temporary artifacts folder with a stand-in for bd: the work node's failed checks are commented on the Bead and the node fails, so the reviews do not run (fac-qpv.3.3)
     size.test.ts  — scripts/size on a throwaway repo of one file per kind: policy lines counted, comments, docstrings and blanks left out, and the folders the Factory does not depend on skipped (fac-4tn)
@@ -110,6 +111,7 @@
   notices/  — One Notice file per Project Manager, <pane>.md: bin/tell-pm appends a Run's ending, and the pi-notices package delivers each new line into the conversation (fac-qpv.2.1)  [runtime]
   project-manager/  — instructions.md, pm and start; FactoryClaw's panes skill runs start, which opens the session with the start routine's proposal when it gets no first message (fac-qpv.2.2)
   bin/  — node-prompts, bead, work-finished, finish, pm-pane, archon-roles, archon-register, tell-pm, land, board
+  commands/archon  — The archon wrapper install writes: sets ARCHON_HOME and LIBRARY to the Profile's values unless the shell sets them, and runs the Archon binary; ~/.local/bin/archon links here, so a link an earlier Factory left is replaced rather than written through, and FactoryClaw's allowlist names this real path (fac-lw9)
   jev-shadow.jsonl  — Jev's is-it-done answer for each Run's review pass; the record that retired Jev, kept as it stands (fac-60v.20.12, fac-qpv.3.3)
   jev-replay/  — The 2026-10-24 replay of Jev over 35 past review passes: cases, states, scripts, results (fac-60v.20.12)
   prompts/  — work.md, task.md, review_spec.md, review_standards.md and guides/ for the fuller design guidance
@@ -146,7 +148,7 @@
 
 ## Archon and the Workflow library
 > Archon 0.12.1 runs Workflows on pi. Its home is the Profile's ARCHON_HOME, wherever that Mac's Profile names it, and holds the Workflow library: the core group that install writes from this repo, and the person's own groups beside it.
-~/.local/bin/archon  — Wrapper, written by install.sh: sets ARCHON_HOME and LIBRARY to the Profile's values unless the shell sets them, and runs the Archon binary
+~/.local/bin/archon  — Link to the installed commands/archon wrapper, which sets ARCHON_HOME and LIBRARY to the Profile's values unless the shell sets them, and runs the Archon binary (fac-lw9)
 ~/.local/share/factory/archon  — The example Profile's ARCHON_HOME, inside the Factory's one root (moved from ~/.local/share/archon-pi on 2026-10-21); a Mac whose Profile chooses otherwise puts it wherever its Profile names
   bin/archon  — The Archon 0.12.1 binary, downloaded by install.sh from the release and checked against its checksums
   library.git/  — Git folder of the Workflow library, the person's own groups' repo github.com/bradley-mankoff/archon-workflows (kept beside it, since Archon refuses a .git folder)
