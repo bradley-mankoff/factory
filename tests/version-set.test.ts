@@ -2,10 +2,11 @@
  * The one version set (fac-88m.1, fac-aan): Archon, pi and pi-claude-bridge are upgraded
  * together or not at all, and the top of scripts/install.sh is where the set is written.
  * The seam is the published files: the installer read for its three values, which its map
- * line calls the contract ("its top holds the one version set"), and the spec and the map
- * read the way a stranger reads them. This catches a bump that reaches the installer but
- * not the documents, or the documents but not the installer; it misses whether this Mac
- * really runs the set, which the Run's acceptance test proves by installing it.
+ * line calls the contract ("its top holds the one version set"), and the spec, the map and
+ * the pi folder's README read the way a stranger reads them. This catches a bump that
+ * reaches the installer but not the documents, or the documents but not the installer; it
+ * misses whether this Mac really runs the set, which the Run's acceptance test proves by
+ * installing it.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -51,4 +52,14 @@ test("the map names the version set the install pins, and no Archon this Mac doe
 	assert.match(map, /Archon 0\.14\.0 runs Workflows on pi/);
 	assert.match(map, /The Archon 0\.14\.0 binary/);
 	assert.equal(map.includes("0.12.1"), false, "the map is this Mac's, so it names no earlier Archon as installed");
+});
+
+test("the pi folder's README places the package lookup in the Archon the install pins", () => {
+	const readme = read("pi-agent/README.md");
+	assert.match(readme, /Archon 0\.14\.0 loads this folder's packages/);
+	assert.match(
+		readme,
+		/community\/pi\/session-setup\.ts`, LOOKUP-2/,
+		"the source the README cites is where the pinned release does the lookup",
+	);
 });
