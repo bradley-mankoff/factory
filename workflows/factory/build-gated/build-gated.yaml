@@ -7,6 +7,12 @@ description: >-
   findings on the Bead. Start it with "<pane> · <bead id>". Needs FACTORY_CHECK and
   FACTORY_DEMOS in the project's .archon/.env.
 provider: pi
+# A Bead whose honest check is narrower than the project's (one test file, say) passes it
+# with --input check_command='<command>'; every check and the landing then use it.
+inputs:
+  check_command:
+    default: ""
+    description: The check for this Run in place of the project's FACTORY_CHECK.
 nodes:
   - id: bead
     bash: '"$HOME/.local/share/factory/bin/bead" "$ARGUMENTS"'
@@ -14,7 +20,7 @@ nodes:
   # The Factory's conventions for each kind of AI node (prompts/ in the Factory's repo):
   # every AI node's prompt starts with one of them.
   - id: prompts
-    bash: '"$HOME/.local/share/factory/bin/node-prompts" "${LIBRARY:-$ARCHON_HOME/workflows}/factory/build-gated"'
+    bash: 'FACTORY_CHECK="${INPUTS_CHECK_COMMAND:-$FACTORY_CHECK}" "$HOME/.local/share/factory/bin/node-prompts" "${LIBRARY:-$ARCHON_HOME/workflows}/factory/build-gated"'
 
   - id: work
     depends_on: [bead, prompts]
@@ -29,6 +35,7 @@ nodes:
   - id: checks
     depends_on: [work]
     bash: |
+      FACTORY_CHECK="${INPUTS_CHECK_COMMAND:-$FACTORY_CHECK}"
       if out=$(sh -c "$FACTORY_CHECK" 2>&1); then r=PASSED; else r=FAILED; fi
       printf 'CHECKS %s\n%s\n' "$r" "$(printf '%s\n' "$out" | tail -40)"
 
@@ -44,6 +51,9 @@ nodes:
   # review ends the Run before any fixing is spent on it.
   - id: spec
     depends_on: [work-finished]
+    # Archon continues the previous AI node's session unless a node says fresh, and a
+    # review that inherits the work agent's session is no independent review.
+    context: fresh
     model: "@spec-review"
     idle_timeout: 300000
     allowed_tools: [read, bash]
@@ -68,6 +78,7 @@ nodes:
   - id: standards
     depends_on: [spec]
     when: "$spec.output.approved == true"
+    context: fresh
     model: "@standards-review"
     idle_timeout: 300000
     prompt: |
@@ -89,6 +100,7 @@ nodes:
     depends_on: [standards]
     when: "$standards.output.approved == true"
     bash: |
+      FACTORY_CHECK="${INPUTS_CHECK_COMMAND:-$FACTORY_CHECK}"
       out=$(sh -c "$FACTORY_CHECK" 2>&1); status=$?
       printf '%s\n' "$out" | tail -40
       exit $status
@@ -120,12 +132,13 @@ nodes:
   # and stops (fac-qpv.6.4). Its `held` note names what it holds, which the gate quotes.
   - id: land-hold
     depends_on: [recheck]
-    bash: '"$HOME/.local/share/factory/bin/land" --hold'
+    bash: 'FACTORY_CHECK="${INPUTS_CHECK_COMMAND:-$FACTORY_CHECK}" "$HOME/.local/share/factory/bin/land" --hold'
 
   # The Human judges taste and fit from Telegram and never runs anything, so the gate
   # carries a video of the change working.
   - id: demo
     depends_on: [land-hold]
+    context: fresh
     model: "@work"
     idle_timeout: 300000
     allowed_tools: [read, bash, write]
@@ -162,7 +175,7 @@ nodes:
   - id: land
     depends_on: [taste]
     when: "$taste.output.decision == 'approve'"
-    bash: '"$HOME/.local/share/factory/bin/land"'
+    bash: 'FACTORY_CHECK="${INPUTS_CHECK_COMMAND:-$FACTORY_CHECK}" "$HOME/.local/share/factory/bin/land"'
 
   # bin/finish reads how the Run ended from the notes in the Run's artifacts, never from a
   # node's output or the gate's: Archon refuses to splice a failed node's output, so such a

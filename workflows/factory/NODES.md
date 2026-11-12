@@ -57,11 +57,13 @@ Reads the diff and judges only whether it does what the Bead and its Epic's Spec
 no more, and whether anything ends in an error. It changes nothing. Prompt `review_spec`
 (`prompts/review_spec.md`); role `@spec-review`, whose Chain is its own because this review matters
 most; tools: read and bash; no Flows file. Its `output_format` is the review verdict the nodes after
-it read.
+it read. Every AI node after the first says `context: fresh`: Archon otherwise continues the
+previous AI node's session, and a review inside the work agent's session is not independent.
 
 ```yaml
   - id: spec
     depends_on: [work-finished]
+    context: fresh
     model: "@spec-review"
     idle_timeout: 300000
     allowed_tools: [read, bash]
@@ -87,6 +89,7 @@ there. Prompt `review_standards` (`prompts/review_standards.md`); role `@standar
   - id: standards
     depends_on: [spec]
     when: "$spec.output.approved == true"
+    context: fresh
     model: "@standards-review"
     idle_timeout: 300000
     prompt: |
@@ -106,6 +109,7 @@ node; no Flows file, because the gate reads the video's file.
 
 ```yaml
   - id: demo
+    context: fresh
     depends_on: [land-hold]
     model: "@work"
     idle_timeout: 300000
