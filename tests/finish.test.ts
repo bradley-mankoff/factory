@@ -1,8 +1,9 @@
 /**
  * bin/finish is how a Run's last node reports how the Run ended (GLOSSARY.md, `Notice`).
  * It reads the notes the Run leaves in its artifacts folder — bin/land's `landing` and
- * `held`, pi-flows' `flows-failed.txt`, a task's `no-commits` and research's `findings.md`
- * — composes the one Notice line and leaves it with bin/tell-pm. The seam is the command:
+ * `held`, the gated Workflow's `rejected` with the Human's reason, pi-flows'
+ * `flows-failed.txt`, a task's `no-commits` and research's `findings.md` — composes the one
+ * Notice line and leaves it with bin/tell-pm. The seam is the command:
  * a temporary home that receives the Notice file, a temporary artifacts folder holding the
  * notes, and the environment a Run gives its last node. Nothing here looks inside bin/finish.
  */
@@ -97,6 +98,42 @@ test("a held landing in the gated Workflow's Notice names what the gate decides"
 	assert.equal(
 		noticeText(heldOnly),
 		"Run run-123 (factory-build-gated) for Bead fac-1 held the pull request https://github.com/example/factory/pull/7 into main and did not land it; archon workflow get run-123 names the node that failed or the gate's answer.",
+	);
+});
+
+test("a rejected gated Run's Notice says the gate rejected it, names the Human's reason and says it did not land", () => {
+	// A reject skips the land node, so the `landing` and `held` notes bin/land --hold left
+	// before the gate are still there. The gate's own answer is the `rejected` note, and it
+	// is the ending to report: nothing landed. The reason is the words the Human gave.
+	const h = makeHarness();
+	h.note("held", "the pull request https://github.com/example/factory/pull/7 into main\n");
+	h.note("landing", "opened the pull request https://github.com/example/factory/pull/7 into main, which the gate decides\n");
+	h.note("rejected", "The output format feels wrong.\n");
+
+	const result = h.run("factory-build-gated");
+
+	assert.equal(result.status, 0, result.stderr);
+	assert.equal(
+		noticeText(h),
+		"Run run-123 (factory-build-gated) for Bead fac-1 was rejected at the gate and did not land: The output format feels wrong.",
+	);
+});
+
+test("a rejected gated Run whose Human gave no reason still says it was rejected and did not land", () => {
+	// A reject needs no words, and the note is written either way. The Notice cannot name a
+	// reason the Human did not give, and it must still not report the pre-gate hold as a
+	// landing.
+	const h = makeHarness();
+	h.note("held", "the pull request https://github.com/example/factory/pull/7 into main\n");
+	h.note("landing", "opened the pull request https://github.com/example/factory/pull/7 into main, which the gate decides\n");
+	h.note("rejected", "\n");
+
+	const result = h.run("factory-build-gated");
+
+	assert.equal(result.status, 0, result.stderr);
+	assert.equal(
+		noticeText(h),
+		"Run run-123 (factory-build-gated) for Bead fac-1 was rejected at the gate and did not land.",
 	);
 });
 

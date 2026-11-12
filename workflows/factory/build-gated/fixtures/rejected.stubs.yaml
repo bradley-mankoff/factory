@@ -10,4 +10,5 @@ land-hold: "the pull request https://github.com/example/calc/pull/7 into main"
 demo: "Saved the demo video."
 ask-human: ""
 taste: {decision: reject, text: "The output format feels wrong."}
+rejected: ""
 tell-project-manager: ""

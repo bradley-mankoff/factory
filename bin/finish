@@ -10,6 +10,10 @@
 #
 #   landing          bin/land: how the landing ended, or what a held landing is.
 #   held             bin/land: what a Human gate holds, while the gate is undecided.
+#   rejected         the gated Workflow's node after the gate: the Human's reason, when
+#                    the gate rejected the Run, or empty when the Human gave none. Its
+#                    presence wins over `landing` and `held`, the notes bin/land wrote
+#                    before the gate, which no landing follows.
 #   no-commits       a task's checks node: the Run changed no files.
 #   flows-failed.txt pi-flows: the checks a node finished with still failing.
 #   findings.md      a research Run's combine node: the answer.
@@ -38,6 +42,7 @@ note() {
 
 landing=$(note landing)
 held=$(note held)
+rejected=$(note rejected)
 failures=$(note flows-failed.txt)
 # Where a Project Manager reads why a Run ended as it did. The gated Workflow also ends on
 # its gate's answer, so its sentence names that too.
@@ -57,6 +62,12 @@ if [ "$workflow" = factory-research ]; then
 else
 	if [ -e "$artifacts/no-commits" ]; then
 		how="finished without changing files; its answer is the task node's output in archon workflow get $run"
+	elif [ -e "$artifacts/rejected" ]; then
+		# The gate's answer is the Run's ending, not the hold it decided on: a reject skips
+		# the landing, so `landing` and `held` are the notes bin/land wrote before the gate
+		# and would report a landing that never happened. A Human may reject without words.
+		how="was rejected at the gate and did not land"
+		[ -z "$rejected" ] || how="$how: $rejected"
 	elif [ -n "$landing" ]; then
 		how=$landing
 	elif [ -n "$held" ]; then
@@ -64,7 +75,12 @@ else
 	else
 		how="ended without a landing; $failed_node"
 	fi
-	notice="Run $run ($workflow) for Bead $("$here/bead" --id "$message") $how."
+	# A reason is the Human's own words and may close its own sentence, so the Notice adds
+	# no full stop after one; every other ending is a phrase, which it closes.
+	case $how in
+	*[.!?]) notice="Run $run ($workflow) for Bead $("$here/bead" --id "$message") $how" ;;
+	*) notice="Run $run ($workflow) for Bead $("$here/bead" --id "$message") $how." ;;
+	esac
 fi
 
 # The failed checks stay out of the Notice, which is one line, and go in the Run's log
