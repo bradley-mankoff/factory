@@ -76,8 +76,8 @@ Not used: herdsman. Archon runs nodes in parallel, and nothing else needs child 
 
 ### Versions it is built against
 
-Tested on this Mac on 2026-10-17:
-- Archon 0.12.1, its binary at `~/.local/share/factory/archon/bin/archon`, through the wrapper `~/.local/share/factory/commands/archon` that `scripts/install.sh` writes and links to `~/.local/bin/archon`, which sets `ARCHON_HOME` and `LIBRARY` to the paths the Mac's Profile names (`fac-qpv.6.3`) and pi as the default assistant, with the pi provider installed by `archon provider add pi` (Archon 0.12 ships providers separately; rerun it after every Archon upgrade). Its AI nodes run the pi bundled in its pi provider, 1.3.0 (Archon's `bun.lock` at tag v0.12.1);
+Tested on this Mac on 2026-11-12:
+- Archon 0.14.0, its binary at `~/.local/share/factory/archon/bin/archon`, through the wrapper `~/.local/share/factory/commands/archon` that `scripts/install.sh` writes and links to `~/.local/bin/archon`, which sets `ARCHON_HOME` and `LIBRARY` to the paths the Mac's Profile names (`fac-qpv.6.3`) and pi as the default assistant, with the pi provider installed by `archon provider add pi` (Archon ships providers separately; rerun it after every Archon upgrade). Its AI nodes run the pi bundled in its pi provider, 1.3.0 (Archon's `bun.lock` at tag v0.14.0);
 - pi 1.3.0 as the installed `pi` command (Project Manager panes and shell nodes);
 - herdr 0.9.4;
 - `bd` and `gh` as installed.
@@ -163,7 +163,7 @@ Tested in two rounds on Archon 0.11.1 and rechecked in a third on Archon 0.12.1 
 - **Hooks instead**: pi's hooks are its extension events. An extension can block or change a tool call (`tool_call`), change a tool's result (`tool_result`), and act when a session starts, before the agent starts and on each context build (`docs/extensions.md` in pi's install). What is missing is only Archon's per-node `hooks:` field, which is written for Claude Code's hooks and is not translated for pi. A trusted project pi extension (for example `.pi/extensions/guard.ts`; tested example in `reference/archon-pi-spike/extensions/guard.ts`) blocks commands on pi's `tool_call` event, and it can act differently per node by reading a marker in that node's prompt. The extension must use the handler's `ctx`, never `pi.*` inside a handler: Archon shares loaded extensions across nodes, and the stale-context error otherwise blocks every tool call after a node's first.
 - **Base branch**: a Run outside a worktree (`--no-worktree`) and a Run with `--branch` both need `worktree.baseBranch` in the project's `.archon/config.yaml` when Archon cannot work out the remote's default branch; without it, shell nodes and `--branch` Runs fail before they start.
 - **Which extensions a node loads**: extensions are on or off per node, with no list of which ones. With them on, a node loads every package in the Run's pi agent directory plus every trusted extension in the project's `.pi/extensions/`. The agent directory is chosen once per Run (`PI_CODING_AGENT_DIR` when `archon` starts), not per node. So the Factory's set stays small, and an extension that should act only in some nodes checks a marker in the node's prompt and otherwise does nothing.
-- **MCP**: not needed now, and nothing planned uses it. Archon 0.12.1 runs pi 1.3.0, but its pi provider still declares MCP off (`mcp: false` in `packages/providers/src/community/pi/capabilities.ts`). No Archon issue asks for it; issue #2843, which lets nodes load named MCP servers across all providers, is the nearest. pi 1.3's own MCP does not reach Archon's AI nodes either: on 2026-10-17 a node with a trusted project `.pi/mcp.json` had no MCP tools. Instead, a shell node that runs the installed pi (`pi -p … < /dev/null`, with a shell `timeout`) reaches MCP servers. Without `< /dev/null`, pi hangs.
+- **MCP**: not needed now, and nothing planned uses it. Archon 0.14.0 runs pi 1.3.0, but its pi provider still declares MCP off (`mcp: false` in `packages/providers/src/community/pi/capabilities.ts`, and in the installed provider's receipt). No Archon issue asks for it; issue #2843, which lets nodes load named MCP servers across all providers, is the nearest. pi 1.3's own MCP does not reach Archon's AI nodes either: on 2026-10-17 a node with a trusted project `.pi/mcp.json` had no MCP tools. Instead, a shell node that runs the installed pi (`pi -p … < /dev/null`, with a shell `timeout`) reaches MCP servers. Without `< /dev/null`, pi hangs.
 - **Limits that work against runaway nodes**: `idle_timeout`, `retry` and loop `max_iterations`.
 
 ### A clean pi setup for Runs
@@ -243,7 +243,7 @@ On 2026-10-28 the Human took the toy repos off the project list and added health
 - A Spec is an Epic's description.
 - No triage labels or triage skill (settled 2026-10-17). Work comes only from the Human, or from a Project Manager or review node acting for the Human, and both kinds are treated alike. A question for the Human is a comment on the Bead it holds up, plus a FactoryClaw message.
 - Home-folder AGENTS.md files reaching every node, the missing cost cap and the title call's settings are acceptable.
-- MCP waits for Archon's pi provider to support it; it is still off in Archon 0.12.1, which already runs pi 1.3.0.
+- MCP waits for Archon's pi provider to support it; it is still off in Archon 0.14.0, which runs pi 1.3.0.
 - No `factory` command in the first version; FactoryClaw's `AGENTS.md` routes to skills.
 
 ## Remaining questions
