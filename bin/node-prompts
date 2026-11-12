@@ -5,6 +5,14 @@ Each Markdown file in ~/.local/share/factory/prompts/ is the convention for one 
 of AI node: `work`, `review_spec`, `review_standards`. A Workflow runs this as a bash
 node with the id `prompts`, and each AI node's prompt starts with its convention,
 `$prompts.output.work` for example, followed by what is particular to that Workflow.
+
+`second-pass.md` is not a kind of node: it is the paragraph a build Run adds to the work
+convention when Archon started it with `--adopt`, because then the branch already holds
+an earlier attempt and a review withheld approval of it, so the work agent reads that
+review on the Bead before it changes anything and does not redo work that stands. An
+adopting Run has `ADOPTED_RUN_DIR` set to the earlier Run's artifacts folder, empty when
+not adopting, so a Run started without `--adopt` prints the conventions unchanged.
+
 Archon's own command files could hold them too, but a command file cannot see
 `$LOOP_PREV`, which carries a review's findings back to the next pass of work.
 
@@ -45,7 +53,10 @@ import subprocess
 import sys
 
 bin_dir = pathlib.Path(__file__).resolve().parent
-prompts = {path.stem: path.read_text() for path in sorted((bin_dir.parent / "prompts").glob("*.md"))}
+prompt_dir = bin_dir.parent / "prompts"
+# second-pass.md is not a convention of its own, so it is read here but printed no key.
+prompts = {path.stem: path.read_text() for path in sorted(prompt_dir.glob("*.md")) if path.stem != "second-pass"}
+second_pass = (prompt_dir / "second-pass.md").read_text()
 
 
 def with_dashes(name):
@@ -104,5 +115,11 @@ if len(sys.argv) > 1:
             if check:
                 marker["check"] = check
             prompts[key] = "FLOWS " + json.dumps(marker)
+
+# An adopting Run continues an earlier Run: its work agent gets the second-pass paragraph,
+# which sends it to the review that withheld approval. Without --adopt ADOPTED_RUN_DIR is
+# empty, so the work prompt is the convention alone, as before.
+if os.environ.get("ADOPTED_RUN_DIR"):
+    prompts["work"] = f"{prompts['work'].rstrip()}\n\n{second_pass.strip()}\n"
 
 print(json.dumps(prompts))

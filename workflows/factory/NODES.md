@@ -18,7 +18,10 @@ node's also starts with `$prompts.output.marker_<node>`, which finds its file in
 
 Builds a Bead test first, at the seam it names, checks it and commits. This is the node a build is
 built around. Prompt `work` (`prompts/work.md`); role `@work`; tools: all of pi's; Flows
-`flows/work`: `changed-files`, `check-passes`, `closing-account`.
+`flows/work`: `changed-files`, `check-passes`, `closing-account`. On a Run started with `--adopt`
+on a withheld Run, `bin/node-prompts` adds `prompts/second-pass.md` to that prompt, so the agent
+reads the withholding review in the Bead's comments first and does not redo work that stands (see
+"Continuing a withheld Run" in the router).
 
 ```yaml
   - id: work
@@ -190,7 +193,9 @@ prompt: written into the node; Flows `flows/combine`: `file-exists findings.md`,
 `bead` prints the Bead from the end of the Run's message, so each later node takes it from
 `$bead.output`. `prompts` prints the Factory's prompts as JSON and one Flows marker for each file in
 the Workflow's `flows/`, and fails, naming the file, when a Flows file names no node or a prompt
-asks for a marker no Flows file produces. Every Workflow with an AI node has it; the last word is
+asks for a marker no Flows file produces. It also appends `prompts/second-pass.md` to the `work`
+convention when Archon started the Run with `--adopt`, which sets `ADOPTED_RUN_DIR`; without
+`--adopt` the conventions print as they are. Every Workflow with an AI node has it; the last word is
 this Workflow's folder, so change it to yours.
 
 ```yaml

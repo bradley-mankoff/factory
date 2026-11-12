@@ -5,7 +5,7 @@
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
@@ -135,6 +135,44 @@ test("bin/node-prompts matches a flows file to a node spelled with an underscore
 		assert.equal((marker(prompts, "look-a") as { node: string }).node, "look_a");
 	} finally {
 		rmSync(folder.dir, { recursive: true, force: true });
+	}
+});
+
+/** A build Workflow's prompts as its Run's prompts node prints them, adopted or not. */
+const corePrompts = (name: string, adoptedRunDir?: string): Record<string, string> => {
+	const env: NodeJS.ProcessEnv = { ...process.env };
+	// The test's own Run may itself be adopting one: ask for the prompts this test means.
+	delete env.ADOPTED_RUN_DIR;
+	if (adoptedRunDir !== undefined) env.ADOPTED_RUN_DIR = adoptedRunDir;
+	const result = spawnSync(join(root, "bin", "node-prompts"), [join(root, "workflows", "factory", name)], { encoding: "utf8", env });
+	assert.equal(result.status, 0, result.stderr);
+	return JSON.parse(result.stdout) as Record<string, string>;
+};
+
+test("an adopting build Run's work prompt says it is a second pass and sends the agent to the withholding review on the Bead", () => {
+	for (const name of ["factory-build", "factory-build-gated"]) {
+		// A prompt wraps its lines, so the paragraph is read as one line of text.
+		const work = corePrompts(name, "/tmp/an-adopted-runs-artifacts").work.replace(/\s+/g, " ");
+		assert.match(work, /This is a second pass/, `${name}'s work prompt names the pass`);
+		assert.match(work, /a review withheld approval of it/, `${name}'s work prompt names the withholding review`);
+		assert.match(work, /read that review in the comments on the Bead below/, `${name}'s work prompt sends the agent to the review first`);
+		assert.match(work, /Do not redo work that already stands/, `${name}'s work prompt keeps the work that stands`);
+	}
+});
+
+test("a build Run without --adopt gets the work prompt as it was before, the work convention alone", () => {
+	const convention = readFileSync(join(root, "prompts", "work.md"), "utf8");
+	for (const name of ["factory-build", "factory-build-gated"]) {
+		assert.equal(corePrompts(name).work, convention, `${name}'s work prompt carries no second-pass words`);
+	}
+});
+
+test("both build Workflows' work nodes take their prompt from the prompts node, so an adopting Run's second-pass words reach the agent", () => {
+	for (const name of ["factory-build", "factory-build-gated"]) {
+		const yaml = readFileSync(join(root, "workflows", "factory", name, `${name}.yaml`), "utf8");
+		const work = yaml.split(/\n(?=  - id: )/).find((node) => node.startsWith("  - id: work\n"));
+		assert.ok(work, `${name} has a work node`);
+		assert.match(work, /\$prompts\.output\.work/, `${name}'s work node prompt starts from the work convention`);
 	}
 });
 

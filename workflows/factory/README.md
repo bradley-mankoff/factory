@@ -31,11 +31,36 @@ your own. Read it when you build or fork one.
 
 ## Workflows
 
-- **factory-build**: builds one Bead in one pass. Work and checks; a spec review that only reads, and ends the Run with its findings on the Bead when it withholds; then a standards review that fixes what it finds inside the diff and commits it, the checks again, and the landing the Mac's Profile chooses: a pull request and its squash merge, or the commits squashed onto the base branch, checked again and pushed (`bin/land`). Pick it when the checks and the reviews can judge the result alone.
-  - **factory-build-gated**: the same single pass, but it holds the landing before the base branch moves, records a demo video of the change and waits at a Human gate for taste and fit. Pick it only when a person judges the change by looking at it: a screen, a page, or text a person reads. Data, numbers, schemas, file formats and pipelines take `factory-build`, since the checks and reviews judge them and a video of them gives the Human nothing to decide. Both builds take `--input check_command='<command>'` for a Bead whose honest check is narrower than the project's.
+- **factory-build**: builds one Bead in one pass. Work and checks; a spec review that only reads, and ends the Run with its findings on the Bead when it withholds; then a standards review that fixes what it finds inside the diff and commits it, the checks again, and the landing the Mac's Profile chooses: a pull request and its squash merge, or the commits squashed onto the base branch, checked again and pushed (`bin/land`). Pick it when the checks and the reviews can judge the result alone. Started with `--adopt <withheld run id>`, it makes a second pass on a withheld Run's commits and findings, as "Continuing a withheld Run" below says.
+  - **factory-build-gated**: the same single pass, but it holds the landing before the base branch moves, records a demo video of the change and waits at a Human gate for taste and fit. Pick it only when a person judges the change by looking at it: a screen, a page, or text a person reads. Data, numbers, schemas, file formats and pipelines take `factory-build`, since the checks and reviews judge them and a video of them gives the Human nothing to decide. Both builds take `--input check_command='<command>'` for a Bead whose honest check is narrower than the project's, and both continue a withheld Run when started with `--adopt <withheld run id>`.
 - **factory-task**: one node does the Bead, with no review. It either answers (research, a brainstorm, a plan, an explanation), and the answer is its output in `archon workflow get`, or makes a change the Bead spells out exactly, which the checks gate before the landing. Pick it for anything one careful step can finish.
 - **factory-research**: two nodes look into one question in parallel, and a third combines their findings into one file that opens with a short answer. Pick it when a question needs long reading that would fill your own context.
 - **factory-register**: registers a repo with Archon from its main checkout, with one shell node and no model. Not for a Bead: `bin/archon-register` runs it when a Project Manager starts in one of the repo's worktrees, because Archon finds a worktree's project only through the main checkout's registration (`WORKSPACE=worktree` in the Mac's Profile).
+
+## Continuing a withheld Run
+
+A build whose review withholds approval leaves the Run's commits on its branch and the
+review's findings as a comment on the Bead. To make a second pass, start the same Workflow
+again with `--adopt` and the withheld Run's id, and the same message the first Run used:
+
+```bash
+archon workflow run factory-build --adopt <withheld run id> --detach "$FACTORY_PM_AGENT · <bead id>"
+```
+
+Archon reuses the withheld Run's worktree, or checks out its branch when the worktree is
+gone, so the second pass starts from the commits that already stand; it also sets
+`ADOPTED_RUN_DIR` to the earlier Run's artifacts folder. The Run's `prompts` node sees that
+and adds `prompts/second-pass.md` to the work prompt: the work agent reads the withholding
+review in the Bead's comments before it changes anything, fixes what it found or says in
+the commit message why a finding is wrong, and does not redo work that stands. Everything
+after the work node is the same build, so the second pass gets the same reviews and the
+same landing. A Run started without `--adopt` gets the work prompt exactly as before.
+
+Two things to know. `--adopt` cannot be combined with `--base`, `--branch`, `--from`,
+`--no-worktree` or `--resume`, because adoption resolves its own lane from the earlier
+Run, so a Project Manager that leads a worktree drops its usual `--base` for this Run. And
+the work node's `changed-files` check still needs a change to the tree, so a second pass
+makes a new commit.
 
 ## Checks
 

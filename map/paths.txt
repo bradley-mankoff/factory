@@ -19,7 +19,7 @@
     profile.test.ts  — install against a temporary HOME with stand-ins at the system's edges: the one example Profile is shipped when none exists and never overwritten, the example installs FactoryClaw as today, a Mac whose Profile chooses the squash landing writes no FactoryClaw or OpenClaw file and puts the Archon home and library where its Profile says, and project setup writes the Profile's commit identity into the project's .env and its repo (fac-qpv.6.3, fac-qpv.6.7, fac-woi)
     core-names.test.ts  — the repo's files read as a stranger publishing them would: no work name anywhere outside the Beads database, and config/profile the one example Profile, whose comments give the other choices with placeholder names (fac-qpv.6.7)
     land.test.ts  — bin/land against a real repo, a Run's worktree, a bare remote and a Profile the test writes: the squash landing squashes onto the Project Manager's branch and pushes it, main and develop never move, a protected or unnamed target is refused before anything moves, and the pull-request landing merges a pull request into main (fac-qpv.6.4, fac-qpv.6.7)
-    node-prompts.test.ts  — bin/node-prompts' Flows marker, naming the node, Bead, folders and the project's FACTORY_CHECK; its failure, naming the file, when a flows file names no node or a prompt asks for a marker no flows file produces; and every core Workflow's marker naming the node Archon runs (fac-qpv.3.1, fac-qpv.8.1, fac-wtw)
+    node-prompts.test.ts  — bin/node-prompts' Flows marker, naming the node, Bead, folders and the project's FACTORY_CHECK; its failure, naming the file, when a flows file names no node or a prompt asks for a marker no flows file produces; every core Workflow's marker naming the node Archon runs (fac-qpv.3.1, fac-qpv.8.1, fac-wtw), and the second-pass paragraph an adopting Run adds to the work prompt but a plain Run never gets (fac-dl0)
     nodes-md.test.ts  — NODES.md beside the router: every node id the core Workflows declare has a snippet there, each snippet pasted into a copy of a Workflow that has its nodes passes archon workflow test, and the router and the Project Manager's instructions name the page (fac-60v.20.8)
     tell-pm.test.ts  — tell-pm: one dated line in the pane's Notice file, named by the pane the Run's message names first, with nothing typed into any pane (fac-qpv.2.1)
     finish.test.ts  — bin/finish against a temporary home and a Run's artifacts: landed, held, no-commits, failed-checks and failed-node endings leave the Notice the Workflows left before, and a research Run keeps its own shape (fac-3fy)
@@ -44,12 +44,13 @@
     task.md  — The task agent: do the Bead in one step, answer or change it
     review_spec.md  — The spec review agent: did it do what the Bead asked
     review_standards.md  — The standards review agent: coding standards, code smells and the four design judgements
+    second-pass.md  — Added to the work prompt of a Run started with --adopt: read the withholding review on the Bead first and keep the work that stands (fac-dl0)
     guides/  — The fuller guidance a prompt sends its agent to read on a named condition
       module-design.md  — The design words, depth, the deletion test, where a seam goes and what an interface must say (fac-6a7.2)
       test-design.md  — Reaching a database, network service, file system or clock in a test, and judging a test as code (fac-6a7.2)
     LICENSE.txt  — MIT, for what was adapted from Matt Pocock
   bin/  — Helpers for the start script and the Workflows
-    node-prompts  — Prints prompts/ as JSON for a Workflow's prompts node, with a Flows marker per checked node when given the Workflow folder, and fails, naming the file, when the flows files and the Workflow YAML disagree (fac-wtw)
+    node-prompts  — Prints prompts/ as JSON for a Workflow's prompts node, with a Flows marker per checked node when given the Workflow folder, an adopted Run's second-pass paragraph added to the work convention, and fails, naming the file, when the flows files and the Workflow YAML disagree (fac-wtw, fac-dl0)
     bead  — Reads the Bead id out of a Run's message: a Run's message ends with its Bead after " · ", so a Mac that starts Runs through a helper of its own finds the Bead the same way
     work-finished  — A build's node after its work node: comments the work node's failed checks on the Bead and fails, so the reviews do not run (fac-qpv.3.3)
     finish  — Reads the notes a Run leaves in its artifacts — bin/land's landing and held, pi-flows' flows-failed.txt, a task's no-commits, a research Run's findings.md — composes the one Notice line and leaves it with tell-pm; every core Workflow's last node calls it with the Workflow's name (fac-3fy)
@@ -119,7 +120,7 @@
   commands/archon  — The archon wrapper, which install writes here: it sets ARCHON_HOME and LIBRARY to the Profile's values unless the shell sets them, and runs the Archon binary; ~/.local/bin/archon links here, so a link an earlier Factory left is replaced rather than written through, and FactoryClaw's allowlist names this real path (fac-lw9)
   jev-shadow.jsonl  — Jev's is-it-done answer for each Run's review pass; the record that retired Jev, kept as it stands (fac-60v.20.12, fac-qpv.3.3)
   jev-replay/  — The 2026-10-24 replay of Jev over 35 past review passes: cases, states, scripts, results (fac-60v.20.12)
-  prompts/  — work.md, task.md, review_spec.md, review_standards.md and guides/ for the fuller design guidance
+  prompts/  — work.md, task.md, review_spec.md, review_standards.md, second-pass.md and guides/ for the fuller design guidance
   skills/  — grilling, wayfinder, to-spec, to-beads, tdd, codebase-design, code-review and record-demo (all linked into ~/.agents/skills)
   GLOSSARY.md  — Appended to the Project Manager's system prompt
   demo/  — trim-idle and playwright-core 1.63.0
