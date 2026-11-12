@@ -22,10 +22,15 @@ const buildPrompts = (): Record<string, string> => {
 	return JSON.parse(result.stdout) as Record<string, string>;
 };
 
-/** The first line of a prompt that matches, so a rule is checked where its agent reads it. */
-const lineMatching = (text: string, pattern: RegExp | string): string => {
+/** Every line of a prompt that matches, so a rule is checked where its agent reads it. */
+const linesMatching = (text: string, pattern: RegExp | string): string[] => {
 	const matches = (each: string) => (typeof pattern === "string" ? each.includes(pattern) : pattern.test(each));
-	const line = text.split("\n").find(matches);
+	return text.split("\n").filter(matches);
+};
+
+/** The first line of a prompt that matches, for a rule stated once. */
+const lineMatching = (text: string, pattern: RegExp | string): string => {
+	const [line] = linesMatching(text, pattern);
 	assert.ok(line, `a line of the prompt matches ${pattern}`);
 	return line;
 };
@@ -104,10 +109,14 @@ test("the work prompt asks the commit message to name the interface built and th
 	assert.match(line, /which interface you built/);
 });
 
-test("the work prompt lets the agent refactor what its Bead asks for and leaves refactoring it does not ask for to the review", () => {
-	const line = lineMatching(prompts.work, /refactor/i);
-	assert.match(line, /refactoring the Bead asks for is this loop's work/i);
-	assert.match(line, /refactoring it does not ask for belongs to the review/i);
+test("the work prompt makes a refactor its Bead asks for part of the work loop", () => {
+	const line = lineMatching(prompts.work, /refactoring the Bead asks for/i);
+	assert.match(line, /is this loop's work/);
+});
+
+test("the work prompt leaves refactoring its Bead does not ask for to the review", () => {
+	const line = lineMatching(prompts.work, /refactoring it does not ask for/i);
+	assert.match(line, /belongs to the review/);
 });
 
 test("the standards review sends the agent to the module guide when a module, an interface or a seam changes", () => {
@@ -130,10 +139,8 @@ test("the standards review names the four design judgements", () => {
 });
 
 test("the standards review gives a module that only passes calls on one finding, not two", () => {
-	const findings = prompts.review_standards
-		.split("\n")
-		.filter((line) => /only passes calls on/i.test(line));
-	assert.equal(findings.length, 1);
+	const findings = linesMatching(prompts.review_standards, /middle man|only passes calls on/i);
+	assert.equal(findings.length, 1, findings.join("\n"));
 });
 
 test("the standards review judges the tests as code, after the spec review judged whether they reach the seam", () => {
