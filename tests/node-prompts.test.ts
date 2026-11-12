@@ -160,6 +160,23 @@ test("an adopting build Run's work prompt says it is a second pass and sends the
 	}
 });
 
+test("an adopting build Run's work prompt sends a finding it judges wrong to a Bead comment and the final message, not a commit message", () => {
+	for (const name of ["factory-build", "factory-build-gated"]) {
+		const work = corePrompts(name, "/tmp/an-adopted-runs-artifacts").work.replace(/\s+/g, " ");
+		// A pass that changes no file makes no commit, so a reason kept for a commit message is lost.
+		assert.match(work, /do not save its reason for a commit message/, `${name}'s work prompt rules out the commit message for a wrong finding`);
+		assert.match(work, /say why in a comment on the Bead \(`bd comments add <bead id>`\) and in your final message/, `${name}'s work prompt names where a wrong finding's reason goes`);
+	}
+});
+
+test("an adopting build Run's work prompt says a pass whose findings are all wrong changes no files and ends at work-finished", () => {
+	for (const name of ["factory-build", "factory-build-gated"]) {
+		const work = corePrompts(name, "/tmp/an-adopted-runs-artifacts").work.replace(/\s+/g, " ");
+		assert.match(work, /When every finding is wrong, change no files and say so/, `${name}'s work prompt lets an all-wrong pass change nothing`);
+		assert.match(work, /the Run at work-finished, and the Project Manager judges/, `${name}'s work prompt says where that pass ends and who judges it`);
+	}
+});
+
 test("a build Run without --adopt gets the work prompt as it was before, the work convention alone", () => {
 	const convention = readFileSync(join(root, "prompts", "work.md"), "utf8");
 	for (const name of ["factory-build", "factory-build-gated"]) {

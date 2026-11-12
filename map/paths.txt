@@ -44,7 +44,7 @@
     task.md  — The task agent: do the Bead in one step, answer or change it
     review_spec.md  — The spec review agent: did it do what the Bead asked
     review_standards.md  — The standards review agent: coding standards, code smells and the four design judgements
-    second-pass.md  — Added to the work prompt of a Run started with --adopt: read the withholding review on the Bead first and keep the work that stands (fac-dl0)
+    second-pass.md  — Added to the work prompt of a Run started with --adopt: read the withholding review on the Bead, fix the findings that hold, put a wrong finding's reason in a Bead comment and the final message, and change nothing when every finding is wrong (fac-dl0)
     guides/  — The fuller guidance a prompt sends its agent to read on a named condition
       module-design.md  — The design words, depth, the deletion test, where a seam goes and what an interface must say (fac-6a7.2)
       test-design.md  — Reaching a database, network service, file system or clock in a test, and judging a test as code (fac-6a7.2)

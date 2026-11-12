@@ -51,8 +51,9 @@ Archon reuses the withheld Run's worktree, or checks out its branch when the wor
 gone, so the second pass starts from the commits that already stand; it also sets
 `ADOPTED_RUN_DIR` to the earlier Run's artifacts folder. The Run's `prompts` node sees that
 and adds `prompts/second-pass.md` to the work prompt: the work agent reads the withholding
-review in the Bead's comments before it changes anything, fixes what it found or says in
-the commit message why a finding is wrong, and does not redo work that stands. Everything
+review in the Bead's comments before it changes anything, fixes each finding that holds, says
+why in a Bead comment and its final message for a finding it judges wrong (never keeping that
+reason for a commit message), and does not redo work that stands. Everything
 after the work node is the same build, so the second pass gets the same reviews and the
 same landing. A Run started without `--adopt` gets the work prompt exactly as before.
 
@@ -60,7 +61,9 @@ Two things to know. `--adopt` cannot be combined with `--base`, `--branch`, `--f
 `--no-worktree` or `--resume`, because adoption resolves its own lane from the earlier
 Run, so a Project Manager that leads a worktree drops its usual `--base` for this Run. And
 the work node's `changed-files` check still needs a change to the tree, so a second pass
-makes a new commit.
+that fixes anything makes a new commit; one whose findings all prove wrong changes nothing,
+so its Run ends at work-finished with the agent's reasons on the Bead for the Project
+Manager to judge.
 
 ## Checks
 
