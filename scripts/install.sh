@@ -23,6 +23,10 @@ set -eu
 
 src=$(cd "$(dirname "$0")/.." && pwd)
 factory=$HOME/.local/share/factory
+# The archon wrapper install keeps for itself and links into ~/.local/bin; FactoryClaw's
+# allowlist names this file's real path, because OpenClaw matches the entry against what
+# the link resolves to (fac-lw9). The write gives the reasons for both.
+archon_wrapper=$factory/commands/archon
 pi_dir=$factory/pi-agent
 config=$HOME/.config/factory
 profile=$config/profile
@@ -73,8 +77,11 @@ install_factory() {
 	touch "$config/projects"
 	install_versions
 	# The wrapper on PATH points Archon at the Profile's Archon home and Workflow library.
-	mkdir -p "$HOME/.local/bin"
-	cat > "$HOME/.local/bin/archon" <<WRAPPER
+	# It is written into the Factory's own folder and linked into ~/.local/bin, as pm is, so
+	# whatever stands at that path is replaced: writing there would follow a link a Mac's
+	# earlier Factory left and overwrite the file it points at (fac-lw9).
+	mkdir -p "$factory/commands" "$HOME/.local/bin"
+	cat > "$archon_wrapper" <<WRAPPER
 #!/bin/sh
 # Written by the Factory's scripts/install.sh: runs Archon with the Factory's Archon home
 # and Workflow library, both from the Mac's Profile.
@@ -84,7 +91,8 @@ export DEFAULT_AI_ASSISTANT="\${DEFAULT_AI_ASSISTANT:-pi}"
 export ARCHON_TELEMETRY_DISABLED=1 DO_NOT_TRACK=1 PI_SKIP_VERSION_CHECK=1
 exec "$ARCHON_HOME/bin/archon" "\$@"
 WRAPPER
-	chmod +x "$HOME/.local/bin/archon"
+	chmod +x "$archon_wrapper"
+	ln -sfn "$archon_wrapper" "$HOME/.local/bin/archon"
 	# Archon's small, medium and large tiers and its @aliases name the Mac's Chain roles, so
 	# a Workflow names a role and never a model or a seat (fac-qpv.1.4).
 	"$src/bin/archon-roles"
@@ -324,7 +332,10 @@ EOF
 # only be written by replacing the whole approvals file, so this rewrites FactoryClaw's
 # list and sends the file back only when the list changed. herdr and bd are bare names:
 # a path pattern is matched against the resolved binary, and Homebrew's links resolve
-# into versioned Cellar folders, so /opt/homebrew/bin/herdr never matched.
+# into versioned Cellar folders, so /opt/homebrew/bin/herdr never matched. The archon
+# entry names the wrapper's real path for the same reason: FactoryClaw calls the link
+# ~/.local/bin/archon, and OpenClaw matches the entry against what that link resolves to
+# (fac-lw9).
 set_allowlist() {
 	openclaw approvals get --json | python3 -c '
 import json, os, subprocess, sys
@@ -332,7 +343,7 @@ want = [
     {"pattern": "herdr"},
     {"pattern": "launchctl", "argPattern": "^start factory\\.herdr$"},
     {"pattern": "bd", "argPattern": "^-C \\S+ (show|list|ready|comments)( |$)"},
-    {"pattern": os.path.expanduser("~/.local/bin/archon"), "argPattern": "^workflow (status|runs)( |$)"},
+    {"pattern": os.path.realpath(sys.argv[1]), "argPattern": "^workflow (status|runs)( |$)"},
 ]
 snap = json.load(sys.stdin)["file"]
 agent = snap.setdefault("agents", {}).setdefault("factoryclaw", {})
@@ -340,7 +351,7 @@ have = [{k: e[k] for k in ("pattern", "argPattern") if k in e} for e in agent.ge
 if have != want:
     agent["allowlist"] = want
     subprocess.run(["openclaw", "approvals", "set", "--stdin"], input=json.dumps(snap), text=True, check=True, stdout=subprocess.DEVNULL)
-'
+' "$archon_wrapper"
 }
 
 setup_project() {
