@@ -121,6 +121,9 @@ export const makeMac = (options: { profile?: string; profileExtra?: string } = {
 		join(archonHome, "bin", "archon"),
 		`printf 'ARCHON_HOME=%s LIBRARY=%s args=%s\\n' "\${ARCHON_HOME-}" "\${LIBRARY-}" "$*" >> "$ARCHON_LOG"
 case "$1" in --version) printf 'archon v0.12.1\\n' ;; esac
+# bin/archon-roles lists the aliases to unset the install-scope ones it does not set;
+# this Mac starts with none, and no install test seeds one.
+case "$1 $2 $3" in "ai alias list") printf '{"aliases": []}\\n' ;; esac
 exit 0`,
 	);
 	mkdirSync(join(archonHome, "plugins", "installed", "coleam00", "Archon", "plugins", "provider-pi"), { recursive: true });

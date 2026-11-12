@@ -1,6 +1,7 @@
 /**
  * The Factory's Archon roles: the tiers and @aliases a Workflow names instead of a model or
- * a seat (fac-qpv.1.4). The seam is Archon's own configuration interface: bin/archon-roles
+ * a seat (fac-qpv.1.4), with every other install-scope alias unset and user-scope aliases
+ * kept (fac-qpv.1.7). The seam is Archon's own configuration interface: bin/archon-roles
  * runs against a temporary ARCHON_HOME made from this Mac's Archon, and the test reads back
  * the roles Archon will use with `archon ai alias list --json` and `archon ai tier list
  * --json`, rather than looking inside the YAML Archon wrote.
@@ -75,6 +76,37 @@ test("every role Archon names runs on a Chain, and a second run changes nothing"
 		const second = runRoles(home);
 		assert.equal(second.status, 0, second.stderr || second.stdout);
 		assert.equal(readFileSync(join(home, "config.yaml"), "utf8"), config);
+	} finally {
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
+test("an install-scope alias the roles do not set is unset, and a user-scope alias is kept", () => {
+	const home = makeArchonHome();
+	try {
+		// What the work Mac's config.yaml still had from before Chains: aliases naming a
+		// model directly, at install scope (fac-qpv.1.7).
+		runArchon(home, ["ai", "alias", "set", "@worker", "pi", "chain/old", "--scope", "install"]);
+		runArchon(home, ["ai", "alias", "set", "@general", "pi", "chain/old", "--scope", "install"]);
+		// The same name at user scope belongs to the person, so it stays.
+		runArchon(home, ["ai", "alias", "set", "@worker", "pi", "chain/mine", "--scope", "user"]);
+
+		const run = runRoles(home);
+		assert.equal(run.status, 0, run.stderr || run.stdout);
+
+		const aliases = JSON.parse(runArchon(home, ["ai", "alias", "list", "--json"])).aliases as Array<{
+			name: string;
+			install: Role | null;
+			user: Role | null;
+		}>;
+		const install = aliases
+			.filter((alias) => alias.install !== null)
+			.map((alias) => alias.name)
+			.sort((a, b) => a.localeCompare(b));
+		assert.deepEqual(install, ["@reviewer", "@spec-review", "@standards-review", "@work"]);
+
+		const worker = aliases.find((alias) => alias.name === "@worker");
+		assert.deepEqual(worker?.user, { provider: "pi", model: "chain/mine" });
 	} finally {
 		rmSync(home, { recursive: true, force: true });
 	}

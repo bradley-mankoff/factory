@@ -1,7 +1,10 @@
 #!/bin/sh
 # Sets the roles Archon names — its small, medium and large tiers and the @aliases its
 # Workflows use — to the Mac's Chain models, so no Workflow names a model or a seat
-# (fac-qpv.1.4).
+# (fac-qpv.1.4). It also unsets every other install-scope alias, such as the work Mac's
+# @worker, @general and @scout that named a model directly before Chains, because a
+# Workflow using one of those would skip the Chain (fac-qpv.1.7). Aliases at user scope
+# are the person's own, so they stay.
 #
 #   ARCHON_HOME=<Archon's home> bin/archon-roles
 #
@@ -22,3 +25,18 @@ for alias in @work @standards-review @reviewer; do
 done
 # The spec review matters more than the work it reads, so it keeps a Chain of its own.
 "$archon" ai alias set @spec-review pi chain/spec-review --scope install >/dev/null
+# Every install-scope alias this script did not just set goes. Alias names have no spaces,
+# so the list can split on whitespace; the JSON holds both scopes, and only install matters
+# here.
+strays=$(
+	"$archon" ai alias list --json | python3 -c '
+import json, sys
+roles = {"@work", "@standards-review", "@reviewer", "@spec-review"}
+for alias in json.load(sys.stdin)["aliases"]:
+	if alias["install"] and alias["name"] not in roles:
+		print(alias["name"])
+'
+)
+for alias in $strays; do
+	"$archon" ai alias unset "$alias" --scope install >/dev/null
+done
