@@ -335,8 +335,9 @@ fits the Idea; an error is never a taste question.
 `rejected` writes the Human's reason from the gate's output to the Run's artifacts as the `rejected`
 note, run only when the answer is reject. Without it the notes a rejected Run leaves are the ones
 `bin/land --hold` wrote before the gate, and `bin/finish` would report a landing the gate never
-made. It splices the gate's text through a quoted heredoc, so the Human's backticks and dollar signs
-stay text, as the withheld reviews do with their feedback.
+made. The gated Workflow's notice node adds `rejected` to its `depends_on`, so the note is written
+before `bin/finish` composes the Notice. It splices the gate's text through a quoted heredoc, so the
+Human's backticks and dollar signs stay text, as the withheld reviews do with their feedback.
 
 ```yaml
   - id: rejected
