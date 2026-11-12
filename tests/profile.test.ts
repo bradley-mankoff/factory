@@ -99,7 +99,7 @@ test("with the example Profile install writes FactoryClaw's files and uses the d
 		);
 
 		const archon = join(mac.home, ".local", "share", "factory", "archon");
-		assert.ok(existsSync(join(archon, "workflows", "factory", "build", "build.yaml")), "the core Workflows are in the default Archon home");
+		assert.ok(existsSync(join(archon, "workflows", "factory", "factory-build", "factory-build.yaml")), "the core Workflows are in the default Archon home");
 		const wrapped = spawnSync(join(mac.home, ".local", "bin", "archon"), ["--version"], { encoding: "utf8", env: mac.env });
 		assert.equal(wrapped.status, 0, wrapped.stderr);
 		assert.ok(logOf(mac.logs.archon).includes(`ARCHON_HOME=${archon} `), "the wrapper points Archon at that home");
@@ -130,7 +130,7 @@ test("a Mac whose Profile chooses the squash landing installs no FactoryClaw or 
 
 		const archon = join(mac.home, "factory-local", ".archon");
 		const library = join(mac.home, "factory-local", "library");
-		assert.ok(existsSync(join(library, "factory", "build", "build.yaml")), "the core Workflows are in the Profile's Workflow library");
+		assert.ok(existsSync(join(library, "factory", "factory-build", "factory-build.yaml")), "the core Workflows are in the Profile's Workflow library");
 		assert.equal(existsSync(join(archon, "workflows")), false, "install does not put a library under the Archon home");
 		assert.equal(existsSync(join(mac.home, ".local", "share", "factory", "archon")), false, "the default Archon home is not used");
 		assert.equal(
@@ -144,9 +144,9 @@ test("a Mac whose Profile chooses the squash landing installs no FactoryClaw or 
 		assert.ok(logOf(mac.logs.archon).includes(`LIBRARY=${library} `), "the wrapper points a Run at the Profile's Workflow library");
 		// A core Workflow reads its flows from the library the Profile names, not the
 		// example's path.
-		const build = readFileSync(join(library, "factory", "build", "build.yaml"), "utf8");
-		assert.ok(build.includes("${LIBRARY:-$ARCHON_HOME/workflows}/factory/build"), "the installed Workflow follows the Profile's library");
-		assert.equal(build.includes("~/.local/share/factory/archon/workflows"), false);
+		const buildYaml = readFileSync(join(library, "factory", "factory-build", "factory-build.yaml"), "utf8");
+		assert.ok(buildYaml.includes("${LIBRARY:-$ARCHON_HOME/workflows}/factory/factory-build"), "the installed Workflow follows the Profile's library");
+		assert.equal(buildYaml.includes("~/.local/share/factory/archon/workflows"), false);
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}

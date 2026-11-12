@@ -60,17 +60,17 @@
   workflows/factory/  — The core Workflows, which ship with the core: install copies the group into the Workflow library, replacing only that group (fac-qpv.6.2)
     README.md  — The router: what each core Workflow is for, when to pick it, and where a Workflow of your own goes
     NODES.md  — The node library: every kind of node the core Workflows use, with its prompt, role, tools, Flows file and a YAML snippet to paste into a Workflow of your own (fac-60v.20.8)
-    build/  — factory-build: work, checks, two reviews, the landing (bin/land)
+    factory-build/  — factory-build: work, checks, two reviews, the landing (bin/land)
       flows/work  — The work node's checks, which its agent must pass before it may finish (fac-qpv.3)
-    build-gated/  — factory-build-gated, a fork of build: adds a demo and a Human gate
-      flows/work  — The work node's checks, as in build (fac-qpv.3)
-    research/  — factory-research: two research agents and a combined findings file
+    factory-build-gated/  — factory-build-gated, a fork of factory-build: adds a demo and a Human gate
+      flows/work  — The work node's checks, as in factory-build (fac-qpv.3)
+    factory-research/  — factory-research: two research agents and a combined findings file
       flows/look-a  — The first research agent's checks (fac-qpv.3)
       flows/look-b  — The second research agent's checks (fac-qpv.3)
       flows/combine  — The checks on the node that combines the two findings files (fac-qpv.3)
-    task/  — factory-task: one node with no review, for an answer or a change the Bead spells out
+    factory-task/  — factory-task: one node with no review, for an answer or a change the Bead spells out
       flows/task  — The task node's checks (fac-qpv.3)
-    register/  — factory-register: registers a repo with Archon from its main checkout, one shell node and no model (fac-qpv.6.5)
+    factory-register/  — factory-register: registers a repo with Archon from its main checkout, one shell node and no model (fac-qpv.6.5)
   skills/  — Factory skills
     grilling/  — Interview the Human about an Idea
     wayfinder/  — Chart a Map for an Idea too big for one Spec
@@ -158,25 +158,25 @@
     factory/  — The core Workflows, replaced whole by each install from this repo's workflows/factory/  [installed]
       README.md  — The router: what each core Workflow is for and when to pick it
       NODES.md  — The node library, installed beside the router (fac-60v.20.8)
-      build/  — factory-build: work, checks, two reviews, the landing (bin/land)
-        build.yaml
+      factory-build/  — factory-build: work, checks, two reviews, the landing (bin/land)
+        factory-build.yaml
         flows/work  — The work node's checks (fac-qpv.3)
         fixtures/approved.stubs.yaml
-      build-gated/  — factory-build-gated, a fork of build: adds a demo and a Human gate
-        build-gated.yaml
-        flows/work  — The work node's checks, as in build (fac-qpv.3)
+      factory-build-gated/  — factory-build-gated, a fork of factory-build: adds a demo and a Human gate
+        factory-build-gated.yaml
+        flows/work  — The work node's checks, as in factory-build (fac-qpv.3)
         fixtures/  — approved and rejected stubs
-      research/  — factory-research: two research agents and a combined findings file
-        research.yaml
+      factory-research/  — factory-research: two research agents and a combined findings file
+        factory-research.yaml
         flows/look-a  — The first research agent's checks (fac-qpv.3)
         flows/look-b  — The second research agent's checks (fac-qpv.3)
         flows/combine  — The checks on the node that combines the two findings files (fac-qpv.3)
         fixtures/answered.stubs.yaml
-      task/  — factory-task: one node with no review, for an answer or a change the Bead spells out
-        task.yaml
+      factory-task/  — factory-task: one node with no review, for an answer or a change the Bead spells out
+        factory-task.yaml
         flows/task  — The task node's checks (fac-qpv.3)
-      register/  — factory-register: registers a repo with Archon from its main checkout, one shell node and no model (fac-qpv.6.5)
-        register.yaml
+      factory-register/  — factory-register: registers a repo with Archon from its main checkout, one shell node and no model (fac-qpv.6.5)
+        factory-register.yaml
     other/  — The person's own group, beside the core one; it holds only a README.md so far, and install never writes here
   config.yaml  — Default assistant pi; the small, medium and large tiers and the @aliases (@work, @standards-review, @reviewer and @spec-review), all Chain models set by bin/archon-roles (fac-qpv.1.4)
   .env  — Archon environment  [secret]

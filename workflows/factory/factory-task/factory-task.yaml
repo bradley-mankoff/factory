@@ -12,7 +12,7 @@ nodes:
     bash: '"$HOME/.local/share/factory/bin/bead" "$ARGUMENTS"'
 
   - id: prompts
-    bash: '"$HOME/.local/share/factory/bin/node-prompts" "${LIBRARY:-$ARCHON_HOME/workflows}/factory/task"'
+    bash: '"$HOME/.local/share/factory/bin/node-prompts" "${LIBRARY:-$ARCHON_HOME/workflows}/factory/factory-task"'
 
   - id: task
     depends_on: [bead, prompts]

@@ -20,7 +20,7 @@ nodes:
   # The Factory's conventions for each kind of AI node (prompts/ in the Factory's repo):
   # every AI node's prompt starts with one of them.
   - id: prompts
-    bash: 'FACTORY_CHECK="${INPUTS_CHECK_COMMAND:-$FACTORY_CHECK}" "$HOME/.local/share/factory/bin/node-prompts" "${LIBRARY:-$ARCHON_HOME/workflows}/factory/build-gated"'
+    bash: 'FACTORY_CHECK="${INPUTS_CHECK_COMMAND:-$FACTORY_CHECK}" "$HOME/.local/share/factory/bin/node-prompts" "${LIBRARY:-$ARCHON_HOME/workflows}/factory/factory-build-gated"'
 
   - id: work
     depends_on: [bead, prompts]

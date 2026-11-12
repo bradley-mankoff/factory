@@ -198,7 +198,7 @@ this Workflow's folder, so change it to yours.
     bash: '"$HOME/.local/share/factory/bin/bead" "$ARGUMENTS"'
 
   - id: prompts
-    bash: '"$HOME/.local/share/factory/bin/node-prompts" "${LIBRARY:-$ARCHON_HOME/workflows}/factory/build"'
+    bash: '"$HOME/.local/share/factory/bin/node-prompts" "${LIBRARY:-$ARCHON_HOME/workflows}/factory/factory-build"'
 ```
 
 ### The checks (`checks`)
