@@ -1,6 +1,6 @@
 ---
 name: codebase-design
-description: The design words for a module's interface and where its seam goes: depth, the deletion test, and one adapter is no seam. Use when sketching the seams for a Spec, designing a module, or deciding what an interface must say.
+description: The design words for a module's interface and where its seam goes, such as depth, the deletion test, and one adapter is no seam. Use when sketching the seams for a Spec, designing a module, or deciding what an interface must say.
 license: MIT. Adapted from Matt Pocock's codebase-design skill, copyright 2026 Matt Pocock; full text in LICENSE.txt beside this file.
 ---
 

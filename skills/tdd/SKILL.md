@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Build test first, through the seam a Bead or Spec names: one failing test, then only the code that passes it, then the next behaviour. Use when building code by hand, when a Bead asks for tests, or when asked for red-green-refactor or test-first work.
+description: Build test first, through the seam a Bead or Spec names. One failing test, then only the code that passes it, then the next behaviour. Use when building code by hand, when a Bead asks for tests, or when asked for red-green-refactor or test-first work.
 license: MIT. Adapted from Matt Pocock's tdd skill, copyright 2026 Matt Pocock; full text in LICENSE.txt beside this file.
 ---
 

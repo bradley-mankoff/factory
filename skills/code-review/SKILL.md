@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Review a branch or the changes since a commit in the Factory's order: the spec review first, against the Bead and its Epic's Spec, then the standards review once it approves. Use when asked to review a branch, a pull request or work in progress.
+description: Review a branch or the changes since a commit in the Factory's order, the spec review first, against the Bead and its Epic's Spec, then the standards review once it approves. Use when asked to review a branch, a pull request or work in progress.
 license: MIT. Adapted from Matt Pocock's code-review skill, copyright 2026 Matt Pocock; full text in LICENSE.txt beside this file.
 ---
 

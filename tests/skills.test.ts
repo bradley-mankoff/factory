@@ -4,8 +4,9 @@
  * reads the skill files back where pi finds them, with the fuller files each one names.
  */
 import assert from "node:assert/strict";
-import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
+import { spawnSync } from "node:child_process";
 import { after, before, test } from "node:test";
 import { makeMac, squashProfile } from "./fixtures/install-mac.ts";
 
@@ -95,5 +96,20 @@ test("install skips an engineering skill that is already a raw copy, and names t
 		);
 	} finally {
 		rmSync(dirname(raw.home), { recursive: true, force: true });
+	}
+});
+
+// pi parses a skill's front matter as YAML and refuses the skill when it fails, so a plain
+// description holding ": " (a nested mapping) hides the skill from every session (fac-6a7.5's
+// first release). Node has no YAML parser, so the test borrows Bun's, which Archon needs anyway.
+test("every Factory skill's front matter parses as YAML with a name and a description", () => {
+	const skills = readdirSync("skills").filter((s) => existsSync(join("skills", s, "SKILL.md")));
+	for (const skill of skills) {
+		const frontMatter = readFileSync(join("skills", skill, "SKILL.md"), "utf8").split(/^---$/m)[1];
+		const parsed = spawnSync("bun", ["-e", "const m = Bun.YAML.parse(await Bun.stdin.text()); console.log(JSON.stringify(m))"], { input: frontMatter, encoding: "utf8" });
+		assert.equal(parsed.status, 0, `${skill}: ${parsed.stderr}`);
+		const meta = JSON.parse(parsed.stdout);
+		assert.equal(meta.name, skill);
+		assert.ok(meta.description, `${skill} has no description`);
 	}
 });
