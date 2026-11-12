@@ -32,10 +32,10 @@ BOARD_PORT=3917
 # overwrites it.
 CHAINS=$HOME/.config/factory/chains.json
 
-# Extra pi extensions the Runs pi folder loads, as a space-separated list of absolute paths
+# Extra pi extensions the Factory's pi folder loads, as a space-separated list of absolute paths
 # to extension files. The core's pi folder loads only what it ships; a Mac whose Chains need
 # a registration this public repo must not hold names the file here, and install.sh links it
-# into the Runs pi folder's extensions/ and removes a link there to a path no longer listed.
+# into that folder's extensions/ and removes a link there to a path no longer listed.
 # Unset or empty leaves that folder as it is. The personal Mac needs none.
 # RUN_EXTENSIONS=$HOME/.pi/agent/extensions/my-extension.ts
 

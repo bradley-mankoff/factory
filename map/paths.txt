@@ -24,7 +24,7 @@
     tell-pm.test.ts  — tell-pm: one dated line in the pane's Notice file, named by the pane the Run's message names first, with nothing typed into any pane (fac-qpv.2.1)
     finish.test.ts  — bin/finish against a temporary home and a Run's artifacts: landed, held, no-commits, failed-checks and failed-node endings leave the Notice the Workflows left before, and a research Run keeps its own shape (fac-3fy)
     install-packages.test.ts  — install with a temporary HOME and a stand-in pi: each package goes into the pi folder that needs it, both pi folders link chains.json to the Profile's Chains, and install repairs nothing an earlier install left (fac-qpv.8.1)
-    install-run-extensions.test.ts  — install with a temporary HOME: an extension the Profile's RUN_EXTENSIONS names is linked into the Runs pi folder, a link there to a path dropped from the list is removed, and an unset or empty key leaves the folder as it is (fac-pbg)
+    install-run-extensions.test.ts  — install with a temporary HOME: an extension the Profile's RUN_EXTENSIONS names is linked into the Factory's pi folder, a link there to a path dropped from the list is removed, and an unset or empty key leaves the folder as it is (fac-pbg)
     install-status-bar.test.ts  — install on a temporary Mac that already has the status bar app and its login job: the binary, the app's Info.plist and the job plist are left as they were, and install builds and signs no app (fac-2na)
     install-factoryclaw.test.ts  — install with a temporary HOME: FactoryClaw's allowlist holds exactly the four commands its AGENTS.md names, with no Claude usage check among them; no claude-usage helper is installed; and its instructions say nothing about Claude (fac-vse)
     install-archon-wrapper.test.ts  — install on a temporary Mac whose ~/.local/bin/archon links to an earlier Factory's wrapper: the file it pointed at is unchanged, the link resolves to the wrapper install keeps in its own root, and FactoryClaw's archon allowlist names that resolved path (fac-lw9)
@@ -95,7 +95,7 @@
     README.md
     agents/scout.md  — The Scout: on the Scout Chain, chain/scout, for the subagent tool; copied to the Factory's pi folder, linked into yours
   demo/trim-idle  — Cuts idle stretches out of demo videos
-  config/profile  — The one shipped example Profile, the personal Mac's: pull-request landing, no protected targets, FactoryClaw and Telegram, one Project Manager per project, the commit identity its projects commit as, the Chains file, no extra pi extensions for the Runs folder, and the Archon home and Workflow library under ~/.local/share/factory; its comments give the other choices generically, with placeholder repo names such as myrepo; copied to ~/.config/factory/profile when missing and never overwritten (fac-qpv.6.3, fac-qpv.6.7)
+  config/profile  — The one shipped example Profile, the personal Mac's: pull-request landing, no protected targets, FactoryClaw and Telegram, one Project Manager per project, the commit identity its projects commit as, the Chains file, no extra pi extensions for the Factory's pi folder, and the Archon home and Workflow library under ~/.local/share/factory; its comments give the other choices generically, with placeholder repo names such as myrepo; copied to ~/.config/factory/profile when missing and never overwritten (fac-qpv.6.3, fac-qpv.6.7)
   config/chains.json  — Default Chains (the personal Mac's): Opus at medium then Muse Spark at xhigh for chain/pm and chain/spec-review, DeepSeek at max for chain/work and chain/scout; copied to the Chains file the Profile names when missing (fac-qpv.1.1, fac-qpv.1.4, fac-qpv.6.3)
   map/  — This map
     paths.txt  — The tree: one path a line, indented under its parent, a note after " — ", tags in brackets
@@ -138,7 +138,7 @@
 ## Settings
 > What a person edits. install.sh never overwrites it.
 ~/.config/factory
-  profile  — This Mac's Profile: the landing, protected targets, outer layer, workspace shape, the board's port, the commit identity, Chains file, extra pi extensions the Runs folder loads, Archon home, Workflow library, the Project Manager's Chain and FactoryClaw's model and level; shipped from config/profile when missing, never overwritten, read by install.sh, bin/board, project-manager/start and the pi-chains package (fac-qpv.6.3, fac-qpv.7.3, fac-qpv.8.1)
+  profile  — This Mac's Profile: the landing, protected targets, outer layer, workspace shape, the board's port, the commit identity, Chains file, extra pi extensions the Factory's pi folder loads, Archon home, Workflow library, the Project Manager's Chain and FactoryClaw's model and level; shipped from config/profile when missing, never overwritten, read by install.sh, bin/board, project-manager/start and the pi-chains package (fac-qpv.6.3, fac-qpv.7.3, fac-qpv.8.1)
   chains.json  — The Chains: each role's ordered models and thinking levels, the one place a model is changed; copied from the repo to the path the Profile names when missing, never overwritten
   projects  — The Factory's project repos, one a line; a plain install.sh sets each up again and registers each with the board
   factory.env  — The settings file the Profile replaced, read by nothing: PM_MODEL, FACTORYCLAW_MODEL and FACTORYCLAW_THINKING live in the Profile now (fac-qpv.6.3)
