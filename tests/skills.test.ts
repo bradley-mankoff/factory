@@ -1,7 +1,10 @@
 /**
  * The Factory's own engineering skills (fac-6a7.5): tdd, codebase-design and code-review.
- * The seam is what a session loads, so the test installs the Factory on a temporary Mac and
- * reads the skill files back where pi finds them, with the fuller files each one names.
+ * Most tests' seam is what a session loads, so they install the Factory on a temporary Mac
+ * and read the skill files back where pi finds them, with the fuller files each one names.
+ * The front-matter test reads the shipped SKILL.md files in the repo instead, in both the
+ * folders the Factory ships skills in (fac-p3z): install copies each folder whole, so the
+ * repo's copy is the file a session loads.
  */
 import assert from "node:assert/strict";
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
@@ -99,8 +102,19 @@ test("install skips an engineering skill that is already a raw copy, and names t
 	}
 });
 
-/** The two folders the Factory ships skills in: pi's own, and FactoryClaw's (fac-p3z). */
+/** The two folders the Factory ships skills in: pi's own, and FactoryClaw's, which OpenClaw loads. */
 const skillFolders = ["skills", "factoryclaw/skills"];
+
+/** One skill the Factory ships: its folder, the name a session loads it by, and its file. */
+type ShippedSkill = { folder: string; skill: string; file: string };
+
+/** Every skill the Factory ships in either folder, so one loop checks them all and names each failure. */
+const shippedSkills = (): ShippedSkill[] =>
+	skillFolders.flatMap((folder) =>
+		readdirSync(join(repoRoot, folder), { withFileTypes: true })
+			.filter((entry) => entry.isDirectory())
+			.map(({ name }) => ({ folder, skill: name, file: join(repoRoot, folder, name, "SKILL.md") })),
+	);
 
 // pi and OpenClaw both parse a skill's front matter as YAML and refuse the skill when it
 // fails, so a plain description holding ": " (a nested mapping) hides the skill from every
@@ -108,16 +122,14 @@ const skillFolders = ["skills", "factoryclaw/skills"];
 // copies each folder whole, so the shipped file is the one a session loads. Node has no YAML
 // parser, so the test borrows Bun's, which Archon needs anyway.
 test("every Factory skill's front matter parses as YAML with a name and a description", () => {
-	for (const folder of skillFolders) {
-		for (const skill of readdirSync(join(repoRoot, folder))) {
-			const file = join(repoRoot, folder, skill, "SKILL.md");
-			if (!existsSync(file)) continue;
-			const frontMatter = readFileSync(file, "utf8").split(/^---$/m)[1];
-			const parsed = spawnSync("bun", ["-e", "const m = Bun.YAML.parse(await Bun.stdin.text()); console.log(JSON.stringify(m))"], { input: frontMatter, encoding: "utf8" });
-			assert.equal(parsed.status, 0, `${folder}/${skill}: ${parsed.stderr}`);
-			const meta = JSON.parse(parsed.stdout);
-			assert.equal(meta.name, skill);
-			assert.ok(meta.description, `${folder}/${skill} has no description`);
-		}
+	const shipped = shippedSkills();
+	for (const folder of skillFolders) assert.ok(shipped.some((each) => each.folder === folder), `${folder} ships a skill`);
+	for (const { folder, skill, file } of shipped) {
+		const frontMatter = readFileSync(file, "utf8").split(/^---$/m)[1];
+		const parsed = spawnSync("bun", ["-e", "const m = Bun.YAML.parse(await Bun.stdin.text()); console.log(JSON.stringify(m))"], { input: frontMatter, encoding: "utf8" });
+		assert.equal(parsed.status, 0, `${folder}/${skill}: ${parsed.stderr}`);
+		const meta = JSON.parse(parsed.stdout);
+		assert.equal(meta.name, skill);
+		assert.ok(meta.description, `${folder}/${skill} has no description`);
 	}
 });
