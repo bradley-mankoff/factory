@@ -22,6 +22,9 @@ nodes:
   - id: prompts
     bash: 'FACTORY_CHECK="${INPUTS_CHECK_COMMAND:-$FACTORY_CHECK}" "$HOME/.local/share/factory/bin/node-prompts" "${LIBRARY:-$ARCHON_HOME/workflows}/factory/factory-build-gated"'
 
+  # A Run started with --adopt on a withheld Run gets a second-pass paragraph appended to
+  # this prompt by bin/node-prompts: the work agent reads the withholding review on the Bead
+  # before it changes anything and does not redo work that stands (fac-dl0).
   - id: work
     depends_on: [bead, prompts]
     model: "@work"
