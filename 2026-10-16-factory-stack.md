@@ -77,7 +77,7 @@ Not used: herdsman. Archon runs nodes in parallel, and nothing else needs child 
 ### Versions it is built against
 
 Tested on this Mac on 2026-10-17:
-- Archon 0.12.1, its binary at `~/.local/share/factory/archon/bin/archon`, through the wrapper `~/.local/share/factory/commands/archon` that `scripts/install.sh` writes and links to `~/.local/bin/archon`, which sets `ARCHON_HOME` and `LIBRARY` to the paths the Mac's Profile names (`fac-qpv.6.3`) and pi as the default assistant, with the pi provider installed by `archon provider add pi` (Archon 0.12 ships providers separately; rerun it after every Archon upgrade). Its AI nodes run the pi bundled in its pi provider, 1.3.0 (Archon's `bun.lock` at tag v0.12.1);
+- Archon 0.12.1, its binary at `~/.local/share/factory/archon/bin/archon`, through the wrapper `scripts/install.sh` writes at `~/.local/share/factory/commands/archon` and links from `~/.local/bin/archon`; the wrapper sets `ARCHON_HOME` and `LIBRARY` to the paths the Mac's Profile names (`fac-qpv.6.3`) and pi as the default assistant, with the pi provider installed by `archon provider add pi` (Archon 0.12 ships providers separately; rerun it after every Archon upgrade). Its AI nodes run the pi bundled in its pi provider, 1.3.0 (Archon's `bun.lock` at tag v0.12.1);
 - pi 1.3.0 as the installed `pi` command (Project Manager panes and shell nodes);
 - herdr 0.9.4;
 - `bd` and `gh` as installed.

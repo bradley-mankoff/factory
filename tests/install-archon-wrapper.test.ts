@@ -1,9 +1,9 @@
 /**
  * The archon command install puts on PATH is a link to the wrapper it keeps in its own root,
  * so a Mac whose ~/.local/bin/archon links into another Factory keeps that Factory's file
- * (fac-lw9). Writing through the link overwrote the earlier Factory's wrapper; this Factory's
- * archon allowlist is then read from the same path, so the link and the allowlist cannot
- * drift apart either. The seam is installation: scripts/install.sh runs on a temporary Mac
+ * (fac-lw9). Writing through the link overwrote the earlier Factory's wrapper. The archon
+ * allowlist pattern is that link's resolved path, so the link and the allowlist cannot drift
+ * apart either. The seam is installation: scripts/install.sh runs on a temporary Mac
  * with stand-ins at the system's edges, and the test reads back the files and the allowlist
  * it leaves.
  */
