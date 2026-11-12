@@ -7,7 +7,7 @@
  * workspace.
  */
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, realpathSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { logOf, makeMac, type Mac } from "./fixtures/install-mac.ts";
@@ -39,13 +39,18 @@ const instructionFiles = (mac: Mac): { file: string; text: string }[] => {
 test("install gives FactoryClaw exactly the four commands, with no Claude usage check among them", () => {
 	const mac = installedMac();
 	try {
-		// The four commands, and no Claude usage check among them (fac-vse).
+		// The four commands, and no Claude usage check among them (fac-vse). The archon
+		// pattern is the wrapper's real path, because OpenClaw matches a pattern against the
+		// command it resolves ~/.local/bin/archon to, a link (fac-lw9).
 		const allowed = JSON.parse(logOf(mac.logs.approvals)).agents.factoryclaw.allowlist;
 		assert.deepEqual(allowed, [
 			{ pattern: "herdr" },
 			{ pattern: "launchctl", argPattern: "^start factory\\.herdr$" },
 			{ pattern: "bd", argPattern: "^-C \\S+ (show|list|ready|comments)( |$)" },
-			{ pattern: join(mac.home, ".local", "bin", "archon"), argPattern: "^workflow (status|runs)( |$)" },
+			{
+				pattern: realpathSync(join(mac.home, ".local", "share", "factory", "commands", "archon")),
+				argPattern: "^workflow (status|runs)( |$)",
+			},
 		]);
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
