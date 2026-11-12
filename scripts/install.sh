@@ -34,8 +34,9 @@ profile=$config/profile
 # after a test Run, even when that leaves the Factory behind new pi features (the Human,
 # 2026-10-21; fac-88m.1). pi must be the version Archon bundles in its pi provider,
 # which Run nodes use: the @earendil-works/pi-coding-agent entry of Archon's bun.lock at
-# the release tag (github.com/coleam00/Archon). install.sh makes this machine match.
-archon_version=0.12.1
+# the release tag (github.com/coleam00/Archon), 1.3.0 at v0.14.0. install.sh makes this
+# machine match.
+archon_version=0.14.0
 pi_version=1.3.0
 bridge=pi-claude-bridge@0.9.3
 library_repo=https://github.com/bradley-mankoff/archon-workflows.git

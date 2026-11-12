@@ -52,6 +52,9 @@ export type Mac = {
 		// test reads it as one JSON document.
 		approvals: string;
 		archon: string;
+		// Each download install asked for, so a test can prove a Mac already at the pinned
+		// release never reaches the network.
+		curl: string;
 		launchctl: string;
 		bdui: string;
 		registered: string;
@@ -72,9 +75,11 @@ export const profileValue = (home: string, path: string, key: string): string =>
 /**
  * One temporary Mac: a HOME with the files this Mac already has, and stand-ins on PATH for
  * the commands install calls outside the Factory. With a Profile already in place, install
- * must follow it; with none, install ships the example.
+ * must follow it; with none, install ships the example. `archonVersion` is the Archon the
+ * Mac starts with: the pinned release by default, and an earlier one for a test that
+ * watches install move it.
  */
-export const makeMac = (options: { profile?: string; profileExtra?: string } = {}): Mac => {
+export const makeMac = (options: { profile?: string; profileExtra?: string; archonVersion?: string } = {}): Mac => {
 	const dir = mkdtempSync(join(tmpdir(), "factory-install-"));
 	const home = join(dir, "home");
 	const bin = join(dir, "bin");
@@ -82,6 +87,7 @@ export const makeMac = (options: { profile?: string; profileExtra?: string } = {
 		openclaw: join(dir, "openclaw.log"),
 		approvals: join(dir, "approvals.log"),
 		archon: join(dir, "archon.log"),
+		curl: join(dir, "curl.log"),
 		launchctl: join(dir, "launchctl.log"),
 		bdui: join(dir, "bdui.log"),
 		// The workspaces the board knows, as beads-ui keeps them: one per path.
@@ -111,25 +117,57 @@ export const makeMac = (options: { profile?: string; profileExtra?: string } = {
 
 	// Archon's home, as this Mac would already have it: a binary at the release install
 	// pins, its pi provider, and the Workflow library with the person's own group beside
-	// the core one. The test does not check the binary's version; it checks where install
+	// the core one. The binary reports the Archon version this Mac starts with, and a
+	// `provider add pi` writes that version into the receipt, as Archon's own command does.
+	// The test does not check the binary's version by default; it checks where install
 	// points Archon.
 	const archonHome = options.profile
 		? profileValue(home, profile, "ARCHON_HOME")
 		: join(home, ".local", "share", "factory", "archon");
 	const library = options.profile ? profileValue(home, profile, "LIBRARY") : join(archonHome, "workflows");
-	stub(
-		join(archonHome, "bin", "archon"),
-		`printf 'ARCHON_HOME=%s LIBRARY=%s args=%s\\n' "\${ARCHON_HOME-}" "\${LIBRARY-}" "$*" >> "$ARCHON_LOG"
-case "$1" in --version) printf 'archon v0.12.1\\n' ;; esac
+	const archonVersion = options.archonVersion ?? "v0.14.0";
+	const receipt = join(archonHome, "plugins", "installed", "coleam00", "Archon", "plugins", "provider-pi", "receipt.json");
+	/** An Archon binary that behaves as far as install can tell: it names its version, logs
+	 * each call, writes its provider receipt on `provider add`, and lists no aliases. */
+	const archonStub = (version: string): string => `
+printf 'ARCHON_HOME=%s LIBRARY=%s args=%s\\n' "\${ARCHON_HOME-}" "\${LIBRARY-}" "$*" >> "$ARCHON_LOG"
+case "$1" in --version) printf 'archon ${version}\\n' ;; esac
+case "$1 $2" in
+	"provider add")
+		mkdir -p "$(dirname "${receipt}")"
+		printf '{"tag": "${version}", "descriptor": {"protocol": 3}}\\n' > "${receipt}"
+		;;
+	esac
 # bin/archon-roles lists the aliases to unset the install-scope ones it does not set;
 # this Mac starts with none, and no install test seeds one.
 case "$1 $2 $3" in "ai alias list") printf '{"aliases": []}\\n' ;; esac
-exit 0`,
-	);
-	mkdirSync(join(archonHome, "plugins", "installed", "coleam00", "Archon", "plugins", "provider-pi"), { recursive: true });
-	writeFileSync(
-		join(archonHome, "plugins", "installed", "coleam00", "Archon", "plugins", "provider-pi", "receipt.json"),
-		'{"tag": "v0.12.1"}\n',
+exit 0`;
+	stub(join(archonHome, "bin", "archon"), archonStub(archonVersion));
+	mkdirSync(dirname(receipt), { recursive: true });
+	writeFileSync(receipt, `{"tag": "${archonVersion}", "descriptor": {"protocol": 3}}\n`);
+	// The release asset a download gets, and the checksums file that names it: a binary for
+	// the pinned release, so a Mac on an earlier one can be moved without the network.
+	const asset = join(dir, "archon-release");
+	const assetName = `archon-${process.platform === "darwin" ? "darwin" : "linux"}-${process.arch === "arm64" ? "arm64" : "x64"}`;
+	writeFileSync(asset, `#!/bin/sh\n${archonStub("v0.14.0")}\n`);
+	chmodSync(asset, 0o755);
+	stub(
+		join(bin, "curl"),
+		`printf '%s\\n' "$*" >> "$CURL_LOG"
+url=''
+out=''
+while [ $# -gt 0 ]; do
+	case "$1" in
+		-o) out=$2; shift 2 ;;
+		-*) shift ;;
+		*) url=$1; shift ;;
+	esac
+done
+case "$url" in
+	*/checksums.txt) printf '%s  %s\\n' "$(shasum -a 256 "${asset}" | cut -d' ' -f1)" "${assetName}" ;;
+	*/${assetName}) cp "${asset}" "$out" ;;
+	*) printf 'curl: not a release URL: %s\\n' "$url" >&2; exit 22 ;;
+esac`,
 	);
 	mkdirSync(library, { recursive: true });
 	writeFileSync(join(library, ".git"), "gitdir: ../library.git\n");
@@ -219,6 +257,7 @@ exit 0`,
 		OPENCLAW_LOG: logs.openclaw,
 		APPROVALS_LOG: logs.approvals,
 		ARCHON_LOG: logs.archon,
+		CURL_LOG: logs.curl,
 		LAUNCHCTL_LOG: logs.launchctl,
 		BDUI_LOG: logs.bdui,
 		BDUI_REGISTERED: logs.registered,
