@@ -330,6 +330,24 @@ fits the Idea; an error is never a taste question.
       form: approval
 ```
 
+### The gate's answer (`rejected`)
+
+`rejected` writes the Human's reason from the gate's output to the Run's artifacts as the `rejected`
+note, run only when the answer is reject. Without it the notes a rejected Run leaves are the ones
+`bin/land --hold` wrote before the gate, and `bin/finish` would report a landing the gate never
+made. It splices the gate's text through a quoted heredoc, so the Human's backticks and dollar signs
+stay text, as the withheld reviews do with their feedback.
+
+```yaml
+  - id: rejected
+    depends_on: [taste]
+    when: "$taste.output.decision == 'reject'"
+    bash: |
+      cat >"$ARTIFACTS_DIR/rejected" <<'REASON'
+      $taste.output.text
+      REASON
+```
+
 ### The registration and the notice (`registered`, `tell-project-manager`)
 
 `registered` registers a repo with Archon from its main checkout: one shell node, no model, no Bead.

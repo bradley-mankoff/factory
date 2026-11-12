@@ -100,6 +100,42 @@ test("a held landing in the gated Workflow's Notice names what the gate decides"
 	);
 });
 
+test("a rejected gated Run's Notice says the gate rejected it, names the Human's reason and says it did not land", () => {
+	// A reject skips the land node, so the `landing` and `held` notes bin/land --hold left
+	// before the gate are still there. The gate's own answer is the `rejected` note, and it
+	// is the ending to report: nothing landed. The reason is the words the Human gave.
+	const h = makeHarness();
+	h.note("held", "the pull request https://github.com/example/factory/pull/7 into main\n");
+	h.note("landing", "opened the pull request https://github.com/example/factory/pull/7 into main, which the gate decides\n");
+	h.note("rejected", "The output format feels wrong.\n");
+
+	const result = h.run("factory-build-gated");
+
+	assert.equal(result.status, 0, result.stderr);
+	assert.equal(
+		noticeText(h),
+		"Run run-123 (factory-build-gated) for Bead fac-1 was rejected at the gate and did not land: The output format feels wrong.",
+	);
+});
+
+test("a rejected gated Run whose Human gave no reason still says it was rejected and did not land", () => {
+	// A reject needs no words, and the note is written either way. The Notice cannot name a
+	// reason the Human did not give, and it must still not report the pre-gate hold as a
+	// landing.
+	const h = makeHarness();
+	h.note("held", "the pull request https://github.com/example/factory/pull/7 into main\n");
+	h.note("landing", "opened the pull request https://github.com/example/factory/pull/7 into main, which the gate decides\n");
+	h.note("rejected", "\n");
+
+	const result = h.run("factory-build-gated");
+
+	assert.equal(result.status, 0, result.stderr);
+	assert.equal(
+		noticeText(h),
+		"Run run-123 (factory-build-gated) for Bead fac-1 was rejected at the gate and did not land.",
+	);
+});
+
 test("a task that changed nothing says its answer is the task node's output", () => {
 	const h = makeHarness();
 	// The task Workflow's checks node leaves this marker instead of running the check when
