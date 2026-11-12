@@ -69,6 +69,12 @@ test("the work prompt asks for one thing checked per test", () => {
 	assert.match(prompts.work, /one thing checked per test/);
 });
 
+test("the work prompt's test-name example names a caller of the project's domain, not a person", () => {
+	const line = lineMatching(prompts.work, /reads like a specification/);
+	assert.match(line, /a caller can check out with a valid cart/);
+	assert.doesNotMatch(line, /\ba user\b/i);
+});
+
 test("the work prompt gives depth a sentence", () => {
 	const line = lineMatching(prompts.work, /depth/i);
 	assert.match(line, /a lot of behaviour behind a small interface/);
@@ -98,6 +104,12 @@ test("the work prompt asks the commit message to name the interface built and th
 	assert.match(line, /which interface you built/);
 });
 
+test("the work prompt lets the agent refactor what its Bead asks for and leaves refactoring it does not ask for to the review", () => {
+	const line = lineMatching(prompts.work, /refactor/i);
+	assert.match(line, /refactoring the Bead asks for is this loop's work/i);
+	assert.match(line, /refactoring it does not ask for belongs to the review/i);
+});
+
 test("the standards review sends the agent to the module guide when a module, an interface or a seam changes", () => {
 	const line = lineMatching(prompts.review_standards, moduleGuide);
 	assert.match(line, /when the diff adds a module, changes an interface or moves a seam/);
@@ -115,6 +127,13 @@ test("the standards review names the four design judgements", () => {
 	assert.match(text, /interface grown to match its implementation/i);
 	assert.match(text, /pass-through/i);
 	assert.match(text, /indirection with one adapter/i);
+});
+
+test("the standards review gives a module that only passes calls on one finding, not two", () => {
+	const findings = prompts.review_standards
+		.split("\n")
+		.filter((line) => /only passes calls on/i.test(line));
+	assert.equal(findings.length, 1);
 });
 
 test("the standards review judges the tests as code, after the spec review judged whether they reach the seam", () => {

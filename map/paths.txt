@@ -30,7 +30,7 @@
     work-finished.test.ts  — bin/work-finished on a temporary artifacts folder with a stand-in for bd: the work node's failed checks are commented on the Bead and the node fails, so the reviews do not run (fac-qpv.3.3)
     size.test.ts  — scripts/size on a throwaway repo of one file per kind: policy lines counted, comments, docstrings and blanks left out, and the folders the Factory does not depend on skipped (fac-4tn)
     map-render.test.ts  — map/render beside a paths.txt the test writes: a tag before or after a note is never part of the path it checks, and a path with no folder is still reported missing (fac-fca)
-    prompt-guidance.test.ts  — The prompts and guides read as a Run reads them: the module and test design rules each prompt carries, the guides' own content, no prompt or guide naming Pocock's setup, and both build Workflows gating the standards review on the spec review's approval (fac-6a7.2)
+    prompt-guidance.test.ts  — The prompts and guides read as a Run reads them: the module and test design rules each prompt carries, the work prompt's refactor rule and test-name example, the guides' own content, no prompt or guide naming Pocock's setup, and both build Workflows gating the standards review on the spec review's approval (fac-6a7.2, fac-6a7.4)
     fixtures/install-mac.ts  — One temporary Mac for the install tests: a HOME with the files a Mac already has and stand-ins on PATH for the commands install calls outside the Factory
   project-manager/  — The Project Manager's definition
     instructions.md  — Appended to pi's system prompt; under the worktree shape its Runs start from the worktree's branch with --base, pushed first (fac-qpv.6.5)
