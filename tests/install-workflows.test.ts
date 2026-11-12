@@ -52,6 +52,19 @@ const runArchon = (home: string, args: string[]) =>
 		env: { ...process.env, ARCHON_HOME: home, ARCHON_TELEMETRY_DISABLED: "1", DO_NOT_TRACK: "1", PI_SKIP_VERSION_CHECK: "1" },
 	});
 
+/** The core Workflows, each named as the folder and the YAML file that hold it. */
+const coreWorkflows = ["factory-build", "factory-build-gated", "factory-register", "factory-research", "factory-task"];
+
+/**
+ * Asserts that `archon workflow test` printed a passing line for every core Workflow and that
+ * no fixture failed. A Workflow's line ends with its name, and so does the match:
+ * `/→ factory-build\b/` is also satisfied by factory-build-gated's line.
+ */
+const assertCoreWorkflowsLoad = (stdout: string) => {
+	for (const name of coreWorkflows) assert.match(stdout, new RegExp(`→ ${name}$`, "m"), `${name} loaded`);
+	assert.match(stdout, /, 0 failed$/m, "no fixture failed");
+};
+
 test("install replaces the core Workflows and leaves the person's own group alone", () => {
 	const home = makeArchonHome();
 	try {
@@ -69,7 +82,7 @@ test("install replaces the core Workflows and leaves the person's own group alon
 
 		// The whole core group is this repo's copy, as real files Archon can read.
 		assert.ok(tree(coreGroup).length > 0, "this repo holds the core Workflows");
-		for (const name of ["factory-build", "factory-build-gated", "factory-register", "factory-research", "factory-task"]) {
+		for (const name of coreWorkflows) {
 			assert.equal(existsSync(join(home, "workflows", "factory", name, `${name}.yaml`)), true, `${name} is installed`);
 			assert.ok(readdirSync(join(home, "workflows", "factory", name, "fixtures")).length > 0, `${name} has its fixtures`);
 		}
@@ -139,11 +152,8 @@ test("the library loads when a person's own group holds build.yaml beside the co
 
 		const result = runArchon(home, ["workflow", "test"]);
 		assert.equal(result.status, 0, result.stdout + result.stderr);
-		for (const name of ["factory-build", "factory-build-gated", "factory-register", "factory-research", "factory-task"]) {
-			assert.match(result.stdout, new RegExp(`→ ${name}\\b`), `${name} loaded beside the person's build.yaml`);
-		}
-		assert.match(result.stdout, /→ work-build\b/, "the person's own build Workflow loads too");
-		assert.match(result.stdout, /0 failed/);
+		assertCoreWorkflowsLoad(result.stdout);
+		assert.match(result.stdout, /→ work-build$/m, "the person's own build Workflow loads too");
 	} finally {
 		rmSync(home, { recursive: true, force: true });
 	}
@@ -155,10 +165,7 @@ test("archon workflow test passes on every core Workflow after install", () => {
 		assert.equal(install(home).status, 0);
 		const result = runArchon(home, ["workflow", "test"]);
 		assert.equal(result.status, 0, result.stdout + result.stderr);
-		for (const name of ["factory-build", "factory-build-gated", "factory-register", "factory-research", "factory-task"]) {
-			assert.match(result.stdout, new RegExp(name), `${name} was tested`);
-		}
-		assert.match(result.stdout, /0 failed/);
+		assertCoreWorkflowsLoad(result.stdout);
 	} finally {
 		rmSync(home, { recursive: true, force: true });
 	}

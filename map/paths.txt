@@ -68,9 +68,9 @@
       flows/look-a  — The first research agent's checks (fac-qpv.3)
       flows/look-b  — The second research agent's checks (fac-qpv.3)
       flows/combine  — The checks on the node that combines the two findings files (fac-qpv.3)
-    task/  — factory-task: one node with no review, for an answer or a change the Bead spells out
+    factory-task/  — factory-task: one node with no review, for an answer or a change the Bead spells out
       flows/task  — The task node's checks (fac-qpv.3)
-    register/  — factory-register: registers a repo with Archon from its main checkout, one shell node and no model (fac-qpv.6.5)
+    factory-register/  — factory-register: registers a repo with Archon from its main checkout, one shell node and no model (fac-qpv.6.5)
   skills/  — Factory skills
     grilling/  — Interview the Human about an Idea
     wayfinder/  — Chart a Map for an Idea too big for one Spec

@@ -144,9 +144,9 @@ test("a Mac whose Profile chooses the squash landing installs no FactoryClaw or 
 		assert.ok(logOf(mac.logs.archon).includes(`LIBRARY=${library} `), "the wrapper points a Run at the Profile's Workflow library");
 		// A core Workflow reads its flows from the library the Profile names, not the
 		// example's path.
-		const build = readFileSync(join(library, "factory", "factory-build", "factory-build.yaml"), "utf8");
-		assert.ok(build.includes("${LIBRARY:-$ARCHON_HOME/workflows}/factory/factory-build"), "the installed Workflow follows the Profile's library");
-		assert.equal(build.includes("~/.local/share/factory/archon/workflows"), false);
+		const buildYaml = readFileSync(join(library, "factory", "factory-build", "factory-build.yaml"), "utf8");
+		assert.ok(buildYaml.includes("${LIBRARY:-$ARCHON_HOME/workflows}/factory/factory-build"), "the installed Workflow follows the Profile's library");
+		assert.equal(buildYaml.includes("~/.local/share/factory/archon/workflows"), false);
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}
