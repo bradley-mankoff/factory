@@ -1,14 +1,17 @@
 /**
  * The Factory's own engineering skills (fac-6a7.5): tdd, codebase-design and code-review.
- * The seam is what a session loads, so the test installs the Factory on a temporary Mac and
- * reads the skill files back where pi finds them, with the fuller files each one names.
+ * Most tests' seam is what a session loads, so they install the Factory on a temporary Mac
+ * and read the skill files back where pi finds them, with the fuller files each one names.
+ * The front-matter test reads the shipped SKILL.md files in the repo instead, in both the
+ * folders the Factory ships skills in (fac-p3z): install copies each folder whole, so the
+ * repo's copy is the file a session loads.
  */
 import assert from "node:assert/strict";
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { after, before, test } from "node:test";
-import { makeMac, squashProfile } from "./fixtures/install-mac.ts";
+import { makeMac, repoRoot, squashProfile } from "./fixtures/install-mac.ts";
 
 /** The three skills, by the names pi loads them under. */
 const skillNames = ["tdd", "codebase-design", "code-review"];
@@ -99,17 +102,34 @@ test("install skips an engineering skill that is already a raw copy, and names t
 	}
 });
 
-// pi parses a skill's front matter as YAML and refuses the skill when it fails, so a plain
-// description holding ": " (a nested mapping) hides the skill from every session (fac-6a7.5's
-// first release). Node has no YAML parser, so the test borrows Bun's, which Archon needs anyway.
+/** The two folders the Factory ships skills in: pi's own, and FactoryClaw's, which OpenClaw loads. */
+const skillFolders = ["skills", "factoryclaw/skills"];
+
+/** One skill the Factory ships: its folder, the name a session loads it by, and its file. */
+type ShippedSkill = { folder: string; skill: string; file: string };
+
+/** Every skill the Factory ships in either folder, so one loop checks them all and names each failure. */
+const shippedSkills = (): ShippedSkill[] =>
+	skillFolders.flatMap((folder) =>
+		readdirSync(join(repoRoot, folder), { withFileTypes: true })
+			.filter((entry) => entry.isDirectory())
+			.map(({ name }) => ({ folder, skill: name, file: join(repoRoot, folder, name, "SKILL.md") })),
+	);
+
+// pi and OpenClaw both parse a skill's front matter as YAML and refuse the skill when it
+// fails, so a plain description holding ": " (a nested mapping) hides the skill from every
+// session (fac-6a7.5's first release, seen as a plain pi session's Skill conflicts). install
+// copies each folder whole, so the shipped file is the one a session loads. Node has no YAML
+// parser, so the test borrows Bun's, which Archon needs anyway.
 test("every Factory skill's front matter parses as YAML with a name and a description", () => {
-	const skills = readdirSync("skills").filter((s) => existsSync(join("skills", s, "SKILL.md")));
-	for (const skill of skills) {
-		const frontMatter = readFileSync(join("skills", skill, "SKILL.md"), "utf8").split(/^---$/m)[1];
+	const shipped = shippedSkills();
+	for (const folder of skillFolders) assert.ok(shipped.some((each) => each.folder === folder), `${folder} ships a skill`);
+	for (const { folder, skill, file } of shipped) {
+		const frontMatter = readFileSync(file, "utf8").split(/^---$/m)[1];
 		const parsed = spawnSync("bun", ["-e", "const m = Bun.YAML.parse(await Bun.stdin.text()); console.log(JSON.stringify(m))"], { input: frontMatter, encoding: "utf8" });
-		assert.equal(parsed.status, 0, `${skill}: ${parsed.stderr}`);
+		assert.equal(parsed.status, 0, `${folder}/${skill}: ${parsed.stderr}`);
 		const meta = JSON.parse(parsed.stdout);
 		assert.equal(meta.name, skill);
-		assert.ok(meta.description, `${skill} has no description`);
+		assert.ok(meta.description, `${folder}/${skill} has no description`);
 	}
 });
