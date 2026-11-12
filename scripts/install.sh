@@ -133,11 +133,13 @@ WRAPPER
 	# person's own and install never writes to it.
 	"$src/scripts/install-workflows" "$LIBRARY"
 	cp "$src/GLOSSARY.md" "$factory/GLOSSARY.md"
-	# The planning skills serve every session, not only Project Managers (fac-60v.14), so
-	# they are linked where pi finds personal skills, in place of Matt
-	# Pocock's skills of the same names. Linking over his copies would nest a link inside
-	# them, so the install skips such a skill and names the command that removes the copy.
-	for s in grilling wayfinder to-spec to-beads; do
+	# The planning skills serve every session, not only Project Managers (fac-60v.14), and
+	# the engineering skills tdd, codebase-design and code-review replace Matt Pocock's raw
+	# copies for Project Managers and the Human's own sessions alike (fac-6a7.5), so all
+	# seven are linked where pi finds personal skills, in place of his copies of the same
+	# names. Linking over his copies would nest a link inside them, so the install skips
+	# such a skill and names the command that removes the copy.
+	for s in grilling wayfinder to-spec to-beads tdd codebase-design code-review; do
 		if [ -e "$HOME/.agents/skills/$s" ] && [ ! -L "$HOME/.agents/skills/$s" ]; then
 			echo "skipped $s: ~/.agents/skills/$s is another copy; remove it with: npx skills remove -g $s -y" >&2
 			continue

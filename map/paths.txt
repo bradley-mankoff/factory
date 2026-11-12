@@ -33,6 +33,7 @@
     size.test.ts  — scripts/size on a throwaway repo of one file per kind: policy lines counted, comments, docstrings and blanks left out, and the folders the Factory does not depend on skipped (fac-4tn)
     map-render.test.ts  — map/render beside a paths.txt the test writes: a tag before or after a note is never part of the path it checks, and a path with no folder is still reported missing (fac-fca)
     prompt-guidance.test.ts  — The prompts and guides read as a Run reads them: the module and test design rules each prompt carries, the work prompt's refactor rule and test-name example, the guides' own content, no prompt or guide naming Pocock's setup, and both build Workflows gating the standards review on the spec review's approval (fac-6a7.2, fac-6a7.4)
+    skills.test.ts  — The three engineering skills as a session loads them: each names the fuller files install puts in place by absolute path, code-review runs the spec review first and the standards review only after it approves, no skill names Pocock's setup, and install links all three and skips a raw copy with its removal command (fac-6a7.5)
     fixtures/install-mac.ts  — One temporary Mac for the install tests: a HOME with the files a Mac already has and stand-ins on PATH for the commands install calls outside the Factory
   project-manager/  — The Project Manager's definition
     instructions.md  — Appended to pi's system prompt; under the worktree shape its Runs start from the worktree's branch with --base, pushed first (fac-qpv.6.5)
@@ -78,6 +79,9 @@
     to-spec/  — Write a Spec as an Epic
     to-beads/  — Split an Epic into Beads
     record-demo/  — Record a demo video for a Human gate
+    tdd/  — Build test first at the seam a Bead or Spec names, and where to read the fuller convention and test design (fac-6a7.5)
+    codebase-design/  — The design words: depth, seam, the deletion test and one adapter is no seam, pointing at the module guide (fac-6a7.5)
+    code-review/  — Review a branch or the changes since a commit: the spec review first, then the standards review once it approves (fac-6a7.5)
   factoryclaw/  — FactoryClaw's files, copied to its workspace
     AGENTS.md  — Routing: each kind of request to one skill
     BOOT.md
@@ -116,7 +120,7 @@
   jev-shadow.jsonl  — Jev's is-it-done answer for each Run's review pass; the record that retired Jev, kept as it stands (fac-60v.20.12, fac-qpv.3.3)
   jev-replay/  — The 2026-10-24 replay of Jev over 35 past review passes: cases, states, scripts, results (fac-60v.20.12)
   prompts/  — work.md, task.md, review_spec.md, review_standards.md and guides/ for the fuller design guidance
-  skills/  — grilling, wayfinder, to-spec, to-beads and record-demo (all linked into ~/.agents/skills)
+  skills/  — grilling, wayfinder, to-spec, to-beads, tdd, codebase-design, code-review and record-demo (all linked into ~/.agents/skills)
   GLOSSARY.md  — Appended to the Project Manager's system prompt
   demo/  — trim-idle and playwright-core 1.63.0
   openclaw-plugins/workshop-catch/  — The plugin as OpenClaw loads it (linked install)
@@ -242,10 +246,10 @@
 /opt/homebrew/bin/herdr  — herdr 0.9.4
 
 ## Skills
-> Where pi finds skills. The four planning skills and record-demo are links to the Factory's installed copies.
+> Where pi finds skills. The four planning skills, the three engineering skills and record-demo are links to the Factory's installed copies.
 ~/.agents/skills  — Skills for every harness
-  grilling, wayfinder, to-spec, to-beads, record-demo  — Links to ~/.local/share/factory/skills  [installed]
-  domain-modeling, tdd, codebase-design, prototype  — Matt Pocock's copies, loaded unadapted by Project Managers
+  grilling, wayfinder, to-spec, to-beads, tdd, codebase-design, code-review, record-demo  — Links to ~/.local/share/factory/skills  [installed]
+  domain-modeling, prototype  — Matt Pocock's copies, loaded unadapted by Project Managers (fac-6a7.5)
   archon/  — The archon skill Project Managers load
   model-roles/  — The Human's model rules and where each model is set
   plain-voice  — Link to pi-plain-voice's skill
