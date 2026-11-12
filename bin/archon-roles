@@ -20,22 +20,28 @@ for tier in small medium large; do
 	"$archon" ai tier set "$tier" pi chain/work --scope install >/dev/null
 done
 "$archon" ai default pi chain/work --scope install >/dev/null
-for alias in @work @standards-review @reviewer; do
-	"$archon" ai alias set "$alias" pi chain/work --scope install >/dev/null
+# Each install-scope alias and the Chain its role runs on, named once so the unset pass below
+# cannot disagree with what this loop sets. The spec review matters more than the work it
+# reads, so it keeps a Chain of its own.
+role_chains="@work:chain/work @standards-review:chain/work @reviewer:chain/work @spec-review:chain/spec-review"
+roles=
+for pair in $role_chains; do
+	role=${pair%%:*}
+	chain=${pair#*:}
+	"$archon" ai alias set "$role" pi "$chain" --scope install >/dev/null
+	roles="$roles $role"
 done
-# The spec review matters more than the work it reads, so it keeps a Chain of its own.
-"$archon" ai alias set @spec-review pi chain/spec-review --scope install >/dev/null
 # Every install-scope alias this script did not just set goes. Alias names have no spaces,
 # so the list can split on whitespace; the JSON holds both scopes, and only install matters
 # here.
 strays=$(
 	"$archon" ai alias list --json | python3 -c '
 import json, sys
-roles = {"@work", "@standards-review", "@reviewer", "@spec-review"}
+roles = set(sys.argv[1].split())
 for alias in json.load(sys.stdin)["aliases"]:
 	if alias["install"] and alias["name"] not in roles:
 		print(alias["name"])
-'
+' "$roles"
 )
 for alias in $strays; do
 	"$archon" ai alias unset "$alias" --scope install >/dev/null

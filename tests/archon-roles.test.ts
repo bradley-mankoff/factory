@@ -21,6 +21,7 @@ const helper = join(root, "bin", "archon-roles");
 const installed = process.env.ARCHON_HOME ?? join(homedir(), ".local", "share", "factory", "archon");
 
 type Role = { provider: string; model: string; effort?: string };
+type Alias = { name: string; install: Role | null; user: Role | null; effective: Role };
 
 /** A temporary Archon home, holding links to this Mac's Archon and its plugins. */
 const makeArchonHome = (): string => {
@@ -43,16 +44,17 @@ const runArchon = (home: string, args: string[]): string => {
 const runRoles = (home: string) =>
 	spawnSync(helper, [], { encoding: "utf8", env: { ...process.env, ARCHON_HOME: home } });
 
+/** The aliases Archon holds, each with the role it resolves to at install scope and user scope. */
+const listAliases = (home: string): Alias[] =>
+	JSON.parse(runArchon(home, ["ai", "alias", "list", "--json"])).aliases as Alias[];
+
 test("every role Archon names runs on a Chain, and a second run changes nothing", () => {
 	const home = makeArchonHome();
 	try {
 		const first = runRoles(home);
 		assert.equal(first.status, 0, first.stderr || first.stdout);
 
-		const aliases = (JSON.parse(runArchon(home, ["ai", "alias", "list", "--json"])).aliases as Array<{
-			name: string;
-			effective: Role;
-		}>).map((alias) => [alias.name, alias.effective] as [string, Role]);
+		const aliases = listAliases(home).map((alias) => [alias.name, alias.effective] as [string, Role]);
 		aliases.sort((a, b) => a[0].localeCompare(b[0]));
 		assert.deepEqual(aliases, [
 			["@reviewer", { provider: "pi", model: "chain/work" }],
@@ -81,31 +83,37 @@ test("every role Archon names runs on a Chain, and a second run changes nothing"
 	}
 });
 
-test("an install-scope alias the roles do not set is unset, and a user-scope alias is kept", () => {
+test("an install-scope alias the roles do not set is unset", () => {
 	const home = makeArchonHome();
 	try {
 		// What the work Mac's config.yaml still had from before Chains: aliases naming a
 		// model directly, at install scope (fac-qpv.1.7).
 		runArchon(home, ["ai", "alias", "set", "@worker", "pi", "chain/old", "--scope", "install"]);
 		runArchon(home, ["ai", "alias", "set", "@general", "pi", "chain/old", "--scope", "install"]);
-		// The same name at user scope belongs to the person, so it stays.
+
+		const run = runRoles(home);
+		assert.equal(run.status, 0, run.stderr || run.stdout);
+
+		const install = listAliases(home)
+			.filter((alias) => alias.install !== null)
+			.map((alias) => alias.name)
+			.sort((a, b) => a.localeCompare(b));
+		assert.deepEqual(install, ["@reviewer", "@spec-review", "@standards-review", "@work"]);
+	} finally {
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
+test("a user-scope alias the roles do not set is kept", () => {
+	const home = makeArchonHome();
+	try {
+		// @worker at user scope is the person's own alias, so the roles leave it alone (fac-qpv.1.7).
 		runArchon(home, ["ai", "alias", "set", "@worker", "pi", "chain/mine", "--scope", "user"]);
 
 		const run = runRoles(home);
 		assert.equal(run.status, 0, run.stderr || run.stdout);
 
-		const aliases = JSON.parse(runArchon(home, ["ai", "alias", "list", "--json"])).aliases as Array<{
-			name: string;
-			install: Role | null;
-			user: Role | null;
-		}>;
-		const install = aliases
-			.filter((alias) => alias.install !== null)
-			.map((alias) => alias.name)
-			.sort((a, b) => a.localeCompare(b));
-		assert.deepEqual(install, ["@reviewer", "@spec-review", "@standards-review", "@work"]);
-
-		const worker = aliases.find((alias) => alias.name === "@worker");
+		const worker = listAliases(home).find((alias) => alias.name === "@worker");
 		assert.deepEqual(worker?.user, { provider: "pi", model: "chain/mine" });
 	} finally {
 		rmSync(home, { recursive: true, force: true });
