@@ -120,7 +120,7 @@
   jev-shadow.jsonl  — Jev's is-it-done answer for each Run's review pass; the record that retired Jev, kept as it stands (fac-60v.20.12, fac-qpv.3.3)
   jev-replay/  — The 2026-10-24 replay of Jev over 35 past review passes: cases, states, scripts, results (fac-60v.20.12)
   prompts/  — work.md, task.md, review_spec.md, review_standards.md and guides/ for the fuller design guidance
-  skills/  — grilling, wayfinder, to-spec, to-beads, record-demo, tdd, codebase-design and code-review (all linked into ~/.agents/skills)
+  skills/  — grilling, wayfinder, to-spec, to-beads, tdd, codebase-design, code-review and record-demo (all linked into ~/.agents/skills)
   GLOSSARY.md  — Appended to the Project Manager's system prompt
   demo/  — trim-idle and playwright-core 1.63.0
   openclaw-plugins/workshop-catch/  — The plugin as OpenClaw loads it (linked install)
