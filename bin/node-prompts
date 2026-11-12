@@ -53,10 +53,9 @@ import subprocess
 import sys
 
 bin_dir = pathlib.Path(__file__).resolve().parent
-prompt_dir = bin_dir.parent / "prompts"
-# second-pass.md is not a convention of its own, so it is read here but printed no key.
-prompts = {path.stem: path.read_text() for path in sorted(prompt_dir.glob("*.md")) if path.stem != "second-pass"}
-second_pass = (prompt_dir / "second-pass.md").read_text()
+prompts = {path.stem: path.read_text() for path in sorted((bin_dir.parent / "prompts").glob("*.md"))}
+# second-pass.md is not a convention of its own: it is appended to the work prompt below.
+second_pass = prompts.pop("second-pass")
 
 
 def with_dashes(name):

@@ -138,21 +138,29 @@ test("bin/node-prompts matches a flows file to a node spelled with an underscore
 	}
 });
 
-/** A build Workflow's prompts as its Run's prompts node prints them, adopted or not. */
-const corePrompts = (name: string, adoptedRunDir?: string): Record<string, string> => {
-	const env: NodeJS.ProcessEnv = { ...process.env };
-	// The test's own Run may itself be adopting one: ask for the prompts this test means.
-	delete env.ADOPTED_RUN_DIR;
-	if (adoptedRunDir !== undefined) env.ADOPTED_RUN_DIR = adoptedRunDir;
+/** The two core builds, which carry the work node an adopting Run continues. */
+const builds = ["factory-build", "factory-build-gated"];
+
+/** The ADOPTED_RUN_DIR of a Run that adopts one; bin/node-prompts asks only whether it is set. */
+const adoptedRunDir = "/tmp/an-adopted-runs-artifacts";
+
+/**
+ * A build Workflow's prompts as its Run's prompts node prints them. Archon gives a Run that
+ * adopts nothing an empty ADOPTED_RUN_DIR, so every call states the Run the test means.
+ */
+const corePrompts = (name: string, adoptedDir = ""): Record<string, string> => {
+	const env: NodeJS.ProcessEnv = { ...process.env, ADOPTED_RUN_DIR: adoptedDir };
 	const result = spawnSync(join(root, "bin", "node-prompts"), [join(root, "workflows", "factory", name)], { encoding: "utf8", env });
 	assert.equal(result.status, 0, result.stderr);
 	return JSON.parse(result.stdout) as Record<string, string>;
 };
 
+/** An adopting Run's work prompt as one line: a prompt wraps its lines, so a sentence may break. */
+const adoptedWork = (name: string): string => corePrompts(name, adoptedRunDir).work.replace(/\s+/g, " ");
+
 test("an adopting build Run's work prompt says it is a second pass and sends the agent to the withholding review on the Bead", () => {
-	for (const name of ["factory-build", "factory-build-gated"]) {
-		// A prompt wraps its lines, so the paragraph is read as one line of text.
-		const work = corePrompts(name, "/tmp/an-adopted-runs-artifacts").work.replace(/\s+/g, " ");
+	for (const name of builds) {
+		const work = adoptedWork(name);
 		assert.match(work, /This is a second pass/, `${name}'s work prompt names the pass`);
 		assert.match(work, /a review withheld approval of it/, `${name}'s work prompt names the withholding review`);
 		assert.match(work, /read that review in the comments on the Bead below/, `${name}'s work prompt sends the agent to the review first`);
@@ -161,17 +169,21 @@ test("an adopting build Run's work prompt says it is a second pass and sends the
 });
 
 test("an adopting build Run's work prompt sends a finding it judges wrong to a Bead comment and the final message, not a commit message", () => {
-	for (const name of ["factory-build", "factory-build-gated"]) {
-		const work = corePrompts(name, "/tmp/an-adopted-runs-artifacts").work.replace(/\s+/g, " ");
+	for (const name of builds) {
+		const work = adoptedWork(name);
 		// A pass that changes no file makes no commit, so a reason kept for a commit message is lost.
-		assert.match(work, /do not save its reason for a commit message/, `${name}'s work prompt rules out the commit message for a wrong finding`);
-		assert.match(work, /say why in a comment on the Bead \(`bd comments add <bead id>`\) and in your final message/, `${name}'s work prompt names where a wrong finding's reason goes`);
+		assert.match(work, /on a second pass there may be no commit to carry it/, `${name}'s work prompt says why a commit message will not hold a wrong finding`);
+		assert.match(
+			work,
+			/say why in a comment on the Bead \(`bd comments add <bead id>`\) and in your final message/,
+			`${name}'s work prompt names where a wrong finding's reason goes`,
+		);
 	}
 });
 
 test("an adopting build Run's work prompt says a pass whose findings are all wrong changes no files and ends at work-finished", () => {
-	for (const name of ["factory-build", "factory-build-gated"]) {
-		const work = corePrompts(name, "/tmp/an-adopted-runs-artifacts").work.replace(/\s+/g, " ");
+	for (const name of builds) {
+		const work = adoptedWork(name);
 		assert.match(work, /When every finding is wrong, change no files and say so/, `${name}'s work prompt lets an all-wrong pass change nothing`);
 		assert.match(work, /the Run at work-finished, and the Project Manager judges/, `${name}'s work prompt says where that pass ends and who judges it`);
 	}
@@ -179,13 +191,13 @@ test("an adopting build Run's work prompt says a pass whose findings are all wro
 
 test("a build Run without --adopt gets the work prompt as it was before, the work convention alone", () => {
 	const convention = readFileSync(join(root, "prompts", "work.md"), "utf8");
-	for (const name of ["factory-build", "factory-build-gated"]) {
+	for (const name of builds) {
 		assert.equal(corePrompts(name).work, convention, `${name}'s work prompt carries no second-pass words`);
 	}
 });
 
 test("both build Workflows' work nodes take their prompt from the prompts node, so an adopting Run's second-pass words reach the agent", () => {
-	for (const name of ["factory-build", "factory-build-gated"]) {
+	for (const name of builds) {
 		const yaml = readFileSync(join(root, "workflows", "factory", name, `${name}.yaml`), "utf8");
 		const work = yaml.split(/\n(?=  - id: )/).find((node) => node.startsWith("  - id: work\n"));
 		assert.ok(work, `${name} has a work node`);
