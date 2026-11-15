@@ -8,7 +8,8 @@
   "modelThinkingLevels": {
     "claude-bridge/claude-opus-5-5": "high",
     "opencode-go/deepseek-v4.1-flash": "max",
-    "opencode-go/muse-spark-1.3-contributor": "xhigh"
+    "opencode-go/muse-spark-1.3-contributor": "xhigh",
+    "claude-bridge/claude-haiku-5-5": "high"
   },
   "hideThinkingBlock": true
 }
