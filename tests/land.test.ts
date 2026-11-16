@@ -2,7 +2,8 @@
  * bin/land is how a Run lands its commits, the way the Mac's Profile says (GLOSSARY.md,
  * `Profile`; fac-qpv.6.4). The seam is the command: a real git repo with the Run in a
  * worktree and origin a bare remote beside it, made-up files, a Profile file for the Mac, a
- * check command, and a stand-in `gh` at the GitHub edge that writes down how it was called.
+ * check command, and a stand-in `gh` at the GitHub edge that writes down how it was called;
+ * a fork's upstream remote stands beside origin's address the way GitHub has it.
  * Nothing here looks inside bin/land.
  */
 import assert from "node:assert/strict";
@@ -29,9 +30,18 @@ type Mac = {
  * worktree on its own branch beside it, a bare remote as origin with main, develop and the
  * Project Manager's branch, the Mac's Profile, and a stand-in `gh`. The stand-in does
  * what GitHub does with the commands bin/land gives it, so the remote shows whether a
- * landing reached the base branch.
+ * landing reached the base branch. `origin` and `upstream` give the remotes addresses the
+ * way GitHub has them, https or ssh; pushes still reach the bare remote beside the repo,
+ * through origin's push address, and `gh` is told origin's address, as it would be.
  */
-const makeMac = (options: { profile: string; repo: string; base: string; check?: string }): Mac => {
+const makeMac = (options: {
+	profile: string;
+	repo: string;
+	base: string;
+	check?: string;
+	origin?: string;
+	upstream?: string;
+}): Mac => {
 	const dir = mkdtempSync(join(tmpdir(), "factory-land-"));
 	const home = join(dir, "home");
 	const bin = join(dir, "bin");
@@ -41,22 +51,69 @@ const makeMac = (options: { profile: string; repo: string; base: string; check?:
 	const artifacts = join(dir, "artifacts");
 	const ghLog = join(dir, "gh.log");
 	const ghOpen = join(dir, "gh-open");
+	const ghHead = join(dir, "gh-head");
 	mkdirSync(join(home, ".config", "factory"), { recursive: true });
 	writeFileSync(join(home, ".config", "factory", "profile"), options.profile);
 	mkdirSync(bin, { recursive: true });
 	mkdirSync(artifacts, { recursive: true });
 
-	// GitHub, at the edge: it records each command, answers a pull request with a made-up
-	// address, and lands a merge by moving the base branch on the remote, as a squash merge
-	// would.
+	// GitHub, at the edge: it records each command, opens a pull request with a made-up
+	// address, answers `view` only for the branch that pull request has, and lands a merge by
+	// moving the base branch on the remote, as a squash merge would. It answers the calls the
+	// way gh 2.96.0 does: `view` needs a selector when `--repo` names the repo, and a second
+	// pull request for a head that already has one is refused.
 	writeFileSync(
 		join(bin, "gh"),
 		`#!/bin/sh
 printf '%s\\n' "$*" >> "$GH_LOG"
-case "$1 $2" in
-	"pr create") printf 'https://github.com/example/${options.repo}/pull/7\\n'; : > "$GH_OPEN" ;;
-	"pr view") [ -e "$GH_OPEN" ] && printf 'https://github.com/example/${options.repo}/pull/7\\n' || exit 1 ;;
-	"pr merge") git -C "$REMOTE" update-ref "refs/heads/$BASE_BRANCH" "$(git rev-parse HEAD)" ;;
+command=$2
+shift 2
+repo= head= base= selector=
+while [ $# -gt 0 ]; do
+	case $1 in
+	--repo) repo=$2 && shift ;;
+	--head) head=$2 && shift ;;
+	--base) base=$2 && shift ;;
+	--json | -q | --jq) shift ;;
+	-*) ;;
+	*) selector=$1 ;;
+	esac
+	shift
+done
+case $command in
+create)
+	if [ -e "$GH_OPEN" ]; then
+		printf 'a pull request for branch "%s" into branch "%s" already exists\\n' "$head" "$base" >&2
+		exit 1
+	fi
+	[ -n "$repo" ] || repo=example/${options.repo}
+	printf 'https://github.com/%s/pull/7\\n' "$repo" > "$GH_OPEN"
+	printf '%s\\n' "$head" | sed 's/.*://' > "$GH_HEAD"
+	cat "$GH_OPEN"
+	;;
+view)
+	if [ -z "$selector" ]; then
+		if [ -n "$repo" ]; then
+			echo 'argument required when using the --repo flag' >&2
+			exit 1
+		fi
+		selector=$(git rev-parse --abbrev-ref HEAD)
+	fi
+	if [ -e "$GH_OPEN" ] && [ "$selector" = "$(cat "$GH_HEAD")" ]; then
+		cat "$GH_OPEN"
+	else
+		printf 'no pull requests found for branch "%s"\\n' "$selector" >&2
+		exit 1
+	fi
+	;;
+merge)
+	if [ ! -e "$GH_OPEN" ]; then
+		echo 'no pull requests found' >&2
+		exit 1
+	fi
+	git -C "$REMOTE" update-ref "refs/heads/$BASE_BRANCH" "$(git rev-parse HEAD)"
+	rm -f "$GH_OPEN" "$GH_HEAD"
+	;;
 esac
 exit 0
 `,
@@ -68,7 +125,9 @@ exit 0
 	execFileSync("git", ["-C", main, "add", "README.md"]);
 	execFileSync("git", ["-C", main, "commit", "-qm", "start"]);
 	execFileSync("git", ["init", "-q", "--bare", remote]);
-	execFileSync("git", ["-C", main, "remote", "add", "origin", remote]);
+	execFileSync("git", ["-C", main, "remote", "add", "origin", options.origin ?? remote]);
+	if (options.origin) execFileSync("git", ["-C", main, "config", "remote.origin.pushurl", remote]);
+	if (options.upstream) execFileSync("git", ["-C", main, "remote", "add", "upstream", options.upstream]);
 	execFileSync("git", ["-C", main, "push", "-q", "origin", "main"]);
 	// The other branches the Mac may land on, all from the starting commit.
 	for (const branch of ["develop", "pm/branch"]) {
@@ -96,12 +155,21 @@ exit 0
 		ARGUMENTS: "pm-repo · fac-1",
 		GH_LOG: ghLog,
 		GH_OPEN: ghOpen,
+		GH_HEAD: ghHead,
 		REMOTE: remote,
 	};
 	const land = (args: string[] = []) => spawnSync(join(root, "bin", "land"), args, { cwd: run, encoding: "utf8", env });
 
 	return { dir, remote, artifacts, ghLog, land };
 };
+
+/**
+ * A fork's Mac: origin and an upstream remote both on GitHub, the way a project cloned from
+ * a stranger's repo and pushed to the person's own has them. The landing runs on it, and a
+ * test reads back how gh was called.
+ */
+const forkMac = (remotes: { origin: string; upstream: string }): Mac =>
+	makeMac({ profile: shippedProfile(), repo: "habit_breaker", base: "main", ...remotes });
 
 /** A branch's commit on the remote, as git sees it there. */
 const ref = (mac: Mac, branch: string): string =>
@@ -117,6 +185,34 @@ const subject = (mac: Mac, branch: string): string =>
 
 /** How the stand-in `gh` was called, one line per call. */
 const ghCalls = (mac: Mac): string => (existsSync(mac.ghLog) ? readFileSync(mac.ghLog, "utf8") : "");
+
+/** Each gh call the stand-in recorded, its arguments split apart. */
+const ghArguments = (mac: Mac): string[][] =>
+	ghCalls(mac)
+		.split("\n")
+		.filter((call) => call !== "")
+		.map((call) => call.split(" "));
+
+/** The value one recorded gh call gave a flag, or undefined when it gave none. */
+const flagValue = (call: string[], flag: string): string | undefined => {
+	const at = call.indexOf(flag);
+	return at < 0 ? undefined : call[at + 1];
+};
+
+/** Every gh call the stand-in recorded named the repo behind origin, so none was left to gh's own default repo. */
+const assertEveryGhCallNamesRepo = (mac: Mac, repo: string): void => {
+	const calls = ghArguments(mac);
+	assert.ok(calls.length > 0, "gh was asked about a pull request");
+	for (const call of calls) {
+		assert.equal(flagValue(call, "--repo"), repo, `gh ${call.join(" ")} names the repo behind origin`);
+	}
+};
+
+/** The pull request the stand-in opened names the Run's branch under origin's owner, never a bare branch gh could resolve on upstream. */
+const assertPullRequestHead = (mac: Mac, head: string): void => {
+	const created = ghArguments(mac).find((call) => call[1] === "create") ?? [];
+	assert.equal(flagValue(created, "--head"), head, "the pull request names the Run's branch on origin's owner");
+};
 
 /** A note bin/land leaves in the Run's artifacts, or an empty string. */
 const noteIn = (mac: Mac, name: string): string => {
@@ -221,6 +317,66 @@ test("under the pull-request landing a Run's work lands on main through a pull r
 		assert.equal(fileAt(mac, "main", "squash.txt"), "landed by the Run, refined\n");
 		assert.equal(ref(mac, "develop"), before.develop, "develop is untouched");
 		assert.equal(landingNote(mac), "merged pull request https://github.com/example/calc/pull/7 into main\n");
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("a fork whose origin is an https address lands its pull request on origin's repo, naming it on every gh call", () => {
+	const mac = forkMac({
+		origin: "https://github.com/bradley-mankoff/habit_breaker.git",
+		upstream: "https://github.com/Szalikko/NailGuard.git",
+	});
+	try {
+		const result = mac.land();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		assertEveryGhCallNamesRepo(mac, "bradley-mankoff/habit_breaker");
+		assertPullRequestHead(mac, "bradley-mankoff:run-1");
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("a fork whose origin is an ssh address lands its pull request on origin's repo, naming it on every gh call", () => {
+	const mac = forkMac({
+		origin: "git@github.com:bradley-mankoff/habit_breaker.git",
+		upstream: "git@github.com:Szalikko/NailGuard.git",
+	});
+	try {
+		const result = mac.land();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		assertEveryGhCallNamesRepo(mac, "bradley-mankoff/habit_breaker");
+		assertPullRequestHead(mac, "bradley-mankoff:run-1");
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("a fork's gated landing finds the pull request it held and merges that one, instead of opening a second", () => {
+	const mac = forkMac({
+		origin: "https://github.com/bradley-mankoff/habit_breaker.git",
+		upstream: "https://github.com/Szalikko/NailGuard.git",
+	});
+	try {
+		const before = ref(mac, "main");
+
+		const held = mac.land(["--hold"]);
+		assert.equal(held.status, 0, held.stderr || held.stdout);
+		assert.equal(ghCalls(mac).match(/^pr create /gm)?.length, 1, "the gate holds one pull request");
+		assert.equal(ref(mac, "main"), before, "main has not moved");
+
+		const landed = mac.land();
+		assert.equal(landed.status, 0, landed.stderr || landed.stdout);
+		assert.equal(ghCalls(mac).match(/^pr create /gm)?.length, 1, "the gate's pull request is the one that merges");
+		assert.notEqual(ref(mac, "main"), before, "the merge landed the Run's work");
+		assert.equal(fileAt(mac, "main", "squash.txt"), "landed by the Run, refined\n");
+		assert.equal(
+			landingNote(mac),
+			"merged pull request https://github.com/bradley-mankoff/habit_breaker/pull/7 into main\n",
+		);
+		assertEveryGhCallNamesRepo(mac, "bradley-mankoff/habit_breaker");
 	} finally {
 		rmSync(mac.dir, { recursive: true, force: true });
 	}
