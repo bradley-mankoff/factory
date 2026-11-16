@@ -39,7 +39,8 @@ test("every role the Factory names has a Chain of models and thinking levels", (
 test("the Factory's Chains are the personal Mac's from the Epic, with maximum as its model's highest level", () => {
 	// The Epic's personal Chains (fac-qpv.1). "Maximum" is written as the highest level
 	// pi's catalog offers that model: Muse Spark 1.3 tops out at xhigh (its catalog entry
-	// maps max to null), and DeepSeek v4.1 Flash offers max.
+	// maps max to null), and DeepSeek v4.1 Flash offers max. Work and Scout fall back to
+	// Haiku when opencode-go fails (fac-mfc).
 	const shipped = readChains();
 	const pm = [
 		{ model: "claude-bridge/claude-opus-5-5", thinking: "medium" },
@@ -48,8 +49,14 @@ test("the Factory's Chains are the personal Mac's from the Epic, with maximum as
 	assert.deepEqual(shipped, {
 		pm,
 		"spec-review": pm,
-		work: [{ model: "opencode-go/deepseek-v4.1-flash", thinking: "max" }],
-		scout: [{ model: "opencode-go/deepseek-v4.1-flash", thinking: "max" }],
+		work: [
+			{ model: "opencode-go/deepseek-v4.1-flash", thinking: "max" },
+			{ model: "claude-bridge/claude-haiku-5-5", thinking: "high" },
+		],
+		scout: [
+			{ model: "opencode-go/deepseek-v4.1-flash", thinking: "max" },
+			{ model: "claude-bridge/claude-haiku-5-5", thinking: "high" },
+		],
 	});
 });
 
