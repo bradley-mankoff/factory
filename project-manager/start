@@ -2,7 +2,7 @@
 # Starts a Project Manager: the Human's own pi in the current repo's top folder, with the
 # Project Manager's instructions and the glossary appended to its system prompt.
 #
-#   project-manager/start [pi arguments...]
+#   project-manager/start [--status-check] [pi arguments...]
 #
 # pm, the shorthand a session in the project folder starts with, execs this. FactoryClaw's
 # panes skill runs it too, so a pane opened from FactoryClaw and one opened by hand start
@@ -97,17 +97,28 @@ if [ "$WORKSPACE" = worktree ]; then
 	"$factory/bin/archon-register" "$PWD" || true
 fi
 
-# A session that starts with no message would sit at pi's prompt, so pi is given the
-# start routine: review the claimed Beads, the Runs that ended and the ready Beads, then
-# propose the next steps and wait for the Human to accept (fac-qpv.2.2). A message given
-# on the command line, as FactoryClaw's panes skill passes the Human's "get to work",
-# replaces it: pi takes the message it is given.
-if [ "$#" -eq 0 ]; then
-	set -- "Run your start routine now: review the claimed Beads, the Runs that ended and the ready Beads, then propose the obvious next steps and wait for the Human to accept."
-fi
+# The status check is asked for, never automatic (fac-k10): --status-check makes the
+# check's message pi's first message, and a first message given on the command line, as
+# FactoryClaw's panes skill passes the Human's "get to work", is taken up instead. With
+# neither, pi opens idle at its prompt. The flag is the launcher's, so it is removed before
+# pi sees the arguments, and every other argument passes through as it did before.
+status_check=
+kept=$#
+while [ "$kept" -gt 0 ]; do
+	arg=$1
+	shift
+	kept=$((kept - 1))
+	if [ "$arg" = --status-check ]; then
+		status_check=1
+	else
+		set -- "$@" "$arg"
+	fi
+done
+[ -n "$status_check" ] && [ "$#" -eq 0 ] && set -- "$(cat "$factory/project-manager/status-check.md")"
 
 exec pi \
 	--model "$PM_MODEL" \
 	--append-system-prompt "$factory/project-manager/instructions.md" \
 	--append-system-prompt "$factory/GLOSSARY.md" \
+	--extension "$factory/project-manager/status-check.ts" \
 	"$@"

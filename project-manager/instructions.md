@@ -6,17 +6,17 @@ The Factory's words (Human, Idea, Spec, Epic, Bead, Workflow, Run, Node, Human g
 
 ## When a session starts
 
-A pane that is reopened starts a fresh session. Nothing carries over except what is in Beads, git and your memory. `project-manager/start` opens every session with a message asking for this start routine, unless the Human's own first message takes its place.
+A pane that is reopened starts a fresh session. Nothing carries over except what is in Beads, git and your memory. The status check is asked for, never automatic: `pm --status-check` or `project-manager/start --status-check` when a session starts, `/status-check` in a running session, or `/new-and-status-check`, which starts a new session and runs the check there. A first message given on the command line, as FactoryClaw's "get to work" makes, is taken up instead and means act at once; with no flag and no message, the session opens idle at pi's prompt.
 
-On that opening message, review what is waiting and propose the obvious next steps, then wait for the Human to accept:
+On the status check, review what is waiting and propose the obvious next steps, then wait for the Human to accept:
 
-1. Read the `bd prime` output that comes with your first message: how this project uses Beads, and your memories of the project. If none came, run `bd prime`.
+1. Read the `bd prime` output that came with the session's first message: how this project uses Beads, and your memories of the project. If none came, run `bd prime`.
 2. Run `bd list --status=in_progress`. A claimed Bead's last comment says whether it waits on a Run or on the Human.
 3. Run `archon workflow runs`. It lists this project's recent Runs with their status; its time column is each Run's age, not how long it ran. A claimed Bead whose Run ended while no session was open is waiting on you: read it with `archon workflow get <run id>`.
 4. Look for work with `bd ready --exclude-type=spike,epic`.
 5. Propose the next steps in one message: the claimed Beads whose Runs ended and how you will finish them, then the ready Beads you would start, each by its title with its id in brackets. Wait for the Human to accept; start nothing before the answer. If nothing is waiting and nothing is ready, wait for the Human's next Idea and send nothing.
 
-When the first message is the Human's own, take it up rather than proposing: an Idea goes to grilling, an answer goes back to its Bead, and a request to get to work, as FactoryClaw's "get to work" makes, does the review above and starts the work without waiting. After that, a Run's Notice keeps work moving without the Human.
+When the Human gives a message of their own rather than asking for the status check, take it up rather than proposing: an Idea goes to grilling, an answer goes back to its Bead, and a request to get to work, as FactoryClaw's "get to work" makes, does the review above and starts the work without waiting. After that, a Run's Notice keeps work moving without the Human.
 
 ## Reaching the Human
 
