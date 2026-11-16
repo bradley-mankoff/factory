@@ -1,10 +1,13 @@
 /**
- * FactoryClaw checks nothing about Claude usage and cannot run such a check even if told to:
- * the Chains carry a Project Manager and its reviews past an account that runs out, and the
- * model-roles skill holds the Human's model preferences (fac-vse). The seam is installation:
- * scripts/install.sh runs against a temporary Mac, and the test reads back the allowlist it
- * sent OpenClaw, the helpers it installed and the instructions it put in FactoryClaw's
- * workspace.
+ * FactoryClaw's settings and instructions, read from the workspace install fills: it checks
+ * nothing about Claude usage and cannot run such a check even if told to, because the Chains
+ * carry a Project Manager and its reviews past an account that runs out, and the model-roles
+ * skill holds the Human's model preferences (fac-vse). It reaches its Project Managers
+ * through herdr's default server, the one the Human's own windows attach to, so it finds the
+ * Project Manager he started himself instead of opening a second (fac-6l8). The seam is
+ * installation: scripts/install.sh runs against a temporary Mac, and the test reads back the
+ * allowlist it sent OpenClaw, the helpers it installed and the instructions it put in
+ * FactoryClaw's workspace.
  */
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync, realpathSync, rmSync } from "node:fs";
@@ -70,6 +73,71 @@ test("FactoryClaw's installed instructions say nothing about Claude", () => {
 	try {
 		for (const { file, text } of instructionFiles(mac)) {
 			assert.doesNotMatch(text, /claude/i, `${file} says nothing about Claude`);
+		}
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+/** The panes skill as install leaves it in FactoryClaw's workspace. */
+const panesSkill = (mac: Mac): string => {
+	const panes = instructionFiles(mac).find(({ file }) => file.endsWith(join("skills", "panes", "SKILL.md")));
+	assert.ok(panes, "install puts the panes skill in FactoryClaw's workspace");
+	return panes.text;
+};
+
+/** The part of a skill under one heading, so a check reads the steps that carry the behaviour. */
+const skillSection = (text: string, heading: string): string => {
+	const from = text.indexOf(`## ${heading}`);
+	assert.ok(from >= 0, `the skill has a ${heading} section`);
+	const to = text.indexOf("\n## ", from + 1);
+	return text.slice(from, to === -1 ? undefined : to);
+};
+
+/** Where one step sits in a section, so a step the section lacks fails here rather than in an order check. */
+const stepAt = (text: string, step: string): number => {
+	const at = text.indexOf(step);
+	assert.ok(at >= 0, `the steps name ${step}`);
+	return at;
+};
+
+test("the panes skill looks in herdr agent list for a running Project Manager before it opens a pane", () => {
+	const mac = installedMac();
+	try {
+		const start = skillSection(panesSkill(mac), "Start");
+		// The Human starts his own Project Manager with `pm` in one of his windows, and it is in
+		// this same server, so the live agents are the only check that sees it (fac-6l8).
+		assert.ok(
+			stepAt(start, "herdr agent list") < stepAt(start, 'open it as "Open"'),
+			"Start looks in the list before it opens a pane",
+		);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("the panes skill prompts the Project Manager it found, instead of opening a second under its name", () => {
+	const mac = installedMac();
+	try {
+		const start = skillSection(panesSkill(mac), "Start");
+		assert.ok(
+			stepAt(start, "herdr agent prompt <pane>") < stepAt(start, 'open it as "Open"'),
+			"Start prompts the pane it found before it opens one",
+		);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("FactoryClaw's installed instructions name no herdr session", () => {
+	const mac = installedMac();
+	try {
+		for (const { file, text } of instructionFiles(mac)) {
+			assert.doesNotMatch(
+				text,
+				/--session|session attach factory|session `factory`/,
+				`${file} names no herdr session, so FactoryClaw sees the panes the Human sees`,
+			);
 		}
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });

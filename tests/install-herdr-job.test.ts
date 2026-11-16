@@ -1,10 +1,12 @@
 /**
- * The herdr login job starts the server with the PATH its sidebar needs (fac-0se).
- * herdr-sidebar renders Markdown by running glow by name, so a server launched by launchd
- * with launchd's bare PATH finds no glow and shows Markdown raw. The seam is installation:
- * scripts/install.sh runs on a temporary Mac, and the test reads back the launchd job it
- * wrote, the PATH launchd will hand the server, and asks that PATH where glow is. Nothing
- * here looks inside install.sh or herdr-sidebar.
+ * The herdr login job starts the server the Human's own windows attach to, so FactoryClaw
+ * and the Human share one server and one set of Project Managers (fac-6l8). It starts it
+ * with the PATH its sidebar needs (fac-0se): herdr-sidebar renders Markdown by running glow
+ * by name, so a server launched by launchd with launchd's bare PATH finds no glow and shows
+ * Markdown raw. The seam is installation: scripts/install.sh runs on a temporary Mac, and
+ * the test reads back the launchd job it wrote, the arguments launchd will run, and the PATH
+ * it will hand the server, then asks that PATH where glow is. Nothing here looks inside
+ * install.sh or herdr-sidebar.
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -32,6 +34,20 @@ const which = (command: string, path: string): string =>
 		encoding: "utf8",
 		env: { PATH: path },
 	}).trim();
+
+test("the herdr login job runs the default server, naming no session", () => {
+	const mac = makeMac();
+	try {
+		const result = mac.install();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		// A named server is one the Human's own terminals never attach to, so FactoryClaw
+		// could not see a Project Manager he opened and would open a second one (fac-6l8).
+		assert.deepEqual(jobAt(mac).ProgramArguments.slice(1), ["server"]);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
 
 test("the herdr login job carries a PATH in which herdr-sidebar finds glow", () => {
 	const mac = makeMac();
