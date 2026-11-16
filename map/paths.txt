@@ -239,9 +239,9 @@
 ~/.local/bin/openclaw  — The OpenClaw CLI
 
 ## herdr and launchd
-> Project Managers run in panes of the herdr session factory, named pm-<project>.
+> Project Managers run in panes of herdr's default server, the one your own terminals attach to, named pm-<project>.
 ~/Applications/ArchonBar.app  — ArchonBar: one menu bar item with the number of active Workflows, each with its project and Bead, opened to its nodes (fac-s6f)
-~/Library/LaunchAgents/factory.herdr.plist  — Starts herdr --session factory server at login
+~/Library/LaunchAgents/factory.herdr.plist  — Starts the default herdr server at login with `herdr server`, so it is up before you open a terminal (fac-6l8)
 ~/Library/LaunchAgents/factory.bdui.plist  — Starts the Beads board at login with bin/board, which starts it from the first project with Beads and registers every Factory project with it (fac-qpv.7.3)
 ~/Library/LaunchAgents/com.bradley-mankoff.archon-bar.plist  — Opens ArchonBar at login and starts it again if it dies; the app's own install.sh loads it again only when the app or job changed, since launchd pins a loaded job to the binary it saw (fac-s6f)
 ~/Library/LaunchAgents/ai.openclaw.gateway.plist  — The OpenClaw gateway; restart with launchctl kickstart -k
@@ -249,7 +249,7 @@
   config.toml
   plugins.json  — The plugins herdr registers: click-open and herdr-sidebar  [runtime]
   plugins/  — Each installed plugin's config and its GitHub-installed copy  [runtime]
-  sessions/factory/  — The factory session's sockets, logs and snapshots  [runtime]
+  sessions/factory/  — The named session the login job started until fac-6l8, left with its last sockets, logs and snapshots  [runtime]
 /opt/homebrew/bin/herdr  — herdr 0.9.4
 
 ## Skills

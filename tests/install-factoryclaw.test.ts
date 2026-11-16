@@ -75,3 +75,39 @@ test("FactoryClaw's installed instructions say nothing about Claude", () => {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}
 });
+
+test("the panes skill looks for a running Project Manager before it opens one, and types into the one it finds", () => {
+	const mac = installedMac();
+	try {
+		const panes = instructionFiles(mac).find(({ file }) => file.endsWith(join("skills", "panes", "SKILL.md")));
+		assert.ok(panes, "install puts the panes skill in FactoryClaw's workspace");
+		const text = panes.text;
+		// The Human starts his own Project Manager with `pm` in his own terminal, and it is in
+		// this server too, so a look at the live agents is the only check that sees it.
+		const list = text.indexOf("herdr agent list");
+		assert.ok(list >= 0, "the skill names herdr agent list");
+		assert.ok(list < text.indexOf("workspace create"), "the skill looks before it opens a pane");
+		const found = text
+			.split("\n")
+			.find((line) => line.includes("agent list") && line.includes("<pane>"));
+		assert.ok(found, "a line of the skill looks the project's pane up in the list");
+		assert.match(text, /herdr agent prompt <pane>/, "the skill types into a Project Manager it found");
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("FactoryClaw's installed instructions name no herdr session", () => {
+	const mac = installedMac();
+	try {
+		for (const { file, text } of instructionFiles(mac)) {
+			assert.doesNotMatch(
+				text,
+				/--session|session attach factory|session `factory`/,
+				`${file} names no herdr session, so FactoryClaw sees the panes the Human sees`,
+			);
+		}
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});

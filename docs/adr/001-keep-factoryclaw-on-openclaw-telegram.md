@@ -1,6 +1,6 @@
 # ADR 001: Keep FactoryClaw on OpenClaw plus Telegram, trial pi plus Ovis beside it
 
-Status: accepted on 2026-10-24, for Bead fac-km9.
+Status: accepted on 2026-10-24, for Bead fac-km9. Amended on 2026-11-16 (fac-6l8): the trial pane and the Project Managers share herdr's default server, the one the Human's own terminals attach to, so nothing runs in a named session.
 Context: this ADR records the decision in the Factory repo, which holds the Factory source of truth in 2026-10-16-factory-stack.md and the Factory words in GLOSSARY.md.
 
 ## Decision
@@ -27,7 +27,7 @@ The Human then narrowed the proposal to two changes only. First, use Ovis instea
 
 ## Trial that could reverse this
 
-Run one pi FactoryClaw pane in the factory herdr session for factory-toy-calc and factory-toy-todo only. Allow only herdr, bd show plus list plus ready plus comments, archon workflow status plus runs, and launchctl start factory.herdr. Prove a factory-build-gated Run approved from Ovis on the phone with the app closed, a two project waiting answer routed to the right pane, and two weeks with no wrong pane reply and no missed push. Also write the MEDIA attach to Ovis path tap mapping and confirm Ovis push over the Human Tailscale setup. If the trial passes, cut the phone path to pi plus Ovis. If PersonalClaw must stay on Telegram, decide explicitly to live with two phone apps.
+Run one pi FactoryClaw pane in herdr's default server, beside the Project Managers, for factory-toy-calc and factory-toy-todo only. Allow only herdr, bd show plus list plus ready plus comments, archon workflow status plus runs, and launchctl start factory.herdr. Prove a factory-build-gated Run approved from Ovis on the phone with the app closed, a two project waiting answer routed to the right pane, and two weeks with no wrong pane reply and no missed push. Also write the MEDIA attach to Ovis path tap mapping and confirm Ovis push over the Human Tailscale setup. If the trial passes, cut the phone path to pi plus Ovis. If PersonalClaw must stay on Telegram, decide explicitly to live with two phone apps.
 
 ## Consequences
 

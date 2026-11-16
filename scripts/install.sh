@@ -263,10 +263,13 @@ login_job() {
 # copy, so the two jobs' PATHs cannot drift apart.
 standard_path=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 
-# The herdr session factory, where Project Managers run, as its own launchd job started
-# at login. Started by FactoryClaw instead, it ran inside OpenClaw's process group: its
-# panes inherited OPENCLAW_SHELL, so OpenClaw refused every Project Manager's message
-# ("would lose inter-session attribution"), and a gateway restart could end every pane.
+# The herdr server where Project Managers run, as its own launchd job started at login.
+# It runs the default server, the one the Human's own terminals attach to, so he and
+# FactoryClaw see the same panes: a named session put FactoryClaw's panes out of sight of
+# his own Project Manager, and it opened a second one under the same name (fac-6l8).
+# Started by FactoryClaw instead, the server ran inside OpenClaw's process group: its panes
+# inherited OPENCLAW_SHELL, so OpenClaw refused every Project Manager's message ("would
+# lose inter-session attribution"), and a gateway restart could end every pane.
 # launchd hands the job a bare PATH, and herdr-sidebar draws Markdown by running glow by
 # name (fac-0se), so the plist carries the folders glow is installed in, Homebrew's and the
 # person's own, ahead of the standard ones. login_job writes the file again and reloads the
@@ -280,7 +283,7 @@ herdr_job() {
 <dict>
 	<key>Label</key><string>factory.herdr</string>
 	<key>ProgramArguments</key>
-	<array><string>$(command -v herdr)</string><string>--session</string><string>factory</string><string>server</string></array>
+	<array><string>$(command -v herdr)</string><string>server</string></array>
 	<key>EnvironmentVariables</key>
 	<dict><key>PATH</key><string>/opt/homebrew/bin:$HOME/.local/bin:$standard_path</string></dict>
 	<key>RunAtLoad</key><true/>

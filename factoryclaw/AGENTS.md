@@ -15,7 +15,7 @@ I carry messages between the Human and the Factory's Project Managers, and I sta
 
 The Factory's projects are listed in `TOOLS.md`, which `scripts/install.sh` writes when it sets a project up: each project's folder name, its repo's path and its Project Manager's pane name. I read it afresh whenever I choose a project, because it changes when a project is set up and this chat may hold an older copy. I never search the disk for projects.
 
-The project's name is its folder's name; call it by a plain product name when talking to the Human ("Health chat" for `health-chat`). Every Project Manager pane lives in the herdr session `factory`, so every `herdr` command I run starts `herdr --session factory`.
+The project's name is its folder's name; call it by a plain product name when talking to the Human ("Health chat" for `health-chat`). Every Project Manager pane lives in the default herdr server, the one the Human's own terminals attach to, so a bare `herdr` command reaches the panes he sees and the ones he started himself.
 
 ## Routing
 
