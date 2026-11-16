@@ -7,7 +7,9 @@
 #                 squash-merge it, as the personal Mac lands. Every gh call names the repo
 #                 behind origin, and the lookup and the create name the Run's branch, so a
 #                 fork's upstream remote never gets the pull request and one a gate held is
-#                 found again.
+#                 found again. A found pull request gets the branch pushed to it again, so a
+#                 Run adopting a withheld one shows the gate its own commits, and a merge
+#                 refuses when the pull request's head is not the worktree's HEAD.
 #   squash        squash the Run's commits onto the base branch, run the check again on
 #                 that tree and push the branch, as the work Mac lands: it opens no pull
 #                 request, so only the Human opens one into an engineering branch.
@@ -157,13 +159,15 @@ pull-request)
 	head=$branch
 	if [ -n "$origin_name" ]; then head="${origin_name%%/*}:$branch"; fi
 	# A pull request the gate opened earlier is reused, so the merge after the gate is the
-	# same landing as one with no gate.
+	# same landing as one with no gate. Either way the branch is pushed first: a Run that
+	# adopts a withheld one works on the branch its held pull request already has, and the
+	# gate must decide the adopting Run's commits rather than the withheld pass's.
 	url=$(gh_pr "$origin_name" view "$branch" --json url -q .url 2>/dev/null || true)
+	if [ -z "$url" ] && { [ -z "$bead" ] || [ -z "${WORKFLOW_ID:-}" ]; }; then
+		refuse "a pull request's body names the Bead and the Run, and this Run has no \$ARGUMENTS or \$WORKFLOW_ID"
+	fi
+	git push -q -u origin HEAD
 	if [ -z "$url" ]; then
-		if [ -z "$bead" ] || [ -z "${WORKFLOW_ID:-}" ]; then
-			refuse "a pull request's body names the Bead and the Run, and this Run has no \$ARGUMENTS or \$WORKFLOW_ID"
-		fi
-		git push -q -u origin HEAD
 		url=$(gh_pr "$origin_name" create --base "$base" --head "$head" --fill-first --body "Bead $bead, built by Archon Run $WORKFLOW_ID.")
 	fi
 	if [ -n "$hold" ]; then
@@ -172,6 +176,14 @@ pull-request)
 		note landing "opened $held, which the gate decides"
 		printf '%s\n' "$held"
 		exit 0
+	fi
+	# The gate decides the commits the pull request shows. GitHub names that head, the head of
+	# the branch on origin; when it is not the worktree's HEAD the commits the gate saw are
+	# not the ones a merge would land, so nothing merges and the refusal names both heads.
+	pr_head=$(gh_pr "$origin_name" view "$url" --json headRefOid -q .headRefOid 2>/dev/null || true)
+	worktree_head=$(git rev-parse HEAD)
+	if [ "$pr_head" != "$worktree_head" ]; then
+		refuse "the pull request $url is at ${pr_head:-no head gh named}, not the worktree's HEAD $worktree_head, so it was not merged"
 	fi
 	gh_pr "$origin_name" merge --squash "$url"
 	git push -q origin --delete "$branch"

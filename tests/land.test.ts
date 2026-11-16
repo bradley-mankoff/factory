@@ -58,28 +58,34 @@ const makeMac = (options: {
 	mkdirSync(artifacts, { recursive: true });
 
 	// GitHub, at the edge: it records each command, opens a pull request with a made-up
-	// address, answers `view` only for the branch that pull request has, and lands a merge by
-	// moving the base branch on the remote, as a squash merge would. It answers the calls the
-	// way gh 2.96.0 does: `view` needs a selector when `--repo` names the repo, and a second
-	// pull request for a head that already has one is refused.
+	// address, answers `view` for the branch that pull request has and for the pull request's
+	// own address, its head commit the head of that branch on the remote, as GitHub reports
+	// it, and lands a merge by moving the base branch on the remote, as a squash merge would.
+	// It answers the calls the way gh 2.96.0 does: `view` needs a selector when `--repo` names
+	// the repo, and a second pull request for a head that already has one is refused.
 	writeFileSync(
 		join(bin, "gh"),
 		`#!/bin/sh
 printf '%s\\n' "$*" >> "$GH_LOG"
 command=$2
 shift 2
-repo= head= base= selector=
+repo= head= base= selector= field=
 while [ $# -gt 0 ]; do
 	case $1 in
 	--repo) repo=$2 && shift ;;
 	--head) head=$2 && shift ;;
 	--base) base=$2 && shift ;;
-	--json | -q | --jq) shift ;;
+	--json) field=$2 && shift ;;
+	-q | --jq) shift ;;
 	-*) ;;
 	*) selector=$1 ;;
 	esac
 	shift
 done
+# The pull request's head: the head of its branch on the remote, where a push puts commits.
+pr_head() {
+	git -C "$REMOTE" rev-parse "refs/heads/$(cat "$GH_HEAD")"
+}
 case $command in
 create)
 	if [ -e "$GH_OPEN" ]; then
@@ -99,19 +105,29 @@ view)
 		fi
 		selector=$(git rev-parse --abbrev-ref HEAD)
 	fi
-	if [ -e "$GH_OPEN" ] && [ "$selector" = "$(cat "$GH_HEAD")" ]; then
-		cat "$GH_OPEN"
-	else
+	if [ ! -e "$GH_OPEN" ]; then
 		printf 'no pull requests found for branch "%s"\\n' "$selector" >&2
 		exit 1
 	fi
+	if [ "$selector" != "$(cat "$GH_HEAD")" ] && [ "$selector" != "$(cat "$GH_OPEN")" ]; then
+		printf 'no pull requests found for branch "%s"\\n' "$selector" >&2
+		exit 1
+	fi
+	case $field in
+	url) cat "$GH_OPEN" ;;
+	headRefOid) pr_head ;;
+	*)
+		printf 'unknown field "%s"\\n' "$field" >&2
+		exit 1
+		;;
+	esac
 	;;
 merge)
 	if [ ! -e "$GH_OPEN" ]; then
 		echo 'no pull requests found' >&2
 		exit 1
 	fi
-	git -C "$REMOTE" update-ref "refs/heads/$BASE_BRANCH" "$(git rev-parse HEAD)"
+	git -C "$REMOTE" update-ref "refs/heads/$BASE_BRANCH" "$(pr_head)"
 	rm -f "$GH_OPEN" "$GH_HEAD"
 	;;
 esac
@@ -402,6 +418,70 @@ test("the pull-request landing holds the merge for a Human gate, then merges the
 		assert.match(ghCalls(mac), /^pr merge --squash https:\/\/github.com\/example\/calc\/pull\/7$/m);
 		assert.equal(fileAt(mac, "main", "squash.txt"), "landed by the Run, refined\n");
 		assert.equal(landingNote(mac), "merged pull request https://github.com/example/calc/pull/7 into main\n");
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("under the pull-request landing an adopting Run's new commits reach the pull request the gate already holds", () => {
+	const mac = makeMac({ profile: shippedProfile(), repo: "calc", base: "main" });
+	try {
+		const held = mac.land(["--hold"]);
+		assert.equal(held.status, 0, held.stderr || held.stdout);
+		const rejectedHead = ref(mac, "run-1");
+		const before = ref(mac, "main");
+
+		// The adopting Run works on the branch its earlier, withheld Run already pushed, and its
+		// commits are the pass the gate has to decide this time.
+		const run = join(mac.dir, "calc-run");
+		writeFileSync(join(run, "squash.txt"), "landed by the adopting Run\n");
+		execFileSync("git", ["-C", run, "commit", "-qam", "Refine squash.txt again"]);
+		const adoptedHead = execFileSync("git", ["-C", run, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+		assert.notEqual(adoptedHead, rejectedHead, "the adopting Run made its own commits");
+
+		const again = mac.land(["--hold"]);
+		assert.equal(again.status, 0, again.stderr || again.stdout);
+
+		assert.equal(ghCalls(mac).match(/^pr create /gm)?.length, 1, "the gate still holds one pull request");
+		assert.equal(ref(mac, "run-1"), adoptedHead, "the pull request's branch reaches the adopting Run's head");
+		assert.equal(fileAt(mac, "run-1", "squash.txt"), "landed by the adopting Run\n", "the held pull request shows the adopting Run's work");
+		assert.equal(ref(mac, "main"), before, "the gate still has not moved main");
+
+		// With the gate answered, the merge lands that same pass, not the rejected one.
+		const landed = mac.land();
+		assert.equal(landed.status, 0, landed.stderr || landed.stdout);
+		assert.equal(fileAt(mac, "main", "squash.txt"), "landed by the adopting Run\n", "main gets the adopting Run's pass");
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("under the pull-request landing a pull request whose head is not the worktree's HEAD is refused at merge, and nothing merges", () => {
+	const mac = makeMac({ profile: shippedProfile(), repo: "calc", base: "main" });
+	try {
+		const held = mac.land(["--hold"]);
+		assert.equal(held.status, 0, held.stderr || held.stdout);
+		const gateHead = ref(mac, "run-1");
+		const before = ref(mac, "main");
+
+		// The adopting Run's commits do not reach the branch the pull request tracks, the way
+		// the bug's Run found the branch's remote gone while the pull request stayed at the
+		// rejected pass: origin's push goes to another remote.
+		const run = join(mac.dir, "calc-run");
+		writeFileSync(join(run, "squash.txt"), "a pass the pull request never got\n");
+		execFileSync("git", ["-C", run, "commit", "-qam", "Refine squash.txt again"]);
+		const elsewhere = join(mac.dir, "elsewhere.git");
+		execFileSync("git", ["init", "-q", "--bare", elsewhere]);
+		execFileSync("git", ["-C", run, "config", "remote.origin.pushurl", elsewhere]);
+
+		const result = mac.land();
+		assert.notEqual(result.status, 0, "the merge is refused");
+		assert.match(result.stderr, /not the worktree's HEAD/, "the refusal says the pull request's head differs from the worktree's");
+
+		assert.equal(ref(mac, "main"), before, "main does not move");
+		assert.equal(ref(mac, "run-1"), gateHead, "the pull request stays at the head the gate saw");
+		assert.doesNotMatch(ghCalls(mac), /^pr merge/m, "nothing merges");
+		assert.match(landingNote(mac), /^refused to land: .*not the worktree's HEAD/);
 	} finally {
 		rmSync(mac.dir, { recursive: true, force: true });
 	}
