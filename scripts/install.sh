@@ -241,7 +241,54 @@ install_factoryclaw() {
 	# FactoryClaw's model, from the Profile. A repeated set changes nothing.
 	openclaw config set agents.entries.factoryclaw.model "$FACTORYCLAW_MODEL" >/dev/null
 	openclaw config set agents.entries.factoryclaw.thinkingDefault "$FACTORYCLAW_THINKING" >/dev/null
+	register_factoryclaw_model
 	set_allowlist
+}
+
+# OpenClaw resolves an agent's model only when its catalog holds a matching
+# models.providers[provider].models[] entry. Its OpenCode Go catalog is downloaded from
+# models.opencode.ai, so a model that list has not carried yet, or could not be fetched,
+# made every FactoryClaw turn fail with "Unknown model" while the agent entry named it
+# (fac-s0q). FactoryClaw's model comes from the Profile, so install writes it into the
+# catalog with the api and baseUrl OpenCode Go serves it on, read from that model's
+# published entry. A model without a route is left to OpenClaw's own catalog, and the
+# Mac's other model entries stay as they are.
+register_factoryclaw_model() {
+	python3 - "$FACTORYCLAW_MODEL" <<'EOF'
+import json, subprocess, sys
+
+# The route OpenCode Go publishes for the model the example Profile names:
+# https://models.opencode.ai/api.json has it as an @ai-sdk/openai model on
+# https://opencode.ai/inference/go/openai/v1. Reasoning stays on, as the published row has
+# it, so FactoryClaw's thinkingDefault still applies.
+routes = {
+    "opencode-go/muse-spark-1.3-contributor": {
+        "id": "muse-spark-1.3-contributor",
+        "name": "Muse Spark 1.3 Contributor",
+        "api": "openai-responses",
+        "baseUrl": "https://opencode.ai/inference/go/openai/v1",
+        "reasoning": True,
+    },
+}
+entry = routes.get(sys.argv[1])
+if entry is None:
+    raise SystemExit(0)
+
+path = "models.providers." + sys.argv[1].split("/", 1)[0] + ".models"
+
+def openclaw(*args, check=False):
+    return subprocess.run(["openclaw", *args], text=True, capture_output=True, check=check)
+
+current = []
+got = openclaw("config", "get", path, "--json")
+if got.returncode == 0:
+    value = json.loads(got.stdout)
+    if isinstance(value, list):
+        current = value
+merged = [model for model in current if model.get("id") != entry["id"]] + [entry]
+if merged != current:
+    openclaw("config", "set", path, json.dumps(merged), "--strict-json", check=True)
+EOF
 }
 
 # One launchd job at login, $1 the job's label and $2 the plist body. The file is written
