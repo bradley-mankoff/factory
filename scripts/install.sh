@@ -250,31 +250,36 @@ install_factoryclaw() {
 # models.opencode.ai, so a model that list has not carried yet, or could not be fetched,
 # made every FactoryClaw turn fail with "Unknown model" while the agent entry named it
 # (fac-s0q). FactoryClaw's model comes from the Profile, so install writes it into the
-# catalog with the api and baseUrl OpenCode Go serves it on, read from that model's
-# published entry. A model without a route is left to OpenClaw's own catalog, and the
-# Mac's other model entries stay as they are.
+# catalog with the api and baseUrl OpenCode Go serves it on, transcribed from the entry
+# https://models.opencode.ai/api.json publishes for that model. A model without such an
+# entry is left to OpenClaw's own catalog. Entries the Mac holds for other models stay as
+# they are; an entry it holds for this one takes install's route, so a second install
+# changes nothing.
 register_factoryclaw_model() {
 	python3 - "$FACTORYCLAW_MODEL" <<'EOF'
 import json, subprocess, sys
 
 # The route OpenCode Go publishes for the model the example Profile names:
 # https://models.opencode.ai/api.json has it as an @ai-sdk/openai model on
-# https://opencode.ai/inference/go/openai/v1. Reasoning stays on, as the published row has
-# it, so FactoryClaw's thinkingDefault still applies.
+# https://opencode.ai/inference/go/openai/v1. Reasoning stays on, as the published entry
+# has it, so FactoryClaw's thinkingDefault still applies. The model's name here holds the
+# account and the id OpenClaw reads, so neither is repeated below.
 routes = {
     "opencode-go/muse-spark-1.3-contributor": {
-        "id": "muse-spark-1.3-contributor",
         "name": "Muse Spark 1.3 Contributor",
         "api": "openai-responses",
         "baseUrl": "https://opencode.ai/inference/go/openai/v1",
         "reasoning": True,
     },
 }
-entry = routes.get(sys.argv[1])
-if entry is None:
+model = sys.argv[1]
+account, _, model_id = model.partition("/")
+route = routes.get(model)
+if route is None:
     raise SystemExit(0)
+entry = {"id": model_id, **route}
 
-path = "models.providers." + sys.argv[1].split("/", 1)[0] + ".models"
+path = "models.providers." + account + ".models"
 
 def openclaw(*args, check=False):
     return subprocess.run(["openclaw", *args], text=True, capture_output=True, check=check)
@@ -285,7 +290,7 @@ if got.returncode == 0:
     value = json.loads(got.stdout)
     if isinstance(value, list):
         current = value
-merged = [model for model in current if model.get("id") != entry["id"]] + [entry]
+merged = [held for held in current if held.get("id") != model_id] + [entry]
 if merged != current:
     openclaw("config", "set", path, json.dumps(merged), "--strict-json", check=True)
 EOF

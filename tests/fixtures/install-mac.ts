@@ -48,10 +48,11 @@ export const squashProfile =
 		"LIBRARY=$HOME/factory-local/.archon/workflows",
 	].join("\n") + "\n";
 
-/** A stand-in at one edge of the system: a command that writes down how it was called. */
-export const stub = (path: string, body: string) => {
+/** A stand-in at one edge of the system: a command that writes down how it was called.
+ * `interpreter` is what runs it, `/bin/sh` unless the stand-in needs another. */
+export const stub = (path: string, body: string, interpreter = "/bin/sh") => {
 	mkdirSync(dirname(path), { recursive: true });
-	writeFileSync(path, `#!/bin/sh\n${body}\n`);
+	writeFileSync(path, `#!${interpreter}\n${body}\n`);
 	chmodSync(path, 0o755);
 };
 
@@ -215,10 +216,9 @@ exit 0`,
 	// OpenClaw's CLI does. `models list --agent` applies OpenClaw's rule that an agent's
 	// model resolves only when models.providers holds a matching models[] entry.
 	const openclawConfig = join(home, ".openclaw", "openclaw.json");
-	writeFileSync(
+	stub(
 		join(bin, "openclaw"),
-		`#!/usr/bin/env node
-const fs = require("node:fs");
+		`const fs = require("node:fs");
 const args = process.argv.slice(2);
 fs.appendFileSync(process.env.OPENCLAW_LOG, args.join(" ") + "\\n");
 const read = () => {
@@ -281,12 +281,12 @@ switch (args[0] + " " + args[1]) {
 		const models = at("models.providers." + provider + ".models") || [];
 		if (!models.some((entry) => entry.id === id))
 			deny("Unknown model: " + model + ". Found agents.entries." + agent + ".model but no matching models.providers." + provider + ".models[] entry.");
-		reply({ models: [{ key: model }] });
+		reply({ count: 1, models: [{ key: model }] });
 		break;
 	}
 }
 `,
-		{ mode: 0o755 },
+		"/usr/bin/env node",
 	);
 	stub(join(bin, "herdr"), "exit 0");
 	// launchd, as far as install can tell: a job it bootstraps is loaded until it is

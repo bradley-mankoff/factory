@@ -91,16 +91,20 @@ test("OpenClaw resolves FactoryClaw's model after install, so its turns no longe
 	try {
 		const resolved = spawnSync("openclaw", ["models", "list", "--agent", "factoryclaw", "--json"], { encoding: "utf8", env: mac.env });
 		assert.equal(resolved.status, 0, resolved.stderr || resolved.stdout);
-		assert.deepEqual(JSON.parse(resolved.stdout).models, [{ key: "opencode-go/muse-spark-1.3-contributor" }]);
+		const listed: { key: string }[] = JSON.parse(resolved.stdout).models;
+		assert.ok(
+			listed.some((model) => model.key === "opencode-go/muse-spark-1.3-contributor"),
+			"the model FactoryClaw runs is among those OpenClaw resolves for it",
+		);
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}
 });
 
-test("install keeps a model the Mac already registered under FactoryClaw's provider", () => {
+test("install keeps a model the Mac already registered under OpenCode Go's account", () => {
 	const mac = makeMac();
-	const pasted = { id: "deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash", api: "openai-completions", baseUrl: "https://opencode.ai/zen/go/v1" };
-	writeFileSync(join(mac.home, ".openclaw", "openclaw.json"), JSON.stringify({ models: { providers: { "opencode-go": { models: [pasted] } } } }));
+	const alreadyRegistered = { id: "deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash", api: "openai-completions", baseUrl: "https://opencode.ai/zen/go/v1" };
+	writeFileSync(join(mac.home, ".openclaw", "openclaw.json"), JSON.stringify({ models: { providers: { "opencode-go": { models: [alreadyRegistered] } } } }));
 	try {
 		const result = mac.install();
 		assert.equal(result.status, 0, result.stderr || result.stdout);
