@@ -19,6 +19,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 type Mac = {
 	dir: string;
+	run: string;
 	remote: string;
 	artifacts: string;
 	ghLog: string;
@@ -176,7 +177,7 @@ exit 0
 	};
 	const land = (args: string[] = []) => spawnSync(join(root, "bin", "land"), args, { cwd: run, encoding: "utf8", env });
 
-	return { dir, remote, artifacts, ghLog, land };
+	return { dir, run, remote, artifacts, ghLog, land };
 };
 
 /**
@@ -198,6 +199,16 @@ const fileAt = (mac: Mac, branch: string, path: string): string =>
 /** The subject of a branch's tip commit on the remote. */
 const subject = (mac: Mac, branch: string): string =>
 	execFileSync("git", ["-C", mac.remote, "log", "-1", "--format=%s", branch], { encoding: "utf8" }).trim();
+
+/**
+ * The Run commits again in its worktree, as a Run adopting a withheld pull request does on the
+ * branch that pull request already has, and gives back the head it made.
+ */
+const commitInRun = (mac: Mac, content: string): string => {
+	writeFileSync(join(mac.run, "squash.txt"), content);
+	execFileSync("git", ["-C", mac.run, "commit", "-qam", "Refine squash.txt again"]);
+	return execFileSync("git", ["-C", mac.run, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+};
 
 /** How the stand-in `gh` was called, one line per call. */
 const ghCalls = (mac: Mac): string => (existsSync(mac.ghLog) ? readFileSync(mac.ghLog, "utf8") : "");
@@ -433,10 +444,7 @@ test("under the pull-request landing an adopting Run's new commits reach the pul
 
 		// The adopting Run works on the branch its earlier, withheld Run already pushed, and its
 		// commits are the pass the gate has to decide this time.
-		const run = join(mac.dir, "calc-run");
-		writeFileSync(join(run, "squash.txt"), "landed by the adopting Run\n");
-		execFileSync("git", ["-C", run, "commit", "-qam", "Refine squash.txt again"]);
-		const adoptedHead = execFileSync("git", ["-C", run, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+		const adoptedHead = commitInRun(mac, "landed by the adopting Run\n");
 		assert.notEqual(adoptedHead, rejectedHead, "the adopting Run made its own commits");
 
 		const again = mac.land(["--hold"]);
@@ -467,12 +475,10 @@ test("under the pull-request landing a pull request whose head is not the worktr
 		// The adopting Run's commits do not reach the branch the pull request tracks, the way
 		// the bug's Run found the branch's remote gone while the pull request stayed at the
 		// rejected pass: origin's push goes to another remote.
-		const run = join(mac.dir, "calc-run");
-		writeFileSync(join(run, "squash.txt"), "a pass the pull request never got\n");
-		execFileSync("git", ["-C", run, "commit", "-qam", "Refine squash.txt again"]);
+		commitInRun(mac, "a pass the pull request never got\n");
 		const elsewhere = join(mac.dir, "elsewhere.git");
 		execFileSync("git", ["init", "-q", "--bare", elsewhere]);
-		execFileSync("git", ["-C", run, "config", "remote.origin.pushurl", elsewhere]);
+		execFileSync("git", ["-C", mac.run, "config", "remote.origin.pushurl", elsewhere]);
 
 		const result = mac.land();
 		assert.notEqual(result.status, 0, "the merge is refused");
