@@ -51,22 +51,69 @@ const makeMac = (options: {
 	const artifacts = join(dir, "artifacts");
 	const ghLog = join(dir, "gh.log");
 	const ghOpen = join(dir, "gh-open");
+	const ghHead = join(dir, "gh-head");
 	mkdirSync(join(home, ".config", "factory"), { recursive: true });
 	writeFileSync(join(home, ".config", "factory", "profile"), options.profile);
 	mkdirSync(bin, { recursive: true });
 	mkdirSync(artifacts, { recursive: true });
 
-	// GitHub, at the edge: it records each command, answers a pull request with a made-up
-	// address, and lands a merge by moving the base branch on the remote, as a squash merge
-	// would.
+	// GitHub, at the edge: it records each command, opens a pull request with a made-up
+	// address, answers `view` only for the branch that pull request has, and lands a merge by
+	// moving the base branch on the remote, as a squash merge would. It answers the calls the
+	// way gh 2.96.0 does: `view` needs a selector when `--repo` names the repo, and a second
+	// pull request for a head that already has one is refused.
 	writeFileSync(
 		join(bin, "gh"),
 		`#!/bin/sh
 printf '%s\\n' "$*" >> "$GH_LOG"
-case "$1 $2" in
-	"pr create") printf 'https://github.com/example/${options.repo}/pull/7\\n'; : > "$GH_OPEN" ;;
-	"pr view") [ -e "$GH_OPEN" ] && printf 'https://github.com/example/${options.repo}/pull/7\\n' || exit 1 ;;
-	"pr merge") git -C "$REMOTE" update-ref "refs/heads/$BASE_BRANCH" "$(git rev-parse HEAD)" ;;
+command=$2
+shift 2
+repo= head= base= selector=
+while [ $# -gt 0 ]; do
+	case $1 in
+	--repo) repo=$2 && shift ;;
+	--head) head=$2 && shift ;;
+	--base) base=$2 && shift ;;
+	--json | -q | --jq) shift ;;
+	-*) ;;
+	*) selector=$1 ;;
+	esac
+	shift
+done
+case $command in
+create)
+	if [ -e "$GH_OPEN" ]; then
+		printf 'a pull request for branch "%s" into branch "%s" already exists\\n' "$head" "$base" >&2
+		exit 1
+	fi
+	[ -n "$repo" ] || repo=example/${options.repo}
+	printf 'https://github.com/%s/pull/7\\n' "$repo" > "$GH_OPEN"
+	printf '%s\\n' "$head" | sed 's/.*://' > "$GH_HEAD"
+	cat "$GH_OPEN"
+	;;
+view)
+	if [ -z "$selector" ]; then
+		if [ -n "$repo" ]; then
+			echo 'argument required when using the --repo flag' >&2
+			exit 1
+		fi
+		selector=$(git rev-parse --abbrev-ref HEAD)
+	fi
+	if [ -e "$GH_OPEN" ] && [ "$selector" = "$(cat "$GH_HEAD")" ]; then
+		cat "$GH_OPEN"
+	else
+		printf 'no pull requests found for branch "%s"\\n' "$selector" >&2
+		exit 1
+	fi
+	;;
+merge)
+	if [ ! -e "$GH_OPEN" ]; then
+		echo 'no pull requests found' >&2
+		exit 1
+	fi
+	git -C "$REMOTE" update-ref "refs/heads/$BASE_BRANCH" "$(git rev-parse HEAD)"
+	rm -f "$GH_OPEN" "$GH_HEAD"
+	;;
 esac
 exit 0
 `,
@@ -108,6 +155,7 @@ exit 0
 		ARGUMENTS: "pm-repo · fac-1",
 		GH_LOG: ghLog,
 		GH_OPEN: ghOpen,
+		GH_HEAD: ghHead,
 		REMOTE: remote,
 	};
 	const land = (args: string[] = []) => spawnSync(join(root, "bin", "land"), args, { cwd: run, encoding: "utf8", env });
@@ -290,6 +338,33 @@ test("a fork whose origin is an ssh address opens and merges its pull request on
 		}
 		const created = calls.find((call) => call[1] === "create") ?? [];
 		assert.equal(flagValue(created, "--head"), "bradley-mankoff:run-1", "the pull request names the Run's branch on origin's owner");
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("a fork's gated landing finds the pull request it held and merges that one, instead of opening a second", () => {
+	const mac = forkMac("https://github.com/bradley-mankoff/habit_breaker.git", "https://github.com/Szalikko/NailGuard.git");
+	try {
+		const before = ref(mac, "main");
+
+		const held = mac.land(["--hold"]);
+		assert.equal(held.status, 0, held.stderr || held.stdout);
+		assert.equal(ghCalls(mac).match(/^pr create /gm)?.length, 1, "the gate holds one pull request");
+		assert.equal(ref(mac, "main"), before, "main has not moved");
+
+		const landed = mac.land();
+		assert.equal(landed.status, 0, landed.stderr || landed.stdout);
+		assert.equal(ghCalls(mac).match(/^pr create /gm)?.length, 1, "the gate's pull request is the one that merges");
+		assert.notEqual(ref(mac, "main"), before, "the merge landed the Run's work");
+		assert.equal(fileAt(mac, "main", "squash.txt"), "landed by the Run, refined\n");
+		assert.equal(
+			landingNote(mac),
+			"merged pull request https://github.com/bradley-mankoff/habit_breaker/pull/7 into main\n",
+		);
+		for (const call of ghArguments(mac)) {
+			assert.equal(flagValue(call, "--repo"), "bradley-mankoff/habit_breaker", `gh ${call.join(" ")} names the repo behind origin`);
+		}
 	} finally {
 		rmSync(mac.dir, { recursive: true, force: true });
 	}

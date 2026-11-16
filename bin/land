@@ -5,8 +5,8 @@
 #
 #   pull-request  push the Run's branch, open a pull request into the base branch and
 #                 squash-merge it, as the personal Mac lands. Every gh call names the repo
-#                 behind origin, and the pull request names the Run's branch under origin's
-#                 owner, so a fork's upstream remote never gets the pull request.
+#                 behind origin and the Run's branch, so a fork's upstream remote never gets
+#                 the pull request and the one a gate held is found again.
 #   squash        squash the Run's commits onto the base branch, run the check again on
 #                 that tree and push the branch, as the work Mac lands: it opens no pull
 #                 request, so only the Human opens one into an engineering branch.
@@ -148,13 +148,16 @@ fi
 case $landing in
 pull-request)
 	# Every gh call names origin's repo and the pull request head names the Run's branch
-	# under origin's owner, so a fork's upstream remote never gets the pull request.
+	# under origin's owner, so a fork's upstream remote never gets the pull request. gh needs
+	# the branch on `view` too: with `--repo` it takes no repo from the folder and refuses a
+	# call that names no pull request (gh 2.96.0: "argument required when using the --repo
+	# flag"), which would leave the held pull request unfound and open a second one.
 	origin_name=$(origin_repo)
 	head=$branch
 	if [ -n "$origin_name" ]; then head="${origin_name%%/*}:$branch"; fi
 	# A pull request the gate opened earlier is reused, so the merge after the gate is the
 	# same landing as one with no gate.
-	url=$(gh_pr "$origin_name" view --json url -q .url 2>/dev/null || true)
+	url=$(gh_pr "$origin_name" view "$branch" --json url -q .url 2>/dev/null || true)
 	if [ -z "$url" ]; then
 		if [ -z "$bead" ] || [ -z "${WORKFLOW_ID:-}" ]; then
 			refuse "a pull request's body names the Bead and the Run, and this Run has no \$ARGUMENTS or \$WORKFLOW_ID"
