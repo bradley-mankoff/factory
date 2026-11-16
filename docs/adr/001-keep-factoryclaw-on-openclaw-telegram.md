@@ -1,6 +1,6 @@
 # ADR 001: Keep FactoryClaw on OpenClaw plus Telegram, trial pi plus Ovis beside it
 
-Status: accepted on 2026-10-24, for Bead fac-km9. Amended on 2026-11-16 (fac-6l8): the trial pane and the Project Managers share herdr's default server, the one the Human's own terminals attach to, so nothing runs in a named session.
+Status: accepted on 2026-10-24, for Bead fac-km9. Amended on 2026-11-16 (fac-6l8): the trial pane and the Project Managers share herdr's default server, the one the Human's own terminals attach to, so the Factory runs nothing in a named session.
 Context: this ADR records the decision in the Factory repo, which holds the Factory source of truth in 2026-10-16-factory-stack.md and the Factory words in GLOSSARY.md.
 
 ## Decision

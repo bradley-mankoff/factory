@@ -265,8 +265,8 @@ standard_path=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 
 # The herdr server where Project Managers run, as its own launchd job started at login.
 # It runs the default server, the one the Human's own terminals attach to, so he and
-# FactoryClaw see the same panes: a named session put FactoryClaw's panes out of sight of
-# his own Project Manager, and it opened a second one under the same name (fac-6l8).
+# FactoryClaw see the same panes: in a named session FactoryClaw could not see the Project
+# Manager he had started himself and opened a second one under the same name (fac-6l8).
 # Started by FactoryClaw instead, the server ran inside OpenClaw's process group: its panes
 # inherited OPENCLAW_SHELL, so OpenClaw refused every Project Manager's message ("would
 # lose inter-session attribution"), and a gateway restart could end every pane.

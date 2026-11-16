@@ -28,7 +28,8 @@
     install-packages.test.ts  — install with a temporary HOME and a stand-in pi: each package goes into the pi folder that needs it, both pi folders link chains.json to the Profile's Chains, and install repairs nothing an earlier install left (fac-qpv.8.1)
     install-run-extensions.test.ts  — install with a temporary HOME: an extension the Profile's RUN_EXTENSIONS names is linked into the Factory's pi folder, a link there to a path dropped from the list is removed, and an unset or empty key leaves the folder as it is (fac-pbg)
     install-status-bar.test.ts  — install on a temporary Mac that already has the status bar app and its login job: the binary, the app's Info.plist and the job plist are left as they were, and install builds and signs no app (fac-2na)
-    install-factoryclaw.test.ts  — install with a temporary HOME: FactoryClaw's allowlist holds exactly the four commands its AGENTS.md names, with no Claude usage check among them; no claude-usage helper is installed; and its instructions say nothing about Claude (fac-vse)
+    install-herdr-job.test.ts  — install on a temporary Mac: the launchd job factory.herdr it writes runs herdr's default server with no session named, and the PATH in that job finds glow, so herdr-sidebar draws Markdown (fac-0se, fac-6l8)
+    install-factoryclaw.test.ts  — install with a temporary HOME: FactoryClaw's allowlist holds exactly the four commands its AGENTS.md names, with no Claude usage check among them; no claude-usage helper is installed; its instructions say nothing about Claude (fac-vse), look in herdr agent list for a running Project Manager before opening a pane, and name no herdr session (fac-6l8)
     install-archon-wrapper.test.ts  — install on a temporary Mac whose ~/.local/bin/archon links to an earlier Factory's wrapper: the file it pointed at is unchanged, the link resolves to the wrapper install keeps in its own root, and FactoryClaw's archon allowlist names that resolved path (fac-lw9)
     install-versions.test.ts  — install on a temporary Mac standing at the previous Archon release: the binary it ends with reports the pinned release and the provider receipt names the same release, while a Mac already on the pinned set downloads nothing (fac-aan)
     board.test.ts  — install on a temporary Mac with stand-ins at the edges: the launchd job it writes for the board, that job run the way launchd would, and what the board was asked for in its stand-in's log (fac-qpv.7.3)
@@ -249,6 +250,7 @@
   config.toml
   plugins.json  — The plugins herdr registers: click-open and herdr-sidebar  [runtime]
   plugins/  — Each installed plugin's config and its GitHub-installed copy  [runtime]
+  herdr.sock, herdr-server.log, session.json, session-snapshots/  — The default server: its socket and log, the layout it saves and its snapshots, where the Project Managers' panes live  [runtime]
   sessions/factory/  — The named session the login job started until fac-6l8, left with its last sockets, logs and snapshots  [runtime]
 /opt/homebrew/bin/herdr  — herdr 0.9.4
 
