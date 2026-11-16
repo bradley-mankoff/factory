@@ -168,8 +168,8 @@ exit 0
  * a stranger's repo and pushed to the person's own has them. The landing runs on it, and a
  * test reads back how gh was called.
  */
-const forkMac = (origin: string, upstream: string): Mac =>
-	makeMac({ profile: shippedProfile(), repo: "habit_breaker", base: "main", origin, upstream });
+const forkMac = (remotes: { origin: string; upstream: string }): Mac =>
+	makeMac({ profile: shippedProfile(), repo: "habit_breaker", base: "main", ...remotes });
 
 /** A branch's commit on the remote, as git sees it there. */
 const ref = (mac: Mac, branch: string): string =>
@@ -197,6 +197,21 @@ const ghArguments = (mac: Mac): string[][] =>
 const flagValue = (call: string[], flag: string): string | undefined => {
 	const at = call.indexOf(flag);
 	return at < 0 ? undefined : call[at + 1];
+};
+
+/** Every gh call the stand-in recorded named the repo behind origin, so none was left to gh's own default repo. */
+const assertEveryGhCallNamesRepo = (mac: Mac, repo: string): void => {
+	const calls = ghArguments(mac);
+	assert.ok(calls.length > 0, "gh was asked about a pull request");
+	for (const call of calls) {
+		assert.equal(flagValue(call, "--repo"), repo, `gh ${call.join(" ")} names the repo behind origin`);
+	}
+};
+
+/** The pull request the stand-in opened names the Run's branch under origin's owner, never a bare branch gh could resolve on upstream. */
+const assertPullRequestHead = (mac: Mac, head: string): void => {
+	const created = ghArguments(mac).find((call) => call[1] === "create") ?? [];
+	assert.equal(flagValue(created, "--head"), head, "the pull request names the Run's branch on origin's owner");
 };
 
 /** A note bin/land leaves in the Run's artifacts, or an empty string. */
@@ -307,44 +322,43 @@ test("under the pull-request landing a Run's work lands on main through a pull r
 	}
 });
 
-test("a fork whose origin is an https address opens and merges its pull request on origin's repo, naming it on every gh call", () => {
-	const mac = forkMac("https://github.com/bradley-mankoff/habit_breaker.git", "https://github.com/Szalikko/NailGuard.git");
+test("a fork whose origin is an https address lands its pull request on origin's repo, naming it on every gh call", () => {
+	const mac = forkMac({
+		origin: "https://github.com/bradley-mankoff/habit_breaker.git",
+		upstream: "https://github.com/Szalikko/NailGuard.git",
+	});
 	try {
 		const result = mac.land();
 		assert.equal(result.status, 0, result.stderr || result.stdout);
 
-		const calls = ghArguments(mac);
-		assert.ok(calls.length > 0, "gh was asked about a pull request");
-		for (const call of calls) {
-			assert.equal(flagValue(call, "--repo"), "bradley-mankoff/habit_breaker", `gh ${call.join(" ")} names the repo behind origin`);
-		}
-		const created = calls.find((call) => call[1] === "create") ?? [];
-		assert.equal(flagValue(created, "--head"), "bradley-mankoff:run-1", "the pull request names the Run's branch on origin's owner");
+		assertEveryGhCallNamesRepo(mac, "bradley-mankoff/habit_breaker");
+		assertPullRequestHead(mac, "bradley-mankoff:run-1");
 	} finally {
 		rmSync(mac.dir, { recursive: true, force: true });
 	}
 });
 
-test("a fork whose origin is an ssh address opens and merges its pull request on origin's repo, naming it on every gh call", () => {
-	const mac = forkMac("git@github.com:bradley-mankoff/habit_breaker.git", "git@github.com:Szalikko/NailGuard.git");
+test("a fork whose origin is an ssh address lands its pull request on origin's repo, naming it on every gh call", () => {
+	const mac = forkMac({
+		origin: "git@github.com:bradley-mankoff/habit_breaker.git",
+		upstream: "git@github.com:Szalikko/NailGuard.git",
+	});
 	try {
 		const result = mac.land();
 		assert.equal(result.status, 0, result.stderr || result.stdout);
 
-		const calls = ghArguments(mac);
-		assert.ok(calls.length > 0, "gh was asked about a pull request");
-		for (const call of calls) {
-			assert.equal(flagValue(call, "--repo"), "bradley-mankoff/habit_breaker", `gh ${call.join(" ")} names the repo behind origin`);
-		}
-		const created = calls.find((call) => call[1] === "create") ?? [];
-		assert.equal(flagValue(created, "--head"), "bradley-mankoff:run-1", "the pull request names the Run's branch on origin's owner");
+		assertEveryGhCallNamesRepo(mac, "bradley-mankoff/habit_breaker");
+		assertPullRequestHead(mac, "bradley-mankoff:run-1");
 	} finally {
 		rmSync(mac.dir, { recursive: true, force: true });
 	}
 });
 
 test("a fork's gated landing finds the pull request it held and merges that one, instead of opening a second", () => {
-	const mac = forkMac("https://github.com/bradley-mankoff/habit_breaker.git", "https://github.com/Szalikko/NailGuard.git");
+	const mac = forkMac({
+		origin: "https://github.com/bradley-mankoff/habit_breaker.git",
+		upstream: "https://github.com/Szalikko/NailGuard.git",
+	});
 	try {
 		const before = ref(mac, "main");
 
@@ -362,9 +376,7 @@ test("a fork's gated landing finds the pull request it held and merges that one,
 			landingNote(mac),
 			"merged pull request https://github.com/bradley-mankoff/habit_breaker/pull/7 into main\n",
 		);
-		for (const call of ghArguments(mac)) {
-			assert.equal(flagValue(call, "--repo"), "bradley-mankoff/habit_breaker", `gh ${call.join(" ")} names the repo behind origin`);
-		}
+		assertEveryGhCallNamesRepo(mac, "bradley-mankoff/habit_breaker");
 	} finally {
 		rmSync(mac.dir, { recursive: true, force: true });
 	}

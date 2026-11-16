@@ -46,17 +46,15 @@ test("the Factory's Chains are the personal Mac's from the Epic, with maximum as
 		{ model: "claude-bridge/claude-opus-5-5", thinking: "medium" },
 		{ model: "opencode-go/muse-spark-1.3-contributor", thinking: "xhigh" },
 	];
+	const workAndScout = [
+		{ model: "opencode-go/deepseek-v4.1-flash", thinking: "max" },
+		{ model: "claude-bridge/claude-haiku-5-5", thinking: "high" },
+	];
 	assert.deepEqual(shipped, {
 		pm,
 		"spec-review": pm,
-		work: [
-			{ model: "opencode-go/deepseek-v4.1-flash", thinking: "max" },
-			{ model: "claude-bridge/claude-haiku-5-5", thinking: "high" },
-		],
-		scout: [
-			{ model: "opencode-go/deepseek-v4.1-flash", thinking: "max" },
-			{ model: "claude-bridge/claude-haiku-5-5", thinking: "high" },
-		],
+		work: workAndScout,
+		scout: workAndScout,
 	});
 });
 

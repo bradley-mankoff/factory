@@ -5,8 +5,9 @@
 #
 #   pull-request  push the Run's branch, open a pull request into the base branch and
 #                 squash-merge it, as the personal Mac lands. Every gh call names the repo
-#                 behind origin and the Run's branch, so a fork's upstream remote never gets
-#                 the pull request and the one a gate held is found again.
+#                 behind origin, and the lookup and the create name the Run's branch, so a
+#                 fork's upstream remote never gets the pull request and one a gate held is
+#                 found again.
 #   squash        squash the Run's commits onto the base branch, run the check again on
 #                 that tree and push the branch, as the work Mac lands: it opens no pull
 #                 request, so only the Human opens one into an engineering branch.
@@ -69,20 +70,20 @@ origin_repo() {
 	*github.com[:/]*) ;;
 	*) return 0 ;;
 	esac
-	path=${address##*github.com[:/]}
-	case $path in
+	owner_and_name=${address##*github.com[:/]}
+	case $owner_and_name in
 	*/*) ;;
 	*) return 0 ;;
 	esac
-	owner=${path%%/*}
-	name=${path#*/}
+	owner=${owner_and_name%%/*}
+	repo_name=${owner_and_name#*/}
 	case $owner in
 	'') return 0 ;;
 	esac
-	case $name in
+	case $repo_name in
 	'' | */*) return 0 ;;
 	esac
-	printf '%s\n' "$owner/$name"
+	printf '%s\n' "$owner/$repo_name"
 }
 # gh_pr <repo> <gh's pull request arguments>: runs gh's pull request command for <repo>,
 # owner/name, so a fork's upstream remote never gets asked; an empty <repo>, which an origin
