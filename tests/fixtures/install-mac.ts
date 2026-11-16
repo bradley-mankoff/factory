@@ -90,9 +90,15 @@ export const profileValue = (home: string, path: string, key: string): string =>
  * the commands install calls outside the Factory. With a Profile already in place, install
  * must follow it; with none, install ships the example. `archonVersion` is the Archon the
  * Mac starts with: the pinned release by default, and an earlier one for a test that
- * watches install move it.
+ * watches install move it. `pluginReloadFails` makes OpenClaw refuse a plugin reload, as a
+ * gateway still draining its admitted work does.
  */
-export const makeMac = (options: { profile?: string; profileExtra?: string; archonVersion?: string } = {}): Mac => {
+export const makeMac = (options: {
+	profile?: string;
+	profileExtra?: string;
+	archonVersion?: string;
+	pluginReloadFails?: boolean;
+} = {}): Mac => {
 	const dir = mkdtempSync(join(tmpdir(), "factory-install-"));
 	const home = join(dir, "home");
 	const bin = join(dir, "bin");
@@ -209,8 +215,17 @@ exit 0`,
 		`printf '%s\\n' "$*" >> "$OPENCLAW_LOG"
 case "$1 $2" in
 	"plugins inspect") exit 0 ;;
+	"plugins reload")
+		[ "\${OPENCLAW_PLUGIN_RELOAD_FAILS-}" = 1 ] || exit 0
+		printf 'openclaw: the previous plugin generation stays active\\n' >&2
+		exit 1
+		;;
 	"approvals get") printf '{"file":{}}\\n' ;;
 	"approvals set") cat > "$APPROVALS_LOG" ;;
+	"sessions --agent")
+		# FactoryClaw's Telegram chat, which a Mac has before install sets up a project.
+		printf '{"sessions": [{"key": "agent:factoryclaw:telegram:direct:1"}]}\\n'
+		;;
 esac
 exit 0`,
 	);
@@ -279,6 +294,7 @@ exit 0`,
 		SWIFT_LOG: logs.swift,
 		CODESIGN_LOG: logs.codesign,
 	};
+	if (options.pluginReloadFails) env.OPENCLAW_PLUGIN_RELOAD_FAILS = "1";
 	// The Profile is the one place a Mac's settings come from, not an inherited shell.
 	delete env.ARCHON_HOME;
 	delete env.LIBRARY;
@@ -286,6 +302,21 @@ exit 0`,
 	const install = () => spawnSync(join(repoRoot, "scripts", "install.sh"), [], { cwd: home, encoding: "utf8", env });
 
 	return { home, profile, env, logs, install };
+};
+
+/**
+ * A project repo on this temporary Mac, ready for install: git and Beads as `bd init`
+ * leaves them, a .env holding the check command, and an entry in the one list of projects
+ * (~/.config/factory/projects), so install's per-project setup loop reaches it.
+ */
+export const projectRepo = (mac: Mac): string => {
+	const repo = join(mac.home, "repo");
+	mkdirSync(join(repo, ".beads"), { recursive: true });
+	execFileSync("git", ["init", "-q", repo]);
+	mkdirSync(join(repo, ".archon"), { recursive: true });
+	writeFileSync(join(repo, ".archon", ".env"), "FACTORY_CHECK=true\n");
+	writeFileSync(join(mac.home, ".config", "factory", "projects"), `${repo}\n`);
+	return repo;
 };
 
 /** Read a log a stand-in wrote; a command never run leaves no file. */

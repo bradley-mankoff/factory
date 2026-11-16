@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync, realpathSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { logOf, makeMac, type Mac } from "./fixtures/install-mac.ts";
+import { logOf, makeMac, projectRepo, type Mac } from "./fixtures/install-mac.ts";
 
 /** Install into a fresh Mac with the example Profile, which names FactoryClaw as the outer layer. */
 const installedMac = (): Mac => {
@@ -38,6 +38,28 @@ const instructionFiles = (mac: Mac): { file: string; text: string }[] => {
 	}
 	return files.map((file) => ({ file, text: readFileSync(file, "utf8") }));
 };
+
+/**
+ * FactoryClaw's plugin reload fails when OpenClaw's gateway is not loaded or still draining
+ * admitted work, and the old plugin generation staying active is safe (fac-hdc). Install
+ * says so and carries on, so the projects after that step are still set up.
+ */
+test("a FactoryClaw plugin reload that fails warns and leaves every project set up", () => {
+	const mac = makeMac({ pluginReloadFails: true });
+	try {
+		const repo = projectRepo(mac);
+		const result = mac.install();
+		assert.match(result.stderr, /note: workshop-catch's reload/, "install says the reload did not finish");
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+		assert.match(
+			readFileSync(join(repo, ".archon", ".env"), "utf8"),
+			/FACTORY_PM_AGENT=pm-repo/,
+			"the listed project is set up after the failed reload",
+		);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
 
 test("install gives FactoryClaw exactly the four commands, with no Claude usage check among them", () => {
 	const mac = installedMac();
