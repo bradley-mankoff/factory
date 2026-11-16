@@ -4,7 +4,9 @@
 # it, so the one rule for landing is here rather than in each Workflow.
 #
 #   pull-request  push the Run's branch, open a pull request into the base branch and
-#                 squash-merge it, as the personal Mac lands.
+#                 squash-merge it, as the personal Mac lands. Every gh call names the repo
+#                 behind origin, and the pull request names the Run's branch under origin's
+#                 owner, so a fork's upstream remote never gets the pull request.
 #   squash        squash the Run's commits onto the base branch, run the check again on
 #                 that tree and push the branch, as the work Mac lands: it opens no pull
 #                 request, so only the Human opens one into an engineering branch.
@@ -55,6 +57,44 @@ refuse() {
 	echo "land: $*" >&2
 	note landing "refused to land: $*"
 	exit 1
+}
+# origin_repo: the repo behind origin as owner/name, so a gh call can say which repo it means.
+# gh resolves a repo from its own default, which in a fork with an upstream remote can be
+# upstream. Empty when origin is not a github.com address: there is no owner/name then, and
+# gh keeps its own default, as it had before.
+origin_repo() {
+	address=$(git remote get-url origin 2>/dev/null) || return 0
+	address=${address%.git}
+	case $address in
+	*github.com[:/]*) ;;
+	*) return 0 ;;
+	esac
+	path=${address##*github.com[:/]}
+	case $path in
+	*/*) ;;
+	*) return 0 ;;
+	esac
+	owner=${path%%/*}
+	name=${path#*/}
+	case $owner in
+	'') return 0 ;;
+	esac
+	case $name in
+	'' | */*) return 0 ;;
+	esac
+	printf '%s\n' "$owner/$name"
+}
+# gh_pr <repo> <gh's pull request arguments>: runs gh's pull request command for <repo>,
+# owner/name, so a fork's upstream remote never gets asked; an empty <repo>, which an origin
+# that is not a github.com address gives, leaves gh its own default, as it had before.
+gh_pr() {
+	named_repo=$1
+	shift
+	if [ -n "$named_repo" ]; then
+		gh pr "$@" --repo "$named_repo"
+	else
+		gh pr "$@"
+	fi
 }
 # fail <output> <reason>: show the end of what the command printed, where the reason is,
 # then refuse, so a failure reads as one message instead of a bare exit.
@@ -107,15 +147,20 @@ fi
 
 case $landing in
 pull-request)
+	# Every gh call names origin's repo and the pull request head names the Run's branch
+	# under origin's owner, so a fork's upstream remote never gets the pull request.
+	origin_name=$(origin_repo)
+	head=$branch
+	if [ -n "$origin_name" ]; then head="${origin_name%%/*}:$branch"; fi
 	# A pull request the gate opened earlier is reused, so the merge after the gate is the
 	# same landing as one with no gate.
-	url=$(gh pr view --json url -q .url 2>/dev/null || true)
+	url=$(gh_pr "$origin_name" view --json url -q .url 2>/dev/null || true)
 	if [ -z "$url" ]; then
 		if [ -z "$bead" ] || [ -z "${WORKFLOW_ID:-}" ]; then
 			refuse "a pull request's body names the Bead and the Run, and this Run has no \$ARGUMENTS or \$WORKFLOW_ID"
 		fi
 		git push -q -u origin HEAD
-		url=$(gh pr create --base "$base" --fill-first --body "Bead $bead, built by Archon Run $WORKFLOW_ID.")
+		url=$(gh_pr "$origin_name" create --base "$base" --head "$head" --fill-first --body "Bead $bead, built by Archon Run $WORKFLOW_ID.")
 	fi
 	if [ -n "$hold" ]; then
 		held="the pull request $url into $base"
@@ -124,7 +169,7 @@ pull-request)
 		printf '%s\n' "$held"
 		exit 0
 	fi
-	gh pr merge --squash "$url"
+	gh_pr "$origin_name" merge --squash "$url"
 	git push -q origin --delete "$branch"
 	note landing "merged pull request $url into $base"
 	printf 'merged pull request %s into %s\n' "$url" "$base"

@@ -2,7 +2,8 @@
  * bin/land is how a Run lands its commits, the way the Mac's Profile says (GLOSSARY.md,
  * `Profile`; fac-qpv.6.4). The seam is the command: a real git repo with the Run in a
  * worktree and origin a bare remote beside it, made-up files, a Profile file for the Mac, a
- * check command, and a stand-in `gh` at the GitHub edge that writes down how it was called.
+ * check command, and a stand-in `gh` at the GitHub edge that writes down how it was called;
+ * a fork's upstream remote stands beside origin's address the way GitHub has it.
  * Nothing here looks inside bin/land.
  */
 import assert from "node:assert/strict";
@@ -29,9 +30,18 @@ type Mac = {
  * worktree on its own branch beside it, a bare remote as origin with main, develop and the
  * Project Manager's branch, the Mac's Profile, and a stand-in `gh`. The stand-in does
  * what GitHub does with the commands bin/land gives it, so the remote shows whether a
- * landing reached the base branch.
+ * landing reached the base branch. `origin` and `upstream` give the remotes addresses the
+ * way GitHub has them, https or ssh; pushes still reach the bare remote beside the repo,
+ * through origin's push address, and `gh` is told origin's address, as it would be.
  */
-const makeMac = (options: { profile: string; repo: string; base: string; check?: string }): Mac => {
+const makeMac = (options: {
+	profile: string;
+	repo: string;
+	base: string;
+	check?: string;
+	origin?: string;
+	upstream?: string;
+}): Mac => {
 	const dir = mkdtempSync(join(tmpdir(), "factory-land-"));
 	const home = join(dir, "home");
 	const bin = join(dir, "bin");
@@ -68,7 +78,9 @@ exit 0
 	execFileSync("git", ["-C", main, "add", "README.md"]);
 	execFileSync("git", ["-C", main, "commit", "-qm", "start"]);
 	execFileSync("git", ["init", "-q", "--bare", remote]);
-	execFileSync("git", ["-C", main, "remote", "add", "origin", remote]);
+	execFileSync("git", ["-C", main, "remote", "add", "origin", options.origin ?? remote]);
+	if (options.origin) execFileSync("git", ["-C", main, "config", "remote.origin.pushurl", remote]);
+	if (options.upstream) execFileSync("git", ["-C", main, "remote", "add", "upstream", options.upstream]);
 	execFileSync("git", ["-C", main, "push", "-q", "origin", "main"]);
 	// The other branches the Mac may land on, all from the starting commit.
 	for (const branch of ["develop", "pm/branch"]) {
@@ -103,6 +115,14 @@ exit 0
 	return { dir, remote, artifacts, ghLog, land };
 };
 
+/**
+ * A fork's Mac: origin and an upstream remote both on GitHub, the way a project cloned from
+ * a stranger's repo and pushed to the person's own has them. The landing runs on it, and a
+ * test reads back how gh was called.
+ */
+const forkMac = (origin: string, upstream: string): Mac =>
+	makeMac({ profile: shippedProfile(), repo: "habit_breaker", base: "main", origin, upstream });
+
 /** A branch's commit on the remote, as git sees it there. */
 const ref = (mac: Mac, branch: string): string =>
 	execFileSync("git", ["-C", mac.remote, "rev-parse", `refs/heads/${branch}`], { encoding: "utf8" }).trim();
@@ -117,6 +137,19 @@ const subject = (mac: Mac, branch: string): string =>
 
 /** How the stand-in `gh` was called, one line per call. */
 const ghCalls = (mac: Mac): string => (existsSync(mac.ghLog) ? readFileSync(mac.ghLog, "utf8") : "");
+
+/** Each gh call the stand-in recorded, its arguments split apart. */
+const ghArguments = (mac: Mac): string[][] =>
+	ghCalls(mac)
+		.split("\n")
+		.filter((call) => call !== "")
+		.map((call) => call.split(" "));
+
+/** The value one recorded gh call gave a flag, or undefined when it gave none. */
+const flagValue = (call: string[], flag: string): string | undefined => {
+	const at = call.indexOf(flag);
+	return at < 0 ? undefined : call[at + 1];
+};
 
 /** A note bin/land leaves in the Run's artifacts, or an empty string. */
 const noteIn = (mac: Mac, name: string): string => {
@@ -221,6 +254,42 @@ test("under the pull-request landing a Run's work lands on main through a pull r
 		assert.equal(fileAt(mac, "main", "squash.txt"), "landed by the Run, refined\n");
 		assert.equal(ref(mac, "develop"), before.develop, "develop is untouched");
 		assert.equal(landingNote(mac), "merged pull request https://github.com/example/calc/pull/7 into main\n");
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("a fork whose origin is an https address opens and merges its pull request on origin's repo, naming it on every gh call", () => {
+	const mac = forkMac("https://github.com/bradley-mankoff/habit_breaker.git", "https://github.com/Szalikko/NailGuard.git");
+	try {
+		const result = mac.land();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		const calls = ghArguments(mac);
+		assert.ok(calls.length > 0, "gh was asked about a pull request");
+		for (const call of calls) {
+			assert.equal(flagValue(call, "--repo"), "bradley-mankoff/habit_breaker", `gh ${call.join(" ")} names the repo behind origin`);
+		}
+		const created = calls.find((call) => call[1] === "create") ?? [];
+		assert.equal(flagValue(created, "--head"), "bradley-mankoff:run-1", "the pull request names the Run's branch on origin's owner");
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("a fork whose origin is an ssh address opens and merges its pull request on origin's repo, naming it on every gh call", () => {
+	const mac = forkMac("git@github.com:bradley-mankoff/habit_breaker.git", "git@github.com:Szalikko/NailGuard.git");
+	try {
+		const result = mac.land();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		const calls = ghArguments(mac);
+		assert.ok(calls.length > 0, "gh was asked about a pull request");
+		for (const call of calls) {
+			assert.equal(flagValue(call, "--repo"), "bradley-mankoff/habit_breaker", `gh ${call.join(" ")} names the repo behind origin`);
+		}
+		const created = calls.find((call) => call[1] === "create") ?? [];
+		assert.equal(flagValue(created, "--head"), "bradley-mankoff:run-1", "the pull request names the Run's branch on origin's owner");
 	} finally {
 		rmSync(mac.dir, { recursive: true, force: true });
 	}
