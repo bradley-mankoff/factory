@@ -10,7 +10,8 @@
  * FactoryClaw's workspace.
  */
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, readdirSync, realpathSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { logOf, makeMac, type Mac } from "./fixtures/install-mac.ts";
@@ -38,6 +39,42 @@ const instructionFiles = (mac: Mac): { file: string; text: string }[] => {
 	}
 	return files.map((file) => ({ file, text: readFileSync(file, "utf8") }));
 };
+
+/**
+ * A project repo ready for install: git and Beads as `bd init` leaves them, a .env holding
+ * the check command, and an entry in the one list of projects.
+ */
+const projectRepo = (mac: Mac): string => {
+	const repo = join(mac.home, "repo");
+	mkdirSync(join(repo, ".beads"), { recursive: true });
+	execFileSync("git", ["init", "-q", repo]);
+	mkdirSync(join(repo, ".archon"), { recursive: true });
+	writeFileSync(join(repo, ".archon", ".env"), "FACTORY_CHECK=true\n");
+	writeFileSync(join(mac.home, ".config", "factory", "projects"), `${repo}\n`);
+	return repo;
+};
+
+/**
+ * FactoryClaw's plugin reload fails when OpenClaw's gateway is not loaded or still draining
+ * admitted work, and the old plugin generation staying active is safe (fac-hdc). Install
+ * says so and carries on, so the projects after that step are still set up.
+ */
+test("a FactoryClaw plugin reload that fails warns and leaves every project set up", () => {
+	const mac = makeMac({ pluginReloadFails: true });
+	try {
+		const repo = projectRepo(mac);
+		const result = mac.install();
+		assert.match(result.stderr, /note: workshop-catch's reload/, "install says the reload did not finish");
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+		assert.match(
+			readFileSync(join(repo, ".archon", ".env"), "utf8"),
+			/FACTORY_PM_AGENT=pm-repo/,
+			"the listed project is set up after the failed reload",
+		);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
 
 test("install gives FactoryClaw exactly the four commands, with no Claude usage check among them", () => {
 	const mac = installedMac();

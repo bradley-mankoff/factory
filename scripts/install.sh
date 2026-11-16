@@ -232,7 +232,12 @@ install_factoryclaw() {
 	openclaw plugins inspect workshop-catch >/dev/null 2>&1 || openclaw plugins install --link "$factory/openclaw-plugins/workshop-catch" --force >/dev/null
 	openclaw config set plugins.entries.workshop-catch.config "$(python3 -c 'import json, os, sys; print(json.dumps({"factoryRepo": sys.argv[1], "path": os.environ["PATH"]}))' "$src")" --strict-json >/dev/null
 	openclaw plugins enable workshop-catch >/dev/null
-	openclaw plugins reload workshop-catch >/dev/null
+	# The reload waits for the old generation's admitted work to drain, so a gateway that is
+	# not loaded or is still busy fails it, and OpenClaw keeps the previous generation active:
+	# the safe default. That is no reason to skip every project's setup below, so install says
+	# what happened and carries on, leaving the next install to try the reload again (fac-hdc).
+	openclaw plugins reload workshop-catch >/dev/null ||
+		echo "note: workshop-catch's reload did not finish; the previous plugin generation stays active, and the next install tries again" >&2
 	# FactoryClaw's model, from the Profile. A repeated set changes nothing.
 	openclaw config set agents.entries.factoryclaw.model "$FACTORYCLAW_MODEL" >/dev/null
 	openclaw config set agents.entries.factoryclaw.thinkingDefault "$FACTORYCLAW_THINKING" >/dev/null
