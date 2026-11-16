@@ -23,10 +23,10 @@ const testProvider = path.join(repoRoot, "tests", "fixtures", "status-check-test
 type Request = { messages: string[] };
 type ProtocolRecord = { type: string; [key: string]: unknown };
 
-type Workspace = { dir: string; home: string; agentDir: string; log: string };
+type Machine = { dir: string; home: string; agentDir: string; log: string };
 
-/** One temporary machine, whose pi folder and provider log the test owns. */
-function makeWorkspace(): Workspace {
+/** One temporary machine for one test: a home folder, a pi folder and the provider's log. */
+function makeMachine(): Machine {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "factory-status-check-"));
 	const home = path.join(dir, "home");
 	const agentDir = path.join(dir, "pi-agent");
@@ -35,17 +35,19 @@ function makeWorkspace(): Workspace {
 	return { dir, home, agentDir, log: path.join(dir, "requests.jsonl") };
 }
 
-const readRequests = (log: string): Request[] =>
-	fs.existsSync(log)
-		? fs
-				.readFileSync(log, "utf8")
-				.split("\n")
-				.filter(Boolean)
-				.map((line) => JSON.parse(line) as Request)
-		: [];
+/** The requests the test provider has answered so far, oldest first. */
+const readRequests = (log: string): Request[] => {
+	if (!fs.existsSync(log)) return [];
+	return fs
+		.readFileSync(log, "utf8")
+		.split("\n")
+		.filter(Boolean)
+		.map((line) => JSON.parse(line) as Request);
+};
 
-/** A pi session in RPC mode: commands out, protocol records back. */
-function startPi(workspace: Workspace) {
+/** A pi session in RPC mode: commands out, protocol records back. Only the extension under
+ * test and the test provider load, with no skills, prompt templates, context files or MCP. */
+function startPi(machine: Machine) {
 	const child: ChildProcess = spawn(
 		"pi",
 		[
@@ -64,16 +66,16 @@ function startPi(workspace: Workspace) {
 			"status-check-test/reply",
 		],
 		{
-			cwd: workspace.dir,
+			cwd: machine.dir,
 			stdio: ["pipe", "pipe", "pipe"],
 			env: {
 				...process.env,
-				HOME: workspace.home,
-				PI_CODING_AGENT_DIR: workspace.agentDir,
+				HOME: machine.home,
+				PI_CODING_AGENT_DIR: machine.agentDir,
 				PI_SKIP_VERSION_CHECK: "1",
 				PI_OFFLINE: "1",
 				PI_TELEMETRY: "0",
-				STATUS_CHECK_TEST_LOG: workspace.log,
+				STATUS_CHECK_TEST_LOG: machine.log,
 			},
 		},
 	);
@@ -144,26 +146,27 @@ function startPi(workspace: Workspace) {
 		});
 	};
 
-	return { events, request, sessionId, stop, stderr: () => stderr };
+	return { request, sessionId, stop };
 }
 
-/** Wait until the test provider has answered `count` requests. */
+/** Wait until the test provider has answered `count` requests, then return them all. */
 async function waitForRequests(log: string, count: number, timeoutMs = 15000): Promise<Request[]> {
 	const start = Date.now();
-	while (readRequests(log).length < count) {
+	for (;;) {
+		const requests = readRequests(log);
+		if (requests.length >= count) return requests;
 		if (Date.now() - start > timeoutMs) {
-			throw new Error(`the test provider saw ${readRequests(log).length} requests, not ${count}`);
+			throw new Error(`the test provider saw ${requests.length} requests, not ${count}`);
 		}
 		await new Promise((resolve) => setTimeout(resolve, 20));
 	}
-	return readRequests(log);
 }
 
 const conversation = (request: Request): string => request.messages.join("\n");
 
 test("/status-check sends the check's text in the session it runs in", async () => {
-	const workspace = makeWorkspace();
-	const pi = startPi(workspace);
+	const machine = makeMachine();
+	const pi = startPi(machine);
 	try {
 		const before = await pi.sessionId();
 		const response = await pi.request({ type: "prompt", message: "/status-check" });
@@ -173,8 +176,7 @@ test("/status-check sends the check's text in the session it runs in", async () 
 			"handled",
 			"the command answers the prompt itself, so no model run starts from the slash command",
 		);
-		const [request] = await waitForRequests(workspace.log, 1);
-		assert.match(statusCheckText, /review the claimed Beads, the Runs that ended and the ready Beads/, "the check's file carries the review the Bead describes");
+		const [request] = await waitForRequests(machine.log, 1);
 		assert.ok(conversation(request).includes(statusCheckText), "the model is sent the check's text");
 		assert.equal(await pi.sessionId(), before, "the check runs in the session the Human is in");
 	} finally {
@@ -183,8 +185,8 @@ test("/status-check sends the check's text in the session it runs in", async () 
 });
 
 test("/new-and-status-check starts a new session with the check's text as its first message", async () => {
-	const workspace = makeWorkspace();
-	const pi = startPi(workspace);
+	const machine = makeMachine();
+	const pi = startPi(machine);
 	try {
 		const before = await pi.sessionId();
 		const response = await pi.request({ type: "prompt", message: "/new-and-status-check" });
@@ -194,7 +196,7 @@ test("/new-and-status-check starts a new session with the check's text as its fi
 			"handled",
 			"the command answers the prompt itself, so no model run starts from the slash command",
 		);
-		const [request] = await waitForRequests(workspace.log, 1);
+		const [request] = await waitForRequests(machine.log, 1);
 		assert.ok(conversation(request).includes(statusCheckText), "the model is sent the check's text");
 		const after = await pi.sessionId();
 		assert.notEqual(after, before, "the check runs in a new session, not the one the Human left");

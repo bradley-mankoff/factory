@@ -102,12 +102,14 @@ fi
 # FactoryClaw's panes skill passes the Human's "get to work", is taken up instead. With
 # neither, pi opens idle at its prompt. The flag is the launcher's, so it is removed before
 # pi sees the arguments, and every other argument passes through as it did before.
+# pi's arguments are filtered by reading one off the front at a time: appending it to the
+# rebuilt list keeps $# where it was, so a counter says how many are still unread.
 status_check=
-kept=$#
-while [ "$kept" -gt 0 ]; do
+unread=$#
+while [ "$unread" -gt 0 ]; do
 	arg=$1
 	shift
-	kept=$((kept - 1))
+	unread=$((unread - 1))
 	if [ "$arg" = --status-check ]; then
 		status_check=1
 	else

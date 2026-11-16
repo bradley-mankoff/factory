@@ -19,15 +19,15 @@ import {
 const api = "status-check-test";
 const log = process.env.STATUS_CHECK_TEST_LOG ?? "/dev/null";
 
-const model = (id: string) => ({
-	id,
-	name: id,
+const replyModel = {
+	id: "reply",
+	name: "reply",
 	reasoning: false,
 	input: ["text"] as ("text" | "image")[],
 	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 	contextWindow: 100_000,
 	maxTokens: 4096,
-});
+};
 
 const message = (requested: Model<Api>, text: string): AssistantMessage => ({
 	role: "assistant",
@@ -71,7 +71,7 @@ export default function statusCheckTestProvider(pi: ExtensionAPI): void {
 		api,
 		apiKey: "test-key",
 		baseUrl: "http://localhost:0",
-		models: [model("reply")],
+		models: [replyModel],
 		streamSimple,
 	});
 }
