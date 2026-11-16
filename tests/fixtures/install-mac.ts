@@ -304,5 +304,20 @@ exit 0`,
 	return { home, profile, env, logs, install };
 };
 
+/**
+ * A project repo on this temporary Mac, ready for install: git and Beads as `bd init`
+ * leaves them, a .env holding the check command, and an entry in the one list of projects
+ * (~/.config/factory/projects), so install's per-project setup loop reaches it.
+ */
+export const projectRepo = (mac: Mac): string => {
+	const repo = join(mac.home, "repo");
+	mkdirSync(join(repo, ".beads"), { recursive: true });
+	execFileSync("git", ["init", "-q", repo]);
+	mkdirSync(join(repo, ".archon"), { recursive: true });
+	writeFileSync(join(repo, ".archon", ".env"), "FACTORY_CHECK=true\n");
+	writeFileSync(join(mac.home, ".config", "factory", "projects"), `${repo}\n`);
+	return repo;
+};
+
 /** Read a log a stand-in wrote; a command never run leaves no file. */
 export const logOf = (path: string): string => (existsSync(path) ? readFileSync(path, "utf8") : "");

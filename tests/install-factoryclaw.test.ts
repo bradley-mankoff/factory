@@ -10,11 +10,10 @@
  * FactoryClaw's workspace.
  */
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, realpathSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { logOf, makeMac, type Mac } from "./fixtures/install-mac.ts";
+import { logOf, makeMac, projectRepo, type Mac } from "./fixtures/install-mac.ts";
 
 /** Install into a fresh Mac with the example Profile, which names FactoryClaw as the outer layer. */
 const installedMac = (): Mac => {
@@ -38,20 +37,6 @@ const instructionFiles = (mac: Mac): { file: string; text: string }[] => {
 		if (skill !== "plain-voice") files.push(join(workspace, "skills", skill, "SKILL.md"));
 	}
 	return files.map((file) => ({ file, text: readFileSync(file, "utf8") }));
-};
-
-/**
- * A project repo ready for install: git and Beads as `bd init` leaves them, a .env holding
- * the check command, and an entry in the one list of projects.
- */
-const projectRepo = (mac: Mac): string => {
-	const repo = join(mac.home, "repo");
-	mkdirSync(join(repo, ".beads"), { recursive: true });
-	execFileSync("git", ["init", "-q", repo]);
-	mkdirSync(join(repo, ".archon"), { recursive: true });
-	writeFileSync(join(repo, ".archon", ".env"), "FACTORY_CHECK=true\n");
-	writeFileSync(join(mac.home, ".config", "factory", "projects"), `${repo}\n`);
-	return repo;
 };
 
 /**
