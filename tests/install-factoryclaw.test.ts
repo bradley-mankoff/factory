@@ -6,11 +6,12 @@
  * through herdr's default server, the one the Human's own windows attach to, so it finds the
  * Project Manager he started himself instead of opening a second (fac-6l8). The seam is
  * installation: scripts/install.sh runs against a temporary Mac, and the test reads back the
- * allowlist it sent OpenClaw, the helpers it installed and the instructions it put in
- * FactoryClaw's workspace.
+ * allowlist it sent OpenClaw, the model catalog it wrote there, the helpers it installed and
+ * the instructions it put in FactoryClaw's workspace.
  */
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, readdirSync, realpathSync, rmSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { logOf, makeMac, projectRepo, type Mac } from "./fixtures/install-mac.ts";
@@ -56,6 +57,59 @@ test("a FactoryClaw plugin reload that fails warns and leaves every project set 
 			/FACTORY_PM_AGENT=pm-repo/,
 			"the listed project is set up after the failed reload",
 		);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("install registers FactoryClaw's model in OpenClaw's catalog with the route OpenCode Go serves it on", () => {
+	const mac = installedMac();
+	try {
+		const config = JSON.parse(readFileSync(join(mac.home, ".openclaw", "openclaw.json"), "utf8"));
+		assert.equal(config.agents.entries.factoryclaw.model, "opencode-go/muse-spark-1.3-contributor", "the registered model is the one the Profile names");
+		const models: { id: string }[] = config.models.providers["opencode-go"].models;
+		// The route is the one OpenCode Go publishes for Muse Spark 1.3 Contributor: an OpenAI
+		// Responses model on its Go endpoint, with reasoning on so the Profile's high level
+		// still applies (fac-s0q).
+		assert.deepEqual(
+			models.find((model) => model.id === "muse-spark-1.3-contributor"),
+			{
+				id: "muse-spark-1.3-contributor",
+				name: "Muse Spark 1.3 Contributor",
+				api: "openai-responses",
+				baseUrl: "https://opencode.ai/inference/go/openai/v1",
+				reasoning: true,
+			},
+		);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("OpenClaw resolves FactoryClaw's model after install, so its turns no longer fail with Unknown model", () => {
+	const mac = installedMac();
+	try {
+		const resolved = spawnSync("openclaw", ["models", "list", "--agent", "factoryclaw", "--json"], { encoding: "utf8", env: mac.env });
+		assert.equal(resolved.status, 0, resolved.stderr || resolved.stdout);
+		const listed: { key: string }[] = JSON.parse(resolved.stdout).models;
+		assert.ok(
+			listed.some((model) => model.key === "opencode-go/muse-spark-1.3-contributor"),
+			"the model FactoryClaw runs is among those OpenClaw resolves for it",
+		);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("install keeps a model the Mac already registered under OpenCode Go's account", () => {
+	const mac = makeMac();
+	const alreadyRegistered = { id: "deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash", api: "openai-completions", baseUrl: "https://opencode.ai/zen/go/v1" };
+	writeFileSync(join(mac.home, ".openclaw", "openclaw.json"), JSON.stringify({ models: { providers: { "opencode-go": { models: [alreadyRegistered] } } } }));
+	try {
+		const result = mac.install();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+		const models: { id: string }[] = JSON.parse(readFileSync(join(mac.home, ".openclaw", "openclaw.json"), "utf8")).models.providers["opencode-go"].models;
+		assert.deepEqual(models.map((model) => model.id), ["deepseek-v4.1-flash", "muse-spark-1.3-contributor"]);
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}

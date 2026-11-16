@@ -48,10 +48,11 @@ export const squashProfile =
 		"LIBRARY=$HOME/factory-local/.archon/workflows",
 	].join("\n") + "\n";
 
-/** A stand-in at one edge of the system: a command that writes down how it was called. */
-export const stub = (path: string, body: string) => {
+/** A stand-in at one edge of the system: a command that writes down how it was called.
+ * `interpreter` is what runs it, `/bin/sh` unless the stand-in needs another. */
+export const stub = (path: string, body: string, interpreter = "/bin/sh") => {
 	mkdirSync(dirname(path), { recursive: true });
-	writeFileSync(path, `#!/bin/sh\n${body}\n`);
+	writeFileSync(path, `#!${interpreter}\n${body}\n`);
 	chmodSync(path, 0o755);
 };
 
@@ -210,24 +211,82 @@ case "$1" in --version) printf "1.3.0\\n" ;; esac
 exit 0`,
 	);
 	stub(join(bin, "npm"), 'printf "%s\\n" "$HOME/.npm-root"');
+	// OpenClaw, as far as install can tell: each call is logged, `config set` writes the
+	// value into the Mac's own openclaw.json and `config get` reads it back, the way
+	// OpenClaw's CLI does. `models list --agent` applies OpenClaw's rule that an agent's
+	// model resolves only when models.providers holds a matching models[] entry.
+	const openclawConfig = join(home, ".openclaw", "openclaw.json");
 	stub(
 		join(bin, "openclaw"),
-		`printf '%s\\n' "$*" >> "$OPENCLAW_LOG"
-case "$1 $2" in
-	"plugins inspect") exit 0 ;;
-	"plugins reload")
-		[ "\${OPENCLAW_PLUGIN_RELOAD_FAILS-}" = 1 ] || exit 0
-		printf 'openclaw: the previous plugin generation stays active\\n' >&2
-		exit 1
-		;;
-	"approvals get") printf '{"file":{}}\\n' ;;
-	"approvals set") cat > "$APPROVALS_LOG" ;;
-	"sessions --agent")
-		# FactoryClaw's Telegram chat, which a Mac has before install sets up a project.
-		printf '{"sessions": [{"key": "agent:factoryclaw:telegram:direct:1"}]}\\n'
-		;;
-esac
-exit 0`,
+		`const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.OPENCLAW_LOG, args.join(" ") + "\\n");
+const read = () => {
+	try {
+		return JSON.parse(fs.readFileSync(process.env.OPENCLAW_CONFIG, "utf8"));
+	} catch {
+		return {};
+	}
+};
+const at = (path) => path.split(".").reduce((value, key) => (value == null ? undefined : value[key]), read());
+const put = (path, value) => {
+	const data = read();
+	const keys = path.split(".");
+	let node = data;
+	for (const key of keys.slice(0, -1)) {
+		if (node[key] == null || typeof node[key] !== "object") node[key] = {};
+		node = node[key];
+	}
+	node[keys[keys.length - 1]] = value;
+	fs.writeFileSync(process.env.OPENCLAW_CONFIG, JSON.stringify(data, null, 2) + "\\n");
+};
+const reply = (value) => process.stdout.write(JSON.stringify(value, null, 2) + "\\n");
+const deny = (message) => {
+	reply({ ok: false, error: { type: "cli_error", message } });
+	process.exit(1);
+};
+switch (args[0] + " " + args[1]) {
+	case "plugins inspect":
+		break;
+	case "plugins reload":
+		if (process.env.OPENCLAW_PLUGIN_RELOAD_FAILS === "1") {
+			process.stderr.write("openclaw: the previous plugin generation stays active\\n");
+			process.exit(1);
+		}
+		break;
+	case "approvals get":
+		reply({ file: {} });
+		break;
+	case "approvals set":
+		fs.writeFileSync(process.env.APPROVALS_LOG, fs.readFileSync(0, "utf8"));
+		break;
+	case "sessions --agent":
+		// FactoryClaw's Telegram chat, which a Mac has before install sets up a project.
+		reply({ sessions: [{ key: "agent:factoryclaw:telegram:direct:1" }] });
+		break;
+	case "config set":
+		put(args[2], args.includes("--strict-json") ? JSON.parse(args[3]) : args[3]);
+		break;
+	case "config get": {
+		const value = at(args[2]);
+		if (value === undefined) deny("Config path is valid but unset: " + args[2]);
+		reply(value);
+		break;
+	}
+	case "models list": {
+		const agent = args[args.indexOf("--agent") + 1];
+		const model = String(at("agents.entries." + agent + ".model"));
+		const provider = model.split("/")[0];
+		const id = model.split("/").slice(1).join("/");
+		const models = at("models.providers." + provider + ".models") || [];
+		if (!models.some((entry) => entry.id === id))
+			deny("Unknown model: " + model + ". Found agents.entries." + agent + ".model but no matching models.providers." + provider + ".models[] entry.");
+		reply({ count: 1, models: [{ key: model }] });
+		break;
+	}
+}
+`,
+		"/usr/bin/env node",
 	);
 	stub(join(bin, "herdr"), "exit 0");
 	// launchd, as far as install can tell: a job it bootstraps is loaded until it is
@@ -284,6 +343,7 @@ exit 0`,
 		HOME: home,
 		PATH: `${bin}:${process.env.PATH}`,
 		OPENCLAW_LOG: logs.openclaw,
+		OPENCLAW_CONFIG: openclawConfig,
 		APPROVALS_LOG: logs.approvals,
 		ARCHON_LOG: logs.archon,
 		CURL_LOG: logs.curl,

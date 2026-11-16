@@ -40,7 +40,10 @@ CHAINS=$HOME/.config/factory/chains.json
 # RUN_EXTENSIONS=$HOME/.pi/agent/extensions/my-extension.ts
 
 # FactoryClaw runs on OpenClaw rather than pi, so it names a model and a thinking level,
-# not a Chain. It is used only when OUTER_LAYER is factoryclaw.
+# not a Chain. It is used only when OUTER_LAYER is factoryclaw. install writes the model
+# into OpenClaw's own catalog when it knows that model's route, which today is the one
+# below; any other model must already be in OpenClaw's catalog, or every turn fails with
+# "Unknown model" (fac-s0q).
 FACTORYCLAW_MODEL=opencode-go/muse-spark-1.3-contributor
 FACTORYCLAW_THINKING=high
 
