@@ -1,5 +1,5 @@
 ## Source repo
-> Everything the Factory is made of, edited by hand. install.sh copies or links it to where it is read; nothing runs from here. The Factory depends on five pi packages from repos of their own, github.com/bradley-mankoff/pi-beads, pi-links, pi-chains, pi-notices and pi-flows, which `pi install` puts in the pi folders; it holds no pi extension itself (fac-qpv.8.1).
+> Everything the Factory is made of, edited by hand. install.sh copies or links it to where it is read; nothing runs from here. The Factory depends on five pi packages from repos of their own, github.com/bradley-mankoff/pi-beads, pi-links, pi-chains, pi-notices and pi-flows, which `pi install` puts in the pi folders; its one pi extension of its own, project-manager/status-check.ts, is loaded only by a Project Manager (fac-k10, fac-qpv.8.1).
 ~/Developer/personal_code/factory  — The Factory's source, git, github.com/bradley-mankoff/factory  [source]
   2026-10-16-factory-stack.md  — The spec, the source of truth
   AGENTS.md  — Rules for working on the Factory
@@ -12,7 +12,8 @@
   scripts/install-workflows  — Copies workflows/factory/ into a Workflow library's factory/, replacing that group only and leaving the person's own groups alone (fac-qpv.6.2)
   scripts/size  — Counts the Factory's policy lines: code, skills, docs and AGENTS.md files, not their comments, docstrings or blank lines (fac-4tn)
   tests/  — The Factory's tests, run by scripts/check
-    pm.test.ts  — pm and project-manager/start with stand-ins for pi, herdr and Archon: your own pi, the appended role, LIBRARY, the opening message and the first message that replaces it, the pane name, the worktree shape's pane and registration, pm-pane's names, and the Notice file and board port the packages read (fac-qpv.2.2, fac-qpv.6.5, fac-qpv.8.1)
+    pm.test.ts  — pm and project-manager/start with stand-ins for pi, herdr and Archon: your own pi, the appended role, LIBRARY, no first message, --status-check's message and the first message that replaces it, the pane name, the worktree shape's pane and registration, pm-pane's names, and the Notice file and board port the packages read (fac-k10, fac-qpv.2.2, fac-qpv.6.5, fac-qpv.8.1)
+    status-check.test.ts  — project-manager/status-check.ts in pi's RPC mode with a test provider: /status-check sends the check's text in the current session, and /new-and-status-check starts a new session and sends it there (fac-k10)
     chains-config.test.ts  — The Factory's own Chains: every role it names has a Chain of models and thinking levels, the shipped Chains are the personal Mac's from the Epic, and the Scout's definition names chain/scout (fac-qpv.1.1, fac-qpv.8.1)
     archon-roles.test.ts  — bin/archon-roles against a temporary Archon home: the tiers and @aliases all name Chain models, a stray install-scope alias is unset, a user-scope alias is kept, and a second run changes nothing (fac-qpv.1.4, fac-qpv.1.7)
     install-workflows.test.ts  — The core Workflows installed into a temporary Archon home: the core group is this repo's copy with a stale file gone, another group is untouched, and archon workflow test passes on every core Workflow (fac-qpv.6.2)
@@ -37,9 +38,12 @@
     prompt-guidance.test.ts  — The prompts and guides read as a Run reads them: the module and test design rules each prompt carries, the work prompt's refactor rule and test-name example, the guides' own content, no prompt or guide naming Pocock's setup, and both build Workflows gating the standards review on the spec review's approval (fac-6a7.2, fac-6a7.4)
     skills.test.ts  — The three engineering skills as a session loads them: each names the fuller files install puts in place by absolute path, code-review runs the spec review first and the standards review only after it approves, no skill names Pocock's setup, and install links all three and skips a raw copy with its removal command (fac-6a7.5)
     fixtures/install-mac.ts  — One temporary Mac for the install tests: a HOME with the files a Mac already has, its Archon at the release install.sh pins unless a test asks for an earlier one to watch install move it, and stand-ins on PATH for the commands install calls outside the Factory
+    fixtures/status-check-test-provider.ts  — The model provider the status-check tests put at pi's edge: it answers each request and logs the conversation it was sent, so a test sees the check's text arrive (fac-k10)
   project-manager/  — The Project Manager's definition
     instructions.md  — Appended to pi's system prompt; under the worktree shape its Runs start from the worktree's branch with --base, pushed first (fac-qpv.6.5)
-    start  — Starts your own pi with the Project Manager's role added, opening the session with a message asking for the start routine and the next steps it proposes; the model, the Workflow library and the workspace shape come from ~/.config/factory/profile, the model naming chain/pm, whose Chain sets the thinking level, and under the worktree shape it registers the repo with Archon from its main checkout (fac-qpv.1.4, fac-qpv.2.2, fac-qpv.6.3, fac-qpv.6.5)
+    start  — Starts your own pi with the Project Manager's role added and loads status-check.ts; --status-check opens the session with the check's message, while a first message is taken up instead and no flag and no message leave pi at its prompt. The model, the Workflow library and the workspace shape come from ~/.config/factory/profile, the model naming chain/pm, whose Chain sets the thinking level, and under the worktree shape it registers the repo with Archon from its main checkout (fac-k10, fac-qpv.1.4, fac-qpv.2.2, fac-qpv.6.3, fac-qpv.6.5)
+    status-check.md  — The status check's text: review the claimed Beads, the ended Runs and the ready Beads, then propose the next steps for the Human to accept (fac-k10)
+    status-check.ts  — The pi extension that registers /status-check, which sends the check's text in the current session, and /new-and-status-check, which starts a new session and sends it there (fac-k10)
     pm  — Shorthand for start in the folder it runs in
   prompts/  — Node prompts, the Factory's own
     work.md  — The work agent: build the Bead test first
@@ -117,7 +121,7 @@
 ~/.local/bin/pm  — Link to the installed project-manager/pm, the shorthand that starts a Project Manager  [installed]
 ~/.local/share/factory  — Installed copies  [installed]
   notices/  — One Notice file per Project Manager, <pane>.md: bin/tell-pm appends a Run's ending, and the pi-notices package delivers each new line into the conversation (fac-qpv.2.1)  [runtime]
-  project-manager/  — instructions.md, pm and start; FactoryClaw's panes skill runs start, which opens the session with the start routine's proposal when it gets no first message (fac-qpv.2.2)
+  project-manager/  — instructions.md, pm, start, status-check.md and status-check.ts; FactoryClaw's panes skill runs start, and the status check is asked for with pm --status-check, /status-check or /new-and-status-check; with neither the session opens at pi's prompt (fac-k10, fac-qpv.2.2)
   bin/  — node-prompts, bead, work-finished, finish, pm-pane, archon-roles, archon-register, tell-pm, land, board
   commands/archon  — The archon wrapper, which install writes here: it sets ARCHON_HOME and LIBRARY to the Profile's values unless the shell sets them, and runs the Archon binary; ~/.local/bin/archon links here, so a link an earlier Factory left is replaced rather than written through, and FactoryClaw's allowlist names this real path (fac-lw9)
   jev-shadow.jsonl  — Jev's is-it-done answer for each Run's review pass; the record that retired Jev, kept as it stands (fac-60v.20.12, fac-qpv.3.3)
@@ -133,7 +137,7 @@
     settings.json  — Merged from the repo; lists pi-claude-bridge, pi-chains and pi-flows, and pi adds its own keys
     trust.json  — Trusted folders: the three projects and Archon's workspaces
     claude-bridge.json
-    extensions/  — A link to each extension file the Profile's RUN_EXTENSIONS names, and empty when it names none: the Factory holds no pi extension of its own (fac-pbg, fac-qpv.8.1)
+    extensions/  — A link to each extension file the Profile's RUN_EXTENSIONS names, and empty when it names none (fac-pbg, fac-qpv.8.1)
     chains.json  — Link to the Chains file the Profile names; the pi-chains package reads it here, so every Run node runs on its Chain (fac-qpv.8.1)
     agents/scout.md  — The Scout, copied from the repo; the subagent tool reads agents/
     npm/node_modules/pi-claude-bridge  — v0.9.3, the Factory's own copy; Run nodes load it through settings.json

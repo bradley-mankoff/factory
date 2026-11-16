@@ -21,7 +21,7 @@ The session's server runs as the launchd job `factory.herdr`, started at login. 
 
 When the Human asks a project to get to work, start, carry on or pick up its work:
 
-1. If its pane is closed (`herdr --session factory agent get <pane>` fails), open it as "Open" below says, giving `project-manager/start` the message `FactoryClaw: The Human asks you to get to work.` on its command line the way Open's step 2 shows. The Project Manager acts on that message at once rather than proposing.
+1. If its pane is closed (`herdr --session factory agent get <pane>` fails), open it as "Open" below says, giving `project-manager/start` the message `FactoryClaw: The Human asks you to get to work.` on its command line the way Open's step 2 shows. The Project Manager acts on that message at once.
 2. If its pane is open, tell the Project Manager to get to work, without `--wait`:
 
    ```bash
@@ -41,13 +41,13 @@ When the Human asks a project to stop, find its workspace id by its label in `he
 
 ## Open
 
-Opening starts a Project Manager. With no first message it reviews its Beads and Runs, then proposes the next steps and waits for the Human to accept; Start gives its message with the start, so the Project Manager acts at once. An Idea or an answer reaches the pane after it has started.
+Opening starts a Project Manager at pi's prompt. It reviews its Beads and Runs only when the status check is asked for: `~/.local/share/factory/project-manager/start --status-check` when it starts, `/status-check` in a running session, or `/new-and-status-check`, which starts a new session and runs it there. Start gives its message with the start, so the Project Manager acts at once. An Idea or an answer reaches the pane after it has started.
 
 1. `herdr --session factory workspace create --cwd <repo> --label <project> --no-focus`. Read the new pane's id from `.result.root_pane.pane_id` in its JSON.
-2. `herdr --session factory pane run <pane id> "~/.local/share/factory/project-manager/start"`. This starts the Project Manager. To start it with a message, as Start does, add the message in single quotes after the command: `~/.local/share/factory/project-manager/start '<the message>'`. A first message replaces the opening proposal, so the Project Manager acts on it.
+2. `herdr --session factory pane run <pane id> "~/.local/share/factory/project-manager/start"`. This starts the Project Manager at pi's prompt. To start it with a message, as Start does, add the message in single quotes after the command: `~/.local/share/factory/project-manager/start '<the message>'`. To start it with the status check instead, add `--status-check`: `~/.local/share/factory/project-manager/start --status-check`.
 3. `herdr --session factory pane wait-output <pane id> --match "pm •" --timeout 60000`. It returns once pi's footer shows the Project Manager's model, `pm`, with its Chain's thinking level beside it. The level is whichever entry the Chain started on, so never match on one.
 4. `herdr --session factory agent rename <pane id> <pane>`, so Runs and I can reach it by name.
 
 If step 3 times out, read the pane with `herdr --session factory pane read <pane id> --source visible` and tell the Human, in a line, what it shows.
 
-When the Human asks only to open a project, follow Start instead, so the Project Manager takes up the work rather than waiting for the Human to accept a proposal; when the Human asks to close one, follow Stop.
+When the Human asks only to open a project, follow Start instead, so the Project Manager takes up the work rather than sitting idle at pi's prompt; when the Human asks to close one, follow Stop.

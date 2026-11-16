@@ -167,13 +167,23 @@ const archonCalls = (log: string): string[] => {
 	return text === "" ? [] : text.split("\n");
 };
 
-/**
- * The message project-manager/start gives pi when the Human gives none: the start routine
- * reviews what is waiting and proposes the next steps for the Human to accept
- * (fac-qpv.2.2). A session that starts with no message would sit at pi's prompt.
- */
-const openingMessage =
-	"Run your start routine now: review the claimed Beads, the Runs that ended and the ready Beads, then propose the obvious next steps and wait for the Human to accept.";
+/** The check's text: one file, read by the launcher for --status-check and by the
+ * extension for the two commands (fac-k10). */
+const statusCheckText = (): string =>
+	fs.readFileSync(path.join(repoRoot, "project-manager", "status-check.md"), "utf8").trim();
+
+/** The arguments pi is started with under the test's Profile, before any message. The
+ * status-check extension comes with them, so both of its commands work in the session. */
+const launcherArgs = [
+	"--model",
+	"test-provider/chosen-model",
+	"--append-system-prompt",
+	path.join(repoRoot, "project-manager", "instructions.md"),
+	"--append-system-prompt",
+	path.join(repoRoot, "GLOSSARY.md"),
+	"--extension",
+	path.join(repoRoot, "project-manager", "status-check.ts"),
+];
 
 test("pm starts the Human's own pi in the repo's top folder with the role and glossary appended", () => {
 	const h = makeHarness();
@@ -183,15 +193,7 @@ test("pm starts the Human's own pi in the repo's top folder with the role and gl
 	assert.equal(result.stderr, "");
 	const launch = h.readLaunch(result.capture);
 	assert.equal(launch.cwd, fs.realpathSync(h.repo));
-	assert.deepEqual(launch.args, [
-		"--model",
-		"test-provider/chosen-model",
-		"--append-system-prompt",
-		path.join(repoRoot, "project-manager", "instructions.md"),
-		"--append-system-prompt",
-		path.join(repoRoot, "GLOSSARY.md"),
-		openingMessage,
-	]);
+	assert.deepEqual(launch.args, launcherArgs);
 	assert.equal(launch.env.PI_CODING_AGENT_DIR, "<unset>");
 	assert.equal(launch.env.PI_SKIP_VERSION_CHECK, "1");
 	assert.equal(
@@ -200,23 +202,53 @@ test("pm starts the Human's own pi in the repo's top folder with the role and gl
 	);
 });
 
-test("project-manager/start passes pi the opening message itself when the Human gives none", () => {
+test("project-manager/start with no arguments starts pi with no first message", () => {
 	const h = makeHarness();
 	const result = h.run(path.join(repoRoot, "project-manager", "start"));
 
 	assert.equal(result.status, 0, result.stderr);
-	assert.equal(h.readLaunch(result.capture).args.at(-1), openingMessage);
+	assert.deepEqual(h.readLaunch(result.capture).args, launcherArgs, "pi opens idle at its prompt");
 });
 
-test("a first message given on the command line replaces the opening message", () => {
+test("the check's file asks for the review the Bead describes", () => {
+	assert.match(
+		statusCheckText(),
+		/review the claimed Beads, the Runs that ended and the ready Beads/,
+		"the words /status-check and --status-check send are the Bead's review",
+	);
+});
+
+test("pm --status-check starts pi with the check's text as its first message", () => {
+	const h = makeHarness();
+	const result = h.run(path.join(repoRoot, "project-manager", "pm"), { args: ["--status-check"] });
+
+	assert.equal(result.status, 0, result.stderr);
+	assert.deepEqual(
+		h.readLaunch(result.capture).args,
+		[...launcherArgs, statusCheckText()],
+		"the check's text is pi's last argument and the launcher's own flag is gone",
+	);
+});
+
+test("project-manager/start --status-check starts pi with the check's text too", () => {
+	const h = makeHarness();
+	const result = h.run(path.join(repoRoot, "project-manager", "start"), { args: ["--status-check"] });
+
+	assert.equal(result.status, 0, result.stderr);
+	assert.deepEqual(h.readLaunch(result.capture).args, [...launcherArgs, statusCheckText()]);
+});
+
+test("a first message given on the command line reaches pi unchanged", () => {
 	const h = makeHarness();
 	const first = "FactoryClaw: The Human asks you to get to work.";
 	const result = h.run(path.join(repoRoot, "project-manager", "pm"), { args: [first] });
 
 	assert.equal(result.status, 0, result.stderr);
-	const launch = h.readLaunch(result.capture);
-	assert.deepEqual(launch.args.slice(-1), [first], "pi sends the Human's own message, not a second one");
-	assert.ok(!launch.args.includes(openingMessage), "the opening message makes way for the Human's");
+	assert.deepEqual(
+		h.readLaunch(result.capture).args,
+		[...launcherArgs, first],
+		"pi sends the Human's own message, and not a second one",
+	);
 });
 
 test("the Factory's settings start a Project Manager on the PM Chain, and the Chain sets its thinking level", () => {
