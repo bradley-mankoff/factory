@@ -159,11 +159,10 @@ WRAPPER
 	# The Factory's pi folder. Both files are merged, not copied: pi adds its own
 	# settings as it runs, and project setup adds each project's repo to trust.json.
 	mkdir -p "$pi_dir"
-	# The Chains and Flows packages, so an AI node of a Run registers a model per role
-	# (fac-qpv.1.1) and is sent back before it stops short (fac-qpv.3.1), and the bash timeout,
-	# so a command that never returns cannot hold a Run open past Archon's idle timeout
-	# (fac-rh9). pi install records them in this folder's settings.json, and every session here
-	# loads them.
+	# The Chains, Flows and bash timeout, so an AI node of a Run registers a model per role
+	# (fac-qpv.1.1) and is sent back before it stops short (fac-qpv.3.1), and a command that
+	# never returns cannot hold a Run open past Archon's idle timeout (fac-rh9). pi install
+	# records them in this folder's settings.json, and every session here loads them.
 	ln -sfn "$CHAINS" "$pi_dir/chains.json"
 	pi_packages "$pi_dir" pi-chains pi-flows pi-bash-timeout
 	merge_json "$pi_dir/settings.json" "$src/pi-agent/settings.json"

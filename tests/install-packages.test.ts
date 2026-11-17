@@ -61,7 +61,8 @@ test("a Run's pi folder keeps the bash timeout in the settings pi reads", () => 
 		const result = mac.install();
 		assert.equal(result.status, 0, result.stderr || result.stdout);
 
-		const settings = JSON.parse(readFileSync(join(mac.home, ".local", "share", "factory", "pi-agent", "settings.json"), "utf8"));
+		const settingsFile = join(mac.home, ".local", "share", "factory", "pi-agent", "settings.json");
+		const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
 		assert.ok(
 			settings.packages.includes("git:github.com/bradley-mankoff/pi-bash-timeout"),
 			`the merged settings list the bash timeout, so a hung bash call ends: ${JSON.stringify(settings.packages)}`,
