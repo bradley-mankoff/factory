@@ -306,6 +306,24 @@ what it holds, which the gate quotes.
     bash: '"$HOME/.local/share/factory/bin/land" --hold'
 ```
 
+### The Bead's close (`close-bead`)
+
+Writes the Run's record on the Bead as one comment (the Run id, the Workflow's name and the
+landing as `bin/land` wrote it) and closes the Bead, so a clean landing needs no Project Manager
+judgment and the result is in state before any Notice exists. A Bead whose Project Manager has
+steps after the landing — installing it, a live check, a live config change, starting a dependent
+Bead — carries the `after-landing` label, and the node leaves it open for them. The labels are
+read with `bd show --json`, so no model decides; the node leaves a `bead-state` note for
+`bin/finish`, so the Notice says the Bead was closed or left open. Archon skips the node when the
+landing failed, so a Bead never closes on a landing that did not happen. Its last argument is the
+Workflow's name.
+
+```yaml
+  - id: close-bead
+    depends_on: [land]
+    bash: '"$HOME/.local/share/factory/bin/close-bead" "$("$HOME/.local/share/factory/bin/bead" --id "$ARGUMENTS")" factory-build'
+```
+
 ## The Human gate
 
 ### The question and the wait (`ask-human`, `taste`)
@@ -369,7 +387,7 @@ would stop the notice when it is most needed. Its argument is that Workflow's na
 
 ```yaml
   - id: tell-project-manager
-    depends_on: [land, work-finished, spec-withheld, standards-withheld]
+    depends_on: [land, close-bead, work-finished, spec-withheld, standards-withheld]
     trigger_rule: all_done
     bash: '"$HOME/.local/share/factory/bin/finish" factory-build'
 ```

@@ -28,6 +28,8 @@ The Human is the person who owns the project. An Epic is a parent Bead holding o
 
    When a slice fails one limit, fix the slice now, by merging or splitting. Do not leave it for a later Bead to clean up.
 
+   A Bead whose Project Manager has steps after its Run lands — installing it, a live check, a live config change, starting a dependent Bead — carries the `after-landing` label, so its Run leaves it open for those steps. Every other Bead a build Run lands, the Run closes itself with its Run record as a comment, and what is left for the Project Manager is removing the worktree and taking up the next Bead.
+
    **Wide refactors are the exception to vertical slicing.** A wide refactor is one mechanical change, such as renaming a column or retyping a shared symbol, that fans out across the whole codebase, so one edit breaks every call site at once and no vertical slice can pass its tests. Sequence it as expand and contract. First expand: add the new form beside the old, so nothing breaks. Then move the call sites over in batches sized by how far the change spreads (per package, per directory), each batch its own Bead blocked by the expand, with the tests passing after every batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a Bead blocked by every batch. When even the batches cannot pass alone, keep the sequence but let them share an integration branch, and have them all block a final Bead that integrates and checks; only that Bead promises passing tests. The minimum above does not apply to these Beads; each one is still worth building on its own because it moves part of the codebase.
 
 4. Create the Beads without asking the Human to approve the breakdown; the size limits above stand in for that review. Create them in dependency order, blockers first, so each blocking edge points at a Bead that already exists. Each Bead is a child of the Epic, its acceptance criteria go in `--acceptance`, and its description, passed on standard input, follows the template below:
@@ -45,6 +47,8 @@ The Human is the person who owns the project. An Epic is a parent Bead holding o
    Run one Bead per command exactly in this shape, read the id it prints, then add each blocking edge with `bd dep add <new Bead id> <blocker id>`. The quoted heredocs keep backticks, `$` and apostrophes as written; typed straight inside double quotes, a backtick runs as a command and blanks the text. Do not wrap `bd create` in `$(...)` to capture the id: macOS's bash 3.2 fails on a heredoc inside `$(...)` when the text holds an apostrophe. `read -d ''` ends with status 1, hence `|| true`.
 
    Make every blocking edge a native dependency with `bd dep add`, so `bd ready` leaves out a Bead until its blockers are closed and `bd show` lists them. Do not repeat the blockers in the description.
+
+   A Bead that carries `after-landing`, as step 3 says, gets `--labels=after-landing` on that `bd create` command.
 
    Do not close or change the Epic.
 

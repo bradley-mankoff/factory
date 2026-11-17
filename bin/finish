@@ -15,6 +15,8 @@
 #                    presence wins over `landing` and `held`, the notes bin/land wrote
 #                    before the gate, which no landing follows.
 #   no-commits       a task's checks node: the Run changed no files.
+#   bead-state       bin/close-bead: what became of the Bead, either "closed the Bead"
+#                    or "left the Bead open for its after-landing steps" (fac-enj).
 #   flows-failed.txt pi-flows: the checks a node finished with still failing.
 #   findings.md      a research Run's combine node: the answer.
 #
@@ -43,6 +45,7 @@ note() {
 landing=$(note landing)
 held=$(note held)
 rejected=$(note rejected)
+bead_state=$(note bead-state)
 failures=$(note flows-failed.txt)
 # Where a Project Manager reads why a Run ended as it did. The gated Workflow also ends on
 # its gate's answer, so its sentence names that too.
@@ -70,6 +73,9 @@ else
 		[ -z "$rejected" ] || how="$how: $rejected"
 	elif [ -n "$landing" ]; then
 		how=$landing
+		# A landed build's Run closes its own Bead, or leaves it open for the steps the
+		# Project Manager has after the landing (fac-enj).
+		[ -z "$bead_state" ] || how="$landing, and $bead_state"
 	elif [ -n "$held" ]; then
 		how="held $held and did not land it; $failed_node"
 	else
