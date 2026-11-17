@@ -12,6 +12,7 @@ This repo is the source of the Factory: the skills, the Project Manager's defini
 
 - **Greenfield.** Write everything here new. The earlier Factory in `~/Developer/graph_engineering` stays as it is: take no code from it, migrate nothing, keep no compatibility, delete nothing there.
 - **Judgment in models.** Write code only for what a model cannot do reliably. Prefer guidance in instructions to code that checks. A gate whose job is to restrict which changes are allowed is never proposed.
+- **Scripts for mechanical checks.** A mechanical check (reading a field or a label, comparing two values, whether a record exists) is a short script, near instant and free, never a model call; models keep the judgment (the Human, 2026-11-17).
 - **Fix the source.** Prevent a problem in the instructions that create the work, not with a later fix that cleans up after it.
 - **Fast checks.** A quick check finishes in seconds. Run anything long in the background and let the check read its saved result.
 - **Toy repos are gone.** `~/Developer/personal_code/factory-toy-calc` and `factory-toy-todo` served the first end-to-end Runs, left the project list on 2026-10-28, and were deleted locally on 2026-10-31. Try things in a scratch repo.
