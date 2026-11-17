@@ -189,7 +189,7 @@ test("the panes skill finds a running Project Manager by its pane label and pi a
 		// finds his too (fac-6l8).
 		assert.match(start, /herdr pane list/, "Start reads herdr pane list");
 		assert.match(start, /`label`/, "Start finds the pane by its label");
-		assert.match(start, /`agent`/, "Start checks the agent on that pane");
+		assert.match(start, /`agent` is `pi`/, "Start checks for the pi agent on that pane");
 		assert.ok(
 			stepAt(start, "herdr pane list") < stepAt(start, 'as "Open" below says'),
 			"Start looks in the list before it opens a pane",
@@ -219,45 +219,42 @@ test("the panes skill lists a project as running when its labelled pane has the 
 		assert.match(list, /herdr pane list/, "List reads herdr pane list");
 		assert.match(list, /`label`/, "List finds each project by its pane's label");
 		assert.match(list, /`agent`/, "List checks the agent on that pane");
+		assert.match(list, /`pi`/, "List counts a project as running only when pi runs in its pane");
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}
 });
 
-test("relay-idea finds the Project Manager's pane by its label in herdr pane list", () => {
+/**
+ * One relay skill finds its Project Manager's pane in `herdr pane list`, by the pane's `label`
+ * and the `pi` agent on it, before it types into that pane. A pane carries its label from
+ * before pi starts, so the label and the agent on that pane are what say the Project Manager
+ * is running, never an agent's name (fac-jke, fac-2gy).
+ */
+const assertRelayFindsThePane = (skill: string, prompt: string): void => {
 	const mac = installedMac();
 	try {
-		const skill = skillText(mac, "relay-idea");
-		// A pane carries its label from before pi starts, and the agent is pi while a Project
-		// Manager runs in it, so the label and the agent are what say the pane is open (fac-2gy).
-		assert.match(skill, /herdr pane list/, "relay-idea reads herdr pane list");
-		assert.match(skill, /`label`/, "relay-idea finds the pane by its label");
-		assert.match(skill, /`agent`/, "relay-idea checks the agent on that pane");
+		const text = skillText(mac, skill);
+		assert.match(text, /herdr pane list/, `${skill} reads herdr pane list`);
+		assert.match(text, /`label`/, `${skill} finds the pane by its label`);
+		assert.match(text, /`agent` is `pi`/, `${skill} checks for the pi agent on that pane`);
 		assert.ok(
-			stepAt(skill, "herdr pane list") < stepAt(skill, "herdr agent prompt <pane id>"),
-			"relay-idea looks the pane up before it types the Idea into it",
+			stepAt(text, "herdr pane list") < stepAt(text, prompt),
+			`${skill} looks the pane up before it types into it`,
 		);
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}
+};
+
+test("relay-idea finds the Project Manager's pane by its label in herdr pane list", () => {
+	// The Idea goes into the pane the project runs in.
+	assertRelayFindsThePane("relay-idea", "herdr agent prompt <pane id>");
 });
 
 test("relay-message finds the Project Manager's pane by its label in herdr pane list", () => {
-	const mac = installedMac();
-	try {
-		const skill = skillText(mac, "relay-message");
-		// The Human's answer goes back into the pane that asked, found the same way: its label
-		// names the project and a pi agent on it says the Project Manager is running (fac-2gy).
-		assert.match(skill, /herdr pane list/, "relay-message reads herdr pane list");
-		assert.match(skill, /`label`/, "relay-message finds the pane by its label");
-		assert.match(skill, /`agent`/, "relay-message checks the agent on that pane");
-		assert.ok(
-			stepAt(skill, "herdr pane list") < stepAt(skill, "herdr agent prompt <pane id>"),
-			"relay-message looks the pane up before it types the answer into it",
-		);
-	} finally {
-		rmSync(dirname(mac.home), { recursive: true, force: true });
-	}
+	// The Human's answer goes back into the pane that asked, found the same way.
+	assertRelayFindsThePane("relay-message", "herdr agent prompt <pane id>");
 });
 
 test("FactoryClaw's installed instructions never look a Project Manager up by an agent name", () => {
