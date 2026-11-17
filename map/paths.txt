@@ -1,5 +1,5 @@
 ## Source repo
-> Everything the Factory is made of, edited by hand. install.sh copies or links it to where it is read; nothing runs from here. The Factory depends on five pi packages from repos of their own, github.com/bradley-mankoff/pi-beads, pi-links, pi-chains, pi-notices and pi-flows, which `pi install` puts in the pi folders; its one pi extension of its own, project-manager/status-check.ts, is loaded only by a Project Manager (fac-k10, fac-qpv.8.1).
+> Everything the Factory is made of, edited by hand. install.sh copies or links it to where it is read; nothing runs from here. The Factory depends on six pi packages from repos of their own, github.com/bradley-mankoff/pi-beads, pi-links, pi-chains, pi-notices, pi-flows and pi-bash-timeout, which `pi install` puts in the pi folders; its one pi extension of its own, project-manager/status-check.ts, is loaded only by a Project Manager (fac-k10, fac-qpv.8.1).
 ~/Developer/personal_code/factory  — The Factory's source, git, github.com/bradley-mankoff/factory  [source]
   2026-10-16-factory-stack.md  — The spec, the source of truth
   AGENTS.md  — Rules for working on the Factory
@@ -101,7 +101,7 @@
       report-state/
   openclaw-plugins/workshop-catch/  — OpenClaw plugin: archives FactoryClaw's learned skills and files each as a Bead
   pi-agent/  — Source of the Factory's pi folder, for Runs
-    settings.json  — The packages every Run loads: pi-claude-bridge 0.9.3, pi-chains and pi-flows; default thinking
+    settings.json  — The packages every Run loads: pi-claude-bridge 0.9.3, pi-chains, pi-flows and pi-bash-timeout; default thinking
     trust.json
     claude-bridge.json
     README.md
@@ -135,14 +135,14 @@
   map.html  — The Factory map, built by map/render from map/paths.txt
   archon/  — Archon's home; see "Archon and the Workflow library"
   pi-agent/  — The Factory's pi folder for Runs (PI_CODING_AGENT_DIR)
-    settings.json  — Merged from the repo; lists pi-claude-bridge, pi-chains and pi-flows, and pi adds its own keys
+    settings.json  — Merged from the repo; lists pi-claude-bridge, pi-chains, pi-flows and pi-bash-timeout, and pi adds its own keys
     trust.json  — Trusted folders: the three projects and Archon's workspaces
     claude-bridge.json
     extensions/  — A link to each extension file the Profile's RUN_EXTENSIONS names, and empty when it names none (fac-pbg, fac-qpv.8.1)
     chains.json  — Link to the Chains file the Profile names; the pi-chains package reads it here, so every Run node runs on its Chain (fac-qpv.8.1)
     agents/scout.md  — The Scout, copied from the repo; the subagent tool reads agents/
     npm/node_modules/pi-claude-bridge  — v0.9.3, the Factory's own copy; Run nodes load it through settings.json
-    git/github.com/bradley-mankoff/  — The pi-chains and pi-flows packages, installed with pi install (fac-qpv.8.1)
+    git/github.com/bradley-mankoff/  — The pi-chains, pi-flows and pi-bash-timeout packages, installed with pi install (fac-qpv.8.1, fac-rh9)
     auth.json  — Link to ~/.pi/agent/auth.json, so one login serves both  [secret]
     sessions/  — Run sessions  [runtime]
     models-store.json  — Written by pi  [runtime]
@@ -207,11 +207,11 @@
 ## pi
 > Your personal pi folder, where Project Managers run. Runs use the Factory's own pi folder instead (Installed Factory files).
 ~/.pi/agent  — Your personal pi
-  settings.json  — Default model Opus 5.5 at high on claude-bridge; packages: plain-voice, draft-stash, image-paste, pi-stretchtext, the bridge, and the Factory's pi-beads, pi-links, pi-chains and pi-notices (fac-qpv.8.1)
+  settings.json  — Default model Opus 5.5 at high on claude-bridge; packages: plain-voice, draft-stash, image-paste, pi-stretchtext, the bridge, and the Factory's pi-beads, pi-links, pi-chains, pi-notices and pi-bash-timeout (fac-qpv.8.1, fac-rh9)
   mcp.json  — MCP servers: gitnexus
   auth.json  — pi logins; the Factory's pi folder links here  [secret]
   npm/node_modules/pi-claude-bridge  — v0.9.3: Claude through your Claude Code login, for your own sessions
-  git/github.com/bradley-mankoff/  — The pi-beads, pi-links, pi-chains and pi-notices packages, installed with pi install (fac-qpv.8.1)
+  git/github.com/bradley-mankoff/  — The pi-beads, pi-links, pi-chains, pi-notices and pi-bash-timeout packages, installed with pi install (fac-qpv.8.1, fac-rh9)
   extensions/  — herdr-agent-state.ts, file-links.ts, quote-clipboard.ts
     hide-tool-calls.ts  — Your own extension: tool calls drawn as nothing; not part of the Factory
     subagent  — Link to pi's sample subagent extension; Project Managers send Scouts with it  [installed]

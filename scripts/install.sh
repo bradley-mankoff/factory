@@ -108,10 +108,10 @@ WRAPPER
 	rsync -a --delete "$src/skills/" "$factory/skills/"
 	mkdir -p "$HOME/.pi/agent/extensions"
 	# The pi extensions are packages in repos of their own now, so the Factory depends on them
-	# instead of holding them (fac-qpv.8.1): Beads, Bead links, Chains and Notices for Project
-	# Managers and the Human's own sessions. pi install records each in his pi folder's
-	# settings.json and fetches it from its repo.
-	pi_packages "$HOME/.pi/agent" pi-beads pi-links pi-chains pi-notices
+	# instead of holding them (fac-qpv.8.1): Beads, Bead links, Chains, Notices and the bash
+	# timeout for Project Managers and the Human's own sessions. pi install records each in his
+	# pi folder's settings.json and fetches it from its repo.
+	pi_packages "$HOME/.pi/agent" pi-beads pi-links pi-chains pi-notices pi-bash-timeout
 	# Both pi folders read the Chains file the Profile names: pi-chains looks for
 	# <agent dir>/chains.json, so a link there points at the one file a person edits.
 	ln -sfn "$CHAINS" "$HOME/.pi/agent/chains.json"
@@ -160,10 +160,12 @@ WRAPPER
 	# settings as it runs, and project setup adds each project's repo to trust.json.
 	mkdir -p "$pi_dir"
 	# The Chains and Flows packages, so an AI node of a Run registers a model per role
-	# (fac-qpv.1.1) and is sent back before it stops short (fac-qpv.3.1). pi install records
-	# them in this folder's settings.json, and every session here loads them.
+	# (fac-qpv.1.1) and is sent back before it stops short (fac-qpv.3.1), and the bash timeout,
+	# so a command that never returns cannot hold a Run open past Archon's idle timeout
+	# (fac-rh9). pi install records them in this folder's settings.json, and every session here
+	# loads them.
 	ln -sfn "$CHAINS" "$pi_dir/chains.json"
-	pi_packages "$pi_dir" pi-chains pi-flows
+	pi_packages "$pi_dir" pi-chains pi-flows pi-bash-timeout
 	merge_json "$pi_dir/settings.json" "$src/pi-agent/settings.json"
 	merge_json "$pi_dir/trust.json" "$src/pi-agent/trust.json"
 	merge_json "$pi_dir/claude-bridge.json" "$src/pi-agent/claude-bridge.json"
