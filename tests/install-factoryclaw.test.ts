@@ -115,16 +115,20 @@ test("install keeps a model the Mac already registered under OpenCode Go's accou
 	}
 });
 
+/** The allowlist install sends OpenClaw for FactoryClaw: the four commands it may run, and nothing else. */
+const factoryclawAllowlist = (mac: Mac): { pattern: string; argPattern?: string }[] =>
+	JSON.parse(logOf(mac.logs.approvals)).agents.factoryclaw.allowlist;
+
 test("install gives FactoryClaw exactly the four commands, with no Claude usage check among them", () => {
 	const mac = installedMac();
 	try {
 		// The four commands, and no Claude usage check among them (fac-vse).
-		const allowed = JSON.parse(logOf(mac.logs.approvals)).agents.factoryclaw.allowlist;
+		const allowed = factoryclawAllowlist(mac);
 		assert.deepEqual(allowed, [
 			{ pattern: "herdr" },
 			{ pattern: "launchctl", argPattern: "^start factory\\.herdr$" },
 			{ pattern: "bd", argPattern: "^-C \\S+ (show|list|ready|comments)( |$)" },
-			{ pattern: realpathSync(join(mac.home, ".local", "bin", "archon")), argPattern: "^workflow (status|runs)( |$)" },
+			{ pattern: realpathSync(join(mac.home, ".local", "bin", "archon")), argPattern: "^workflow (status|runs|attention)( |$)" },
 		]);
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
@@ -282,6 +286,134 @@ test("FactoryClaw's installed instructions name no herdr session", () => {
 				`${file} names no herdr session, so FactoryClaw sees the panes the Human sees`,
 			);
 		}
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+/** The relay-message skill's steps for an answer coming back, where its checks live. */
+const answerSteps = (mac: Mac): string =>
+	skillSection(skillText(mac, "relay-message"), "From the Human back to a Project Manager");
+
+/**
+ * What waits on the Human exists as state in two places, and the Human may answer an item in a
+ * Project Manager's pane rather than through this chat, so an answer relayed without a look at
+ * that state lands on a question that is gone (fac-auj). A Human gate lives in the Run's
+ * attention queue, which Archon lists in the project's repo.
+ */
+test("relay-message checks a Human gate is still open before it types the answer into the pane", () => {
+	const mac = installedMac();
+	try {
+		const answer = answerSteps(mac);
+		assert.match(answer, /archon workflow attention --json/, "the answer step names the attention queue's command");
+		assert.match(answer, /working folder/, "the answer step runs it in the project's repo, which is what scopes it to that project");
+		assert.match(answer, /`runId` is that one/, "the answer step compares the Run the gate belongs to with the item's `runId`, the field archon lists it under");
+		assert.ok(
+			stepAt(answer, "archon workflow attention --json") < stepAt(answer, "herdr agent prompt <pane id>"),
+			"the answer step checks the gate before it types anything into the pane",
+		);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+/** A Decision is recorded on its Bead, the question first and the Human's answer after it. */
+test("relay-message checks a Decision is still open on its Bead before it types the answer into the pane", () => {
+	const mac = installedMac();
+	try {
+		const answer = answerSteps(mac);
+		assert.match(answer, /bd -C <repo> comments/, "the answer step reads the Bead's comments");
+		assert.match(answer, /`Question for the Human`/, "the answer step names the comment that records the question");
+		assert.match(answer, /`The Human's answer`/, "the answer step names the comment that shows it was answered");
+		assert.ok(
+			stepAt(answer, "bd -C <repo> comments") < stepAt(answer, "herdr agent prompt <pane id>"),
+			"the answer step checks the Decision before it types anything into the pane",
+		);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+/** An item answered before means the answer is already in the record, so nothing is relayed. */
+test("relay-message tells the Human where an answered item was answered instead of typing into the pane", () => {
+	const mac = installedMac();
+	try {
+		const answer = answerSteps(mac);
+		assert.match(answer, /type nothing into the pane/, "the answer step types no answer for an item already answered");
+		assert.match(answer, /`→ <Product>: already answered in its window/, "the answer step replies with the one line that says where it was answered");
+		assert.ok(
+			stepAt(answer, "already answered in its window") < stepAt(answer, "herdr agent prompt <pane id>"),
+			"the answer step says what to reply before it gets to typing into the pane",
+		);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+/** FactoryClaw's own rules, where what it may tell the Human lives. */
+const agentsRules = (mac: Mac): string => {
+	const agents = instructionFiles(mac).find(({ file }) => file.endsWith("AGENTS.md"));
+	assert.ok(agents, "install puts AGENTS.md in FactoryClaw's workspace");
+	return skillSection(agents.text, "Rules");
+};
+
+test("FactoryClaw's instructions never tell the Human an answer is queued", () => {
+	const mac = installedMac();
+	try {
+		const rules = agentsRules(mac);
+		assert.match(rules, /never tell the Human that a message or an answer is queued/i, "the rules forbid calling an answer queued");
+		assert.match(rules, /nothing queues/, "the rules say why: nothing queues, so an undelivered message is dropped");
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+/** A pane that cannot be reached means nothing was delivered, so the Human must hear it. */
+test("FactoryClaw's instructions say so plainly when a Project Manager's pane cannot be reached", () => {
+	const mac = installedMac();
+	try {
+		const rules = agentsRules(mac);
+		assert.match(rules, /`→ <Product>: I could not reach its Project Manager/, "the rules give the line that says the pane was not reached");
+		assert.match(rules, /send it again in a while/, "the rules ask the Human to send it again later rather than promising it will arrive");
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+/** FactoryClaw can look at the queue that says whether a gate still waits, and nothing more of it. */
+test("install lets FactoryClaw read a Run's attention queue but not answer a gate itself", () => {
+	const mac = installedMac();
+	try {
+		const allowed = factoryclawAllowlist(mac);
+		const archon = allowed.find(({ pattern }) => pattern === realpathSync(join(mac.home, ".local", "bin", "archon")));
+		assert.ok(archon?.argPattern, "the archon entry carries arguments, so FactoryClaw reaches only the commands install allows");
+		assert.match("workflow attention --json", new RegExp(archon.argPattern), "the queue the relay-message skill reads is allowed");
+		assert.doesNotMatch("workflow approve 3f2a", new RegExp(archon.argPattern), "answering a gate is not: the Human's answer goes through the Project Manager");
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+/** The instructions and the allowlist are two halves of one contract, so both name the check. */
+test("FactoryClaw's instructions name the attention queue among the commands it may run", () => {
+	const mac = installedMac();
+	try {
+		assert.match(agentsRules(mac), /archon workflow[^.]*attention/, "the rules let FactoryClaw read the attention queue its answer check needs");
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+/** A check that could not be made is not the same as an item that was answered. */
+test("relay-message says it could not check when the attention queue fails, rather than calling a gate answered", () => {
+	const mac = installedMac();
+	try {
+		const answer = answerSteps(mac);
+		assert.match(answer, /could not check/, "the answer step says when the check itself failed");
+		assert.ok(
+			stepAt(answer, "could not check") < stepAt(answer, "herdr agent prompt <pane id>"),
+			"the answer step says that before it gets to typing into the pane",
+		);
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}
