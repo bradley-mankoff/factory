@@ -155,11 +155,11 @@ test("FactoryClaw's installed instructions say nothing about Claude", () => {
 	}
 });
 
-/** The panes skill as install leaves it in FactoryClaw's workspace. */
-const panesSkill = (mac: Mac): string => {
-	const panes = instructionFiles(mac).find(({ file }) => file.endsWith(join("skills", "panes", "SKILL.md")));
-	assert.ok(panes, "install puts the panes skill in FactoryClaw's workspace");
-	return panes.text;
+/** One skill as install leaves it in FactoryClaw's workspace. */
+const skillText = (mac: Mac, skill: string): string => {
+	const found = instructionFiles(mac).find(({ file }) => file.endsWith(join("skills", skill, "SKILL.md")));
+	assert.ok(found, `install puts the ${skill} skill in FactoryClaw's workspace`);
+	return found.text;
 };
 
 /** The part of a skill under one heading, so a check reads the steps that carry the behaviour. */
@@ -177,14 +177,21 @@ const stepAt = (text: string, step: string): number => {
 	return at;
 };
 
-test("the panes skill looks in herdr agent list for a running Project Manager before it opens a pane", () => {
+test("the panes skill finds a running Project Manager by its pane label and pi agent in herdr pane list", () => {
 	const mac = installedMac();
 	try {
-		const start = skillSection(panesSkill(mac), "Start");
-		// The Human starts his own Project Manager with `pm` in one of his windows, and it is in
-		// this same server, so the live agents are the only check that sees it (fac-6l8).
+		const start = skillSection(skillText(mac, "panes"), "Start");
+		// herdr names an agent only once it has detected pi, which is after the launcher has
+		// exec'd pi, so no launcher can name one before it starts (fac-jke). project-manager/start
+		// labels its pane before pi starts, so the pane's label together with the agent on it
+		// is what says a Project Manager is running (fac-2gy). The Human's own `pm` starts a
+		// Project Manager in this same server and labels the pane the same way, so this look
+		// finds his too (fac-6l8).
+		assert.match(start, /herdr pane list/, "Start reads herdr pane list");
+		assert.match(start, /`label`/, "Start finds the pane by its label");
+		assert.match(start, /`agent`/, "Start checks the agent on that pane");
 		assert.ok(
-			stepAt(start, "herdr agent list") < stepAt(start, 'open it as "Open"'),
+			stepAt(start, "herdr pane list") < stepAt(start, 'as "Open" below says'),
 			"Start looks in the list before it opens a pane",
 		);
 	} finally {
@@ -192,14 +199,77 @@ test("the panes skill looks in herdr agent list for a running Project Manager be
 	}
 });
 
-test("the panes skill prompts the Project Manager it found, instead of opening a second under its name", () => {
+test("the panes skill prompts the Project Manager it found, instead of opening a second for the project", () => {
 	const mac = installedMac();
 	try {
-		const start = skillSection(panesSkill(mac), "Start");
+		const start = skillSection(skillText(mac, "panes"), "Start");
 		assert.ok(
-			stepAt(start, "herdr agent prompt <pane>") < stepAt(start, 'open it as "Open"'),
+			stepAt(start, "herdr agent prompt <pane id>") < stepAt(start, 'as "Open" below says'),
 			"Start prompts the pane it found before it opens one",
 		);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("the panes skill lists a project as running when its labelled pane has the pi agent", () => {
+	const mac = installedMac();
+	try {
+		const list = skillSection(skillText(mac, "panes"), "List");
+		assert.match(list, /herdr pane list/, "List reads herdr pane list");
+		assert.match(list, /`label`/, "List finds each project by its pane's label");
+		assert.match(list, /`agent`/, "List checks the agent on that pane");
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("relay-idea finds the Project Manager's pane by its label in herdr pane list", () => {
+	const mac = installedMac();
+	try {
+		const skill = skillText(mac, "relay-idea");
+		// A pane carries its label from before pi starts, and the agent is pi while a Project
+		// Manager runs in it, so the label and the agent are what say the pane is open (fac-2gy).
+		assert.match(skill, /herdr pane list/, "relay-idea reads herdr pane list");
+		assert.match(skill, /`label`/, "relay-idea finds the pane by its label");
+		assert.match(skill, /`agent`/, "relay-idea checks the agent on that pane");
+		assert.ok(
+			stepAt(skill, "herdr pane list") < stepAt(skill, "herdr agent prompt <pane id>"),
+			"relay-idea looks the pane up before it types the Idea into it",
+		);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("relay-message finds the Project Manager's pane by its label in herdr pane list", () => {
+	const mac = installedMac();
+	try {
+		const skill = skillText(mac, "relay-message");
+		// The Human's answer goes back into the pane that asked, found the same way: its label
+		// names the project and a pi agent on it says the Project Manager is running (fac-2gy).
+		assert.match(skill, /herdr pane list/, "relay-message reads herdr pane list");
+		assert.match(skill, /`label`/, "relay-message finds the pane by its label");
+		assert.match(skill, /`agent`/, "relay-message checks the agent on that pane");
+		assert.ok(
+			stepAt(skill, "herdr pane list") < stepAt(skill, "herdr agent prompt <pane id>"),
+			"relay-message looks the pane up before it types the answer into it",
+		);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("FactoryClaw's installed instructions never look a Project Manager up by an agent name", () => {
+	const mac = installedMac();
+	try {
+		for (const { file, text } of instructionFiles(mac)) {
+			// herdr gives an agent a name only once it has detected pi, after the launcher has
+			// exec'd it, so a name can never say whether a Project Manager runs (fac-jke). The
+			// pane's label and its pi agent are what say that instead (fac-2gy).
+			assert.doesNotMatch(text, /herdr agent (get|list)/, `${file} finds a Project Manager by its pane, not its agent`);
+			assert.doesNotMatch(text, /(agent|Project Manager)'s `name`/, `${file} names no agent's name field for a Project Manager`);
+		}
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}

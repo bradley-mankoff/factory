@@ -17,11 +17,11 @@ A Project Manager's message arrives in this chat as `From the <project> Project 
 ## From the Human back to a Project Manager
 
 1. **Find what the Human is answering**: the Project Manager message in this chat that is still waiting for an answer. If messages from more than one project are waiting, work out which part of the reply answers which message, and send each Project Manager only its own part. The Human replies tersely and trusts me to read intent, so use everything there is: product names or nicknames ("calc", "to do"), question numbers, the order in which my waiting messages were sent (in "yes and yes", the first answer goes to the first message), and what each part says (an answer about a port belongs to the message that asked about a port). "yes to both" or "all yes" gives each message a yes. A reply with a single answer and no other clue goes to the most recent waiting message. Ask the Human only when a part could still reasonably belong to more than one project after all that, and then ask about that part alone.
-2. **Make sure the pane is open**: `herdr agent get <pane>`; if it fails, open it with the `panes` skill. A reopened pane is a fresh session that does not remember its question, which is why the answer names its topic.
-3. **Type the answer into the pane**, in the Human's words, unchanged, even when it is only "yes" or a number:
+2. **Make sure the pane is open**: find its Project Manager in `herdr pane list`, the pane whose `label` is its pane name and whose `agent` is `pi`. When there is none, the project is stopped, so open it with the `panes` skill and find the pane again. A reopened pane is a fresh session that does not remember its question, which is why the answer names its topic.
+3. **Type the answer into the pane**, in the Human's words, unchanged, even when it is only "yes" or a number, using that pane's `pane_id`:
 
    ```bash
-   herdr agent prompt <pane> "FactoryClaw: The Human's answer to your message about <topic>: <the Human's words>"
+   herdr agent prompt <pane id> "FactoryClaw: The Human's answer to your message about <topic>: <the Human's words>"
    ```
 
    Without `--wait`.
