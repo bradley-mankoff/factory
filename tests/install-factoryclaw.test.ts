@@ -115,11 +115,15 @@ test("install keeps a model the Mac already registered under OpenCode Go's accou
 	}
 });
 
+/** The allowlist install sends OpenClaw for FactoryClaw: the four commands it may run, and nothing else. */
+const factoryclawAllowlist = (mac: Mac): { pattern: string; argPattern?: string }[] =>
+	JSON.parse(logOf(mac.logs.approvals)).agents.factoryclaw.allowlist;
+
 test("install gives FactoryClaw exactly the four commands, with no Claude usage check among them", () => {
 	const mac = installedMac();
 	try {
 		// The four commands, and no Claude usage check among them (fac-vse).
-		const allowed = JSON.parse(logOf(mac.logs.approvals)).agents.factoryclaw.allowlist;
+		const allowed = factoryclawAllowlist(mac);
 		assert.deepEqual(allowed, [
 			{ pattern: "herdr" },
 			{ pattern: "launchctl", argPattern: "^start factory\\.herdr$" },
@@ -303,7 +307,7 @@ test("relay-message checks a Human gate is still open before it types the answer
 		const answer = answerSteps(mac);
 		assert.match(answer, /archon workflow attention --json/, "the answer step names the attention queue's command");
 		assert.match(answer, /working folder/, "the answer step runs it in the project's repo, which is what scopes it to that project");
-		assert.match(answer, /Run id/, "the answer step looks for the Run the gate belongs to");
+		assert.match(answer, /`runId` is that one/, "the answer step compares the Run the gate belongs to with the item's `runId`, the field archon lists it under");
 		assert.ok(
 			stepAt(answer, "archon workflow attention --json") < stepAt(answer, "herdr agent prompt <pane id>"),
 			"the answer step checks the gate before it types anything into the pane",
@@ -380,7 +384,7 @@ test("FactoryClaw's instructions say so plainly when a Project Manager's pane ca
 test("install lets FactoryClaw read a Run's attention queue but not answer a gate itself", () => {
 	const mac = installedMac();
 	try {
-		const allowed: { pattern: string; argPattern?: string }[] = JSON.parse(readFileSync(mac.logs.approvals, "utf8")).agents.factoryclaw.allowlist;
+		const allowed = factoryclawAllowlist(mac);
 		const archon = allowed.find(({ pattern }) => pattern === realpathSync(join(mac.home, ".local", "bin", "archon")));
 		assert.ok(archon?.argPattern, "the archon entry carries arguments, so FactoryClaw reaches only the commands install allows");
 		assert.match("workflow attention --json", new RegExp(archon.argPattern), "the queue the relay-message skill reads is allowed");

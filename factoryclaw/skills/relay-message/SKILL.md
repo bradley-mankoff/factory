@@ -24,8 +24,8 @@ A Project Manager's message arrives in this chat as `From the <project> Project 
      ~/.local/bin/archon workflow attention --json
      ```
 
-     The gate still waits for the Human when an item carries that Run id. When no item does, its Run was approved or rejected already — but only when the command itself worked: when it fails, or its answer warns that coverage may have gaps, the check was not made, so I say in one line that I could not check and ask the Human to send his answer again in a while, rather than calling the gate answered.
-   - **A Decision.** The Bead's id is in the message. Read its comments with `bd -C <repo> comments <bead id>`: the question is the last comment and begins `Question for the Human`, and a comment after it that begins `The Human's answer` means it was answered.
+     The gate still waits for the Human when an item's `runId` is that one. When no item has it, its Run was approved or rejected already — but only when the command itself worked: when it fails, or its answer warns that coverage may have gaps, the check was not made, so I leave the pane alone and reply in one line: `→ <Product>: I could not check whether that is still open, so nothing was sent; send it again in a while.`
+   - **A Decision.** The Bead's id is in the message. Read its comments with `bd -C <repo> comments <bead id>`: the question is the comment that begins `Question for the Human`, and the Decision is still open while it is the last one; when a later comment begins `The Human's answer`, it was answered.
 
    A grilling round and a Spec review keep no such record, so they are relayed without this look.
 
