@@ -43,9 +43,10 @@ const makeMac = (options: {
 	check?: string;
 	origin?: string;
 	upstream?: string;
-	// Where the stand-in gh sits: beside the other stand-ins, so the Run's PATH carries it, or
-	// in the person's own folder, which the bare PATH launchd gives leaves out (fac-a0h).
-	gh?: "path" | "own";
+	// The stand-in gh sits in the person's own folder, ~/.local/bin, which the bare PATH
+	// launchd gives leaves out; without it the stand-in sits beside the other stand-ins, where
+	// PATH carries it (fac-a0h).
+	ghInOwnFolder?: boolean;
 	// The bare PATH launchd hands a job, which holds no Homebrew folder: what the archon-bar
 	// process had when its Runs failed to land (fac-a0h).
 	barePath?: boolean;
@@ -60,7 +61,7 @@ const makeMac = (options: {
 	const ghLog = join(dir, "gh.log");
 	const ghOpen = join(dir, "gh-open");
 	const ghHead = join(dir, "gh-head");
-	const ghFolder = options.gh === "own" ? join(home, ".local", "bin") : bin;
+	const ghFolder = options.ghInOwnFolder ? join(home, ".local", "bin") : bin;
 	mkdirSync(join(home, ".config", "factory"), { recursive: true });
 	writeFileSync(join(home, ".config", "factory", "profile"), options.profile);
 	mkdirSync(bin, { recursive: true });
@@ -340,7 +341,7 @@ test("under the squash landing a failing check is reported and the base branch i
 });
 
 test("a Run whose shell has launchd's bare PATH still lands its pull request, finding gh in the person's own folder", () => {
-	const mac = makeMac({ profile: shippedProfile(), repo: "calc", base: "main", gh: "own", barePath: true });
+	const mac = makeMac({ profile: shippedProfile(), repo: "calc", base: "main", ghInOwnFolder: true, barePath: true });
 	try {
 		const before = ref(mac, "main");
 
@@ -370,6 +371,7 @@ test("a Run that already finds gh on its PATH lands with that gh, not one in the
 		assert.equal(result.status, 0, result.stderr || result.stdout);
 
 		assert.match(ghCalls(mac), /^pr create --base main /m, "the gh on PATH opened the pull request");
+		assert.doesNotMatch(result.stderr, /the gh in the person's own folder ran/, "the gh in the person's own folder was left alone");
 	} finally {
 		rmSync(mac.dir, { recursive: true, force: true });
 	}

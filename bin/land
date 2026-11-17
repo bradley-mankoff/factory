@@ -91,19 +91,22 @@ origin_repo() {
 	esac
 	printf '%s\n' "$owner/$repo_name"
 }
+# gh_folders: the folders a Mac installs tools in, the person's own then Homebrew's, which
+# gh_command searches after PATH and a refusal names when it finds no gh at all.
+gh_folders="$HOME/.local/bin /opt/homebrew/bin /usr/local/bin"
 # gh_command: the gh the pull-request landing runs. The one on PATH comes first, so a Run that
-# already finds a gh finds the one it did; after it the folders a Mac installs tools in, the
-# person's own then Homebrew's. A Run's node shell gets the PATH of the process that started
-# it, and ArchonBar, started by launchd, has the bare one launchd gives, which holds none of
-# those folders: a landing from a Run it started died with "gh: command not found" (fac-a0h).
+# already finds a gh finds the one it did; after it gh_folders. A Run's node shell gets the
+# PATH of the process that started it, and ArchonBar, started by launchd, has the bare one
+# launchd gives, which holds none of those folders: a landing from a Run it started died with
+# "gh: command not found" (fac-a0h).
 gh_command() {
 	if gh_found=$(command -v gh 2>/dev/null); then
 		printf '%s\n' "$gh_found"
 		return 0
 	fi
-	for candidate in "$HOME/.local/bin/gh" /opt/homebrew/bin/gh /usr/local/bin/gh; do
-		if [ -x "$candidate" ]; then
-			printf '%s\n' "$candidate"
+	for folder in $gh_folders; do
+		if [ -x "$folder/gh" ]; then
+			printf '%s\n' "$folder/gh"
 			return 0
 		fi
 	done
@@ -180,7 +183,7 @@ pull-request)
 	origin_name=$(origin_repo)
 	# A Run whose shell holds no gh at all is refused with a reason, rather than dying on the
 	# first call the way an ArchonBar Run did (fac-a0h).
-	gh=$(gh_command) || refuse "gh is found neither on PATH nor in $HOME/.local/bin, /opt/homebrew/bin or /usr/local/bin, and the pull-request landing needs it"
+	gh=$(gh_command) || refuse "the pull-request landing needs gh, and it is neither on PATH nor in $gh_folders"
 	head=$branch
 	if [ -n "$origin_name" ]; then head="${origin_name%%/*}:$branch"; fi
 	# A pull request the gate opened earlier is reused, so the merge after the gate is the
