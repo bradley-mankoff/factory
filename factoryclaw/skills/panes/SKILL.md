@@ -21,15 +21,15 @@ The server runs as the launchd job `factory.herdr`, started at login, so it is u
 
 When the Human asks a project to get to work, start, carry on or pick up its work:
 
-1. Look for the project's pane in `herdr agent list`, which gives each live Project Manager's `name`: it lists every one, including a Project Manager the Human started himself with `pm`, so he may have one running that I did not open. Look every time, before anything else: two Project Managers under one name both receive the project's Notices, and the one the Human is not watching acts out of sight (fac-6l8).
-2. If the pane is there, tell that Project Manager to get to work, without `--wait`:
+1. Look for the project's pane in `herdr pane list`, before anything else. It gives every pane's `label`, the `pane_id` that pane commands take, and the `agent` running in it, `pi` in a pane where a Project Manager runs. The project's Project Manager is the pane whose `label` is the project's pane name from `TOOLS.md` and whose `agent` is `pi`; a pane with that `label` and no `agent` is one that has stopped. This finds a Project Manager the Human started himself with `pm`, because his launcher labels the pane the same way (fac-6l8). Look every time: two Project Managers for one project both receive its Notices, and the one the Human is not watching acts out of sight (fac-6l8).
+2. If that Project Manager is running, tell it to get to work, without `--wait`, using the `pane_id` from the list:
 
    ```bash
-   herdr agent prompt <pane> "FactoryClaw: The Human asks you to get to work."
+   herdr agent prompt <pane id> "FactoryClaw: The Human asks you to get to work."
    ```
 
    A Project Manager that is already working carries on.
-3. If the pane is not there, open it as "Open" below says, giving `project-manager/start` the message `FactoryClaw: The Human asks you to get to work.` on its command line the way Open's step 2 shows. The Project Manager acts on that message at once.
+3. If it is stopped, open the project as "Open" below says, giving `project-manager/start` the message `FactoryClaw: The Human asks you to get to work.` on its command line the way Open's step 2 shows. The Project Manager acts on that message at once.
 4. Reply with one line: `→ <Product>: getting to work`. The Project Manager messages the Human only when it needs the Human, so a quiet project is a working or an idle one; the Human asks how it is doing with `report-state`.
 
 ## Stop
@@ -38,16 +38,15 @@ When the Human asks a project to stop, find its workspace id by its label in `he
 
 ## List
 
-`herdr agent list` gives each live Project Manager's `name`, the ones the Human started included. A project whose pane name is in that list is running; every other project is stopped. Reply with the projects by product name, running ones first.
+`herdr pane list` gives every pane's `label` and the `agent` in it. A project whose pane name labels a pane with `pi` in it is running; a pane carrying that name with no `agent` is stopped, and so is a project with no such pane. Reply with the projects by product name, running ones first.
 
 ## Open
 
-Opening starts a Project Manager at pi's prompt. Reach Open from Start's step 3, or from `relay-idea` and `relay-message` when `herdr agent get` fails. It reviews its Beads and Runs only when the status check is asked for: `~/.local/share/factory/project-manager/start --status-check` when it starts, `/status-check` in a running session, or `/new-and-status-check`, which starts a new session and runs it there. Start gives its message with the start, so the Project Manager acts at once. An Idea or an answer reaches the pane after it has started.
+Opening starts a Project Manager at pi's prompt. Reach Open from Start's step 3, or from `relay-idea` and `relay-message` when the project's pane is stopped. It reviews its Beads and Runs only when the status check is asked for: `~/.local/share/factory/project-manager/start --status-check` when it starts, `/status-check` in a running session, or `/new-and-status-check`, which starts a new session and runs it there. Start gives its message with the start, so the Project Manager acts at once. An Idea or an answer reaches the pane after it has started.
 
 1. `herdr workspace create --cwd <repo> --label <project> --no-focus`. Read the new pane's id from `.result.root_pane.pane_id` in its JSON.
-2. `herdr pane run <pane id> "~/.local/share/factory/project-manager/start"`. This starts the Project Manager at pi's prompt. To start it with a message, as Start does, add the message in single quotes after the command: `~/.local/share/factory/project-manager/start '<the message>'`. To start it with the status check instead, add `--status-check`: `~/.local/share/factory/project-manager/start --status-check`.
+2. `herdr pane run <pane id> "~/.local/share/factory/project-manager/start"`. This starts the Project Manager at pi's prompt, and the launcher labels the pane with the project's pane name before pi starts, so `herdr pane list` shows that `label` and, once pi runs, `pi` as its `agent`. To start it with a message, as Start does, add the message in single quotes after the command: `~/.local/share/factory/project-manager/start '<the message>'`. To start it with the status check instead, add `--status-check`: `~/.local/share/factory/project-manager/start --status-check`.
 3. `herdr pane wait-output <pane id> --match "pm •" --timeout 60000`. It returns once pi's footer shows the Project Manager's model, `pm`, with its Chain's thinking level beside it. The level is whichever entry the Chain started on, so never match on one.
-4. `herdr agent rename <pane id> <pane>`, so Runs and I can reach it by name.
 
 If step 3 times out, read the pane with `herdr pane read <pane id> --source visible` and tell the Human, in a line, what it shows.
 
