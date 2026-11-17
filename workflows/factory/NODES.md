@@ -349,7 +349,7 @@ fits the Idea; an error is never a taste question.
   - id: taste
     depends_on: [ask-human]
     wait:
-      attention: "Taste and fit for Bead $ARGUMENTS: does $land-hold.output look and feel right, and does it fit the Idea?"
+      attention: "Taste and fit for this Run: does $land-hold.output look and feel right, and does it fit the Idea?"
       form: approval
 ```
 

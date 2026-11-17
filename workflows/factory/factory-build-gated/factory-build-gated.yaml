@@ -168,10 +168,14 @@ nodes:
       if [ -s "$demo" ]; then video="Relay it through FactoryClaw with the demo video $demo and without a link to the change."; else video="There is no video: the demo node found the change broken or failed (archon workflow get $WORKFLOW_ID says which). If the change is broken, reject the Run and rework the Bead without asking the Human; otherwise record one with the record-demo skill, or relay the change instead."; fi
       "$HOME/.local/share/factory/bin/tell-pm" "${ARGUMENTS%% · *}" "Run $WORKFLOW_ID (factory-build-gated) for Bead $("$HOME/.local/share/factory/bin/bead" --id "$ARGUMENTS") waits for the Human's taste-and-fit check of $held. $video Then answer with archon workflow approve $WORKFLOW_ID or archon workflow reject $WORKFLOW_ID --reason '<the Human's words>'."
 
+  # Archon substitutes nothing in a wait's attention text: `archon workflow attention --json`
+  # and the status bar show it verbatim, so a `$ARGUMENTS` here reached the Human as text
+  # (fac-916). The bar reads one Run at a time, so the line names no Bead id; the ask-human
+  # message does, and it expands.
   - id: taste
     depends_on: [ask-human]
     wait:
-      attention: "Taste and fit for Bead $ARGUMENTS: does $land-hold.output look and feel right, and does it fit the Idea?"
+      attention: "Taste and fit for this Run: does $land-hold.output look and feel right, and does it fit the Idea?"
       form: approval
 
   # The gate's answer as a note. bin/finish reads how a Run ended only from the notes in its
