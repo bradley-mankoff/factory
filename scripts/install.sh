@@ -428,7 +428,7 @@ want = [
     {"pattern": "herdr"},
     {"pattern": "launchctl", "argPattern": "^start factory\\.herdr$"},
     {"pattern": "bd", "argPattern": "^-C \\S+ (show|list|ready|comments)( |$)"},
-    {"pattern": os.path.realpath(sys.argv[1]), "argPattern": "^workflow (status|runs)( |$)"},
+    {"pattern": os.path.realpath(sys.argv[1]), "argPattern": "^workflow (status|runs|attention)( |$)"},
 ]
 snap = json.load(sys.stdin)["file"]
 agent = snap.setdefault("agents", {}).setdefault("factoryclaw", {})
