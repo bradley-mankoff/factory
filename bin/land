@@ -18,6 +18,10 @@
 #                 in between: open the pull request, or build and check the squash.
 #   --base        the branch to land on; $BASE_BRANCH by default, which Archon sets.
 #
+# The gh the pull-request landing runs is looked up on PATH and then in the folders a Mac
+# installs tools in, so a landing from a Run whose shell has launchd's bare PATH still finds
+# it (fac-a0h).
+#
 # Before any git command that moves a branch it refuses a target the Profile protects for
 # the repo, and, under the squash landing, any target of a repo the Profile does not name.
 # The repo is the folder of the repo's main checkout, which is the name the Profile uses.
@@ -87,6 +91,24 @@ origin_repo() {
 	esac
 	printf '%s\n' "$owner/$repo_name"
 }
+# gh_command: the gh the pull-request landing runs. The one on PATH comes first, so a Run that
+# already finds a gh finds the one it did; after it the folders a Mac installs tools in, the
+# person's own then Homebrew's. A Run's node shell gets the PATH of the process that started
+# it, and ArchonBar, started by launchd, has the bare one launchd gives, which holds none of
+# those folders: a landing from a Run it started died with "gh: command not found" (fac-a0h).
+gh_command() {
+	if gh_found=$(command -v gh 2>/dev/null); then
+		printf '%s\n' "$gh_found"
+		return 0
+	fi
+	for candidate in "$HOME/.local/bin/gh" /opt/homebrew/bin/gh /usr/local/bin/gh; do
+		if [ -x "$candidate" ]; then
+			printf '%s\n' "$candidate"
+			return 0
+		fi
+	done
+	return 1
+}
 # gh_pr <repo> <gh's pull request arguments>: runs gh's pull request command for <repo>,
 # owner/name, so a fork's upstream remote never gets asked; an empty <repo>, which an origin
 # that is not a github.com address gives, leaves gh its own default, as it had before.
@@ -94,9 +116,9 @@ gh_pr() {
 	named_repo=$1
 	shift
 	if [ -n "$named_repo" ]; then
-		gh pr "$@" --repo "$named_repo"
+		"$gh" pr "$@" --repo "$named_repo"
 	else
-		gh pr "$@"
+		"$gh" pr "$@"
 	fi
 }
 # fail <output> <reason>: show the end of what the command printed, where the reason is,
@@ -156,6 +178,9 @@ pull-request)
 	# call that names no pull request (gh 2.96.0: "argument required when using the --repo
 	# flag"), which would leave the held pull request unfound and open a second one.
 	origin_name=$(origin_repo)
+	# A Run whose shell holds no gh at all is refused with a reason, rather than dying on the
+	# first call the way an ArchonBar Run did (fac-a0h).
+	gh=$(gh_command) || refuse "gh is found neither on PATH nor in $HOME/.local/bin, /opt/homebrew/bin or /usr/local/bin, and the pull-request landing needs it"
 	head=$branch
 	if [ -n "$origin_name" ]; then head="${origin_name%%/*}:$branch"; fi
 	# A pull request the gate opened earlier is reused, so the merge after the gate is the

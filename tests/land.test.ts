@@ -19,6 +19,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 type Mac = {
 	dir: string;
+	home: string;
 	run: string;
 	remote: string;
 	artifacts: string;
@@ -42,6 +43,12 @@ const makeMac = (options: {
 	check?: string;
 	origin?: string;
 	upstream?: string;
+	// Where the stand-in gh sits: beside the other stand-ins, so the Run's PATH carries it, or
+	// in the person's own folder, which the bare PATH launchd gives leaves out (fac-a0h).
+	gh?: "path" | "own";
+	// The bare PATH launchd hands a job, which holds no Homebrew folder: what the archon-bar
+	// process had when its Runs failed to land (fac-a0h).
+	barePath?: boolean;
 }): Mac => {
 	const dir = mkdtempSync(join(tmpdir(), "factory-land-"));
 	const home = join(dir, "home");
@@ -53,9 +60,11 @@ const makeMac = (options: {
 	const ghLog = join(dir, "gh.log");
 	const ghOpen = join(dir, "gh-open");
 	const ghHead = join(dir, "gh-head");
+	const ghFolder = options.gh === "own" ? join(home, ".local", "bin") : bin;
 	mkdirSync(join(home, ".config", "factory"), { recursive: true });
 	writeFileSync(join(home, ".config", "factory", "profile"), options.profile);
 	mkdirSync(bin, { recursive: true });
+	mkdirSync(ghFolder, { recursive: true });
 	mkdirSync(artifacts, { recursive: true });
 
 	// GitHub, at the edge: it records each command, opens a pull request with a made-up
@@ -65,7 +74,7 @@ const makeMac = (options: {
 	// It answers the calls the way gh 2.96.0 does: `view` needs a selector when `--repo` names
 	// the repo, and a second pull request for a head that already has one is refused.
 	writeFileSync(
-		join(bin, "gh"),
+		join(ghFolder, "gh"),
 		`#!/bin/sh
 printf '%s\\n' "$*" >> "$GH_LOG"
 command=$2
@@ -162,7 +171,7 @@ exit 0
 	const env: NodeJS.ProcessEnv = {
 		...process.env,
 		HOME: home,
-		PATH: `${bin}:${process.env.PATH}`,
+		PATH: options.barePath ? "/usr/bin:/bin:/usr/sbin:/sbin" : `${bin}:${process.env.PATH}`,
 		BASE_BRANCH: options.base,
 		// The check the Run's worktree already ran, run again on what lands. It passes only on
 		// the squashed commit: the Run made two commits there, the squash is one over the base.
@@ -177,7 +186,7 @@ exit 0
 	};
 	const land = (args: string[] = []) => spawnSync(join(root, "bin", "land"), args, { cwd: run, encoding: "utf8", env });
 
-	return { dir, run, remote, artifacts, ghLog, land };
+	return { dir, home, run, remote, artifacts, ghLog, land };
 };
 
 /**
@@ -325,6 +334,42 @@ test("under the squash landing a failing check is reported and the base branch i
 
 		assert.equal(ref(mac, "pm/branch"), before, "the base branch does not move");
 		assert.match(landingNote(mac), /^refused to land: the check failed/);
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("a Run whose shell has launchd's bare PATH still lands its pull request, finding gh in the person's own folder", () => {
+	const mac = makeMac({ profile: shippedProfile(), repo: "calc", base: "main", gh: "own", barePath: true });
+	try {
+		const before = ref(mac, "main");
+
+		const result = mac.land();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		assert.match(ghCalls(mac), /^pr create --base main /m, "the gh the bare PATH leaves out opened the pull request");
+		assert.notEqual(ref(mac, "main"), before, "main moved: the merge landed the Run's work");
+		assert.equal(fileAt(mac, "main", "squash.txt"), "landed by the Run, refined\n");
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("a Run that already finds gh on its PATH lands with that gh, not one in the person's own folder", () => {
+	const mac = makeMac({ profile: shippedProfile(), repo: "calc", base: "main" });
+	try {
+		// A second gh in the person's own folder fails loudly, so a landing that reached it fails.
+		mkdirSync(join(mac.home, ".local", "bin"), { recursive: true });
+		writeFileSync(
+			join(mac.home, ".local", "bin", "gh"),
+			"#!/bin/sh\necho \"the gh in the person's own folder ran\" >&2\nexit 1\n",
+			{ mode: 0o755 },
+		);
+
+		const result = mac.land();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		assert.match(ghCalls(mac), /^pr create --base main /m, "the gh on PATH opened the pull request");
 	} finally {
 		rmSync(mac.dir, { recursive: true, force: true });
 	}
