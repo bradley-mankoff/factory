@@ -75,7 +75,7 @@ else
 		how=$landing
 		# A landed build's Run closes its own Bead, or leaves it open for the steps the
 		# Project Manager has after the landing (fac-enj).
-		[ -z "$bead_state" ] || how="$landing, and $bead_state"
+		[ -z "$bead_state" ] || how="$how, and $bead_state"
 	elif [ -n "$held" ]; then
 		how="held $held and did not land it; $failed_node"
 	else

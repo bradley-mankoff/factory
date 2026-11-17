@@ -24,43 +24,36 @@ set -eu
 bead=${1:?close-bead: give the Bead id}
 workflow=${2:?close-bead: give the name of the Workflow}
 run=${WORKFLOW_ID:?close-bead: a Run gives this node \$WORKFLOW_ID}
-landing_file="${ARTIFACTS_DIR:-}/landing"
+artifacts=${ARTIFACTS_DIR:?close-bead: a Run gives this node \$ARTIFACTS_DIR}
+landing_file=$artifacts/landing
 if [ ! -s "$landing_file" ]; then
 	printf 'close-bead: the Run left no landing note, so %s is left open.\n' "$bead" >&2
 	exit 1
 fi
 landing=$(cat "$landing_file")
 
-# What became of the Bead, for bin/finish's Notice. A Run that is not given an artifacts
-# folder closes the Bead all the same and just leaves no note.
+# note <file> <one line>: what became of the Bead, for bin/finish's Notice, which cannot
+# read this node's output back after it fails.
 note() {
-	if [ -n "${ARTIFACTS_DIR:-}" ]; then printf '%s\n' "$1" >"$ARTIFACTS_DIR/bead-state"; fi
+	printf '%s\n' "$2" >"$artifacts/$1"
 }
 
-# The Bead's labels, one per line, in the shape `bd show --json` prints them. A label is
-# matched on its own line, so a longer label that holds `after-landing` is a different one.
+# The Bead's labels, one per line, in the shape `bd show --json` prints them: an array of
+# one object, whose `labels` key is absent when the Bead carries none. A label is matched as
+# a whole line, so a longer label that holds `after-landing` is a different one.
 labels=$(bd show "$bead" --json | python3 -c '
 import json, sys
-
-bead = json.load(sys.stdin)
-bead = bead[0] if isinstance(bead, list) else bead
-print("\n".join(bead.get("labels") or []))
+print("\n".join(json.load(sys.stdin)[0].get("labels") or []))
 ')
-case "
-$labels
-" in
-*"
-after-landing
-"*)
-	note "left the Bead open for its after-landing steps"
+if printf '%s\n' "$labels" | grep -qx after-landing; then
+	note bead-state "left the Bead open for its after-landing steps"
 	printf 'close-bead: %s carries the after-landing label, so it is left open for its steps.\n' "$bead"
 	exit 0
-	;;
-esac
+fi
 
 comment="Run $run, Workflow $workflow: $landing"
 printf '%s\n' "$comment"
 bd comments add "$bead" "$comment"
 bd close "$bead" --reason "$landing"
-note "closed the Bead"
+note bead-state "closed the Bead"
 printf 'close-bead: %s is closed with its Run record.\n' "$bead"
