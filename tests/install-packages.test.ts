@@ -31,19 +31,42 @@ test("install installs each pi package into the pi folder that needs it", () => 
 		const calls = piCalls(logOf(mac.logs.pi));
 		const forFolder = (folder: string) =>
 			calls.filter((call) => call.folder === folder).map((call) => call.command);
-		// The Human's own pi gets the four packages Project Managers and his sessions use:
-		// Beads, Bead links, Chains and Notices.
+		// The Human's own pi gets the five packages Project Managers and his sessions use:
+		// Beads, Bead links, Chains, Notices and the bash timeout.
 		assert.deepEqual(forFolder(join(mac.home, ".pi", "agent")), [
 			"install git:github.com/bradley-mankoff/pi-beads",
 			"install git:github.com/bradley-mankoff/pi-links",
 			"install git:github.com/bradley-mankoff/pi-chains",
 			"install git:github.com/bradley-mankoff/pi-notices",
+			"install git:github.com/bradley-mankoff/pi-bash-timeout",
 		]);
-		// The Factory's pi folder, which every Run node reads, gets the Chains and Flows.
+		// The Factory's pi folder, which every Run node reads, gets the Chains, Flows and bash
+		// timeout.
 		assert.deepEqual(forFolder(join(mac.home, ".local", "share", "factory", "pi-agent")), [
 			"install git:github.com/bradley-mankoff/pi-chains",
 			"install git:github.com/bradley-mankoff/pi-flows",
+			"install git:github.com/bradley-mankoff/pi-bash-timeout",
 		]);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("a Run's pi folder keeps the bash timeout in the settings pi reads", () => {
+	// install runs `pi install` and then merges the Factory's own settings.json over the file
+	// pi wrote, so the Factory's file is the last word on which packages a Run loads. A
+	// package missing there is fetched but never loaded.
+	const mac = makeMac();
+	try {
+		const result = mac.install();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		const settingsFile = join(mac.home, ".local", "share", "factory", "pi-agent", "settings.json");
+		const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
+		assert.ok(
+			settings.packages.includes("git:github.com/bradley-mankoff/pi-bash-timeout"),
+			`the merged settings list the bash timeout, so a hung bash call ends: ${JSON.stringify(settings.packages)}`,
+		);
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}
