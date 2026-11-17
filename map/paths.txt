@@ -34,6 +34,7 @@
     install-versions.test.ts  — install on a temporary Mac standing at the previous Archon release: the binary it ends with reports the pinned release and the provider receipt names the same release, while a Mac already on the pinned set downloads nothing (fac-aan)
     board.test.ts  — install on a temporary Mac with stand-ins at the edges: the launchd job it writes for the board, that job run the way launchd would, and what the board was asked for in its stand-in's log (fac-qpv.7.3)
     work-finished.test.ts  — bin/work-finished on a temporary artifacts folder with a stand-in for bd: the work node's failed checks are commented on the Bead and the node fails, so the reviews do not run (fac-qpv.3.3)
+    close-bead.test.ts  — bin/close-bead then bin/finish on a temporary home with a stand-in for bd: a landed Bead with no after-landing label is closed with its Run record and the Notice says so, a Bead carrying the label is left open for those steps and the Notice says so, and a Run with no landing closes nothing (fac-enj)
     size.test.ts  — scripts/size on a throwaway repo of one file per kind: policy lines counted, comments, docstrings and blanks left out, and the folders the Factory does not depend on skipped (fac-4tn)
     map-render.test.ts  — map/render beside a paths.txt the test writes: a tag before or after a note is never part of the path it checks, and a path with no folder is still reported missing (fac-fca)
     prompt-guidance.test.ts  — The prompts and guides read as a Run reads them: the module and test design rules each prompt carries, the work prompt's refactor rule and test-name example, the guides' own content, no prompt or guide naming Pocock's setup, and both build Workflows gating the standards review on the spec review's approval (fac-6a7.2, fac-6a7.4)
@@ -60,7 +61,8 @@
     node-prompts  — Prints prompts/ as JSON for a Workflow's prompts node, with a Flows marker per checked node when given the Workflow folder, an adopted Run's second-pass paragraph added to the work convention, and fails, naming the file, when the flows files and the Workflow YAML disagree (fac-wtw, fac-dl0)
     bead  — Reads the Bead id out of a Run's message: a Run's message ends with its Bead after " · ", so a Mac that starts Runs through a helper of its own finds the Bead the same way
     work-finished  — A build's node after its work node: comments the work node's failed checks on the Bead and fails, so the reviews do not run (fac-qpv.3.3)
-    finish  — Reads the notes a Run leaves in its artifacts — bin/land's landing and held, pi-flows' flows-failed.txt, a task's no-commits, a research Run's findings.md — composes the one Notice line and leaves it with tell-pm; every core Workflow's last node calls it with the Workflow's name (fac-3fy)
+    close-bead  — A build's node after bin/land: comments the Run record on the Bead and closes it with the landing as its reason, unless the Bead carries the after-landing label, and leaves a bead-state note for bin/finish; a Run with no landing closes nothing (fac-enj)
+    finish  — Reads the notes a Run leaves in its artifacts — bin/land's landing and held, bin/close-bead's bead-state, pi-flows' flows-failed.txt, a task's no-commits, a research Run's findings.md — composes the one Notice line and leaves it with tell-pm; every core Workflow's last node calls it with the Workflow's name (fac-3fy)
     land  — Lands a Run's commits the way the Profile says: a pull request into the base branch and its squash merge, or the commits squashed onto the base branch, checked again and pushed; refuses a protected or unnamed target before any git command moves one (fac-qpv.6.4)
     pm-pane  — Prints a project's pane name, pm-<folder>; start and install.sh both call it, so one rule names every pane
     tell-pm  — Appends a Run's one-line Notice, dated, to its Project Manager's Notice file, named by the pane the Run's message names first, and types nothing into any pane (fac-qpv.2.1)
@@ -70,7 +72,7 @@
   workflows/factory/  — The core Workflows, which ship with the core: install copies the group into the Workflow library, replacing only that group (fac-qpv.6.2)
     README.md  — The router: what each core Workflow is for, when to pick it, and where a Workflow of your own goes
     NODES.md  — The node library: every kind of node the core Workflows use, with its prompt, role, tools, Flows file and a YAML snippet to paste into a Workflow of your own (fac-60v.20.8)
-    factory-build/  — factory-build: work, checks, two reviews, the landing (bin/land)
+    factory-build/  — factory-build: work, checks, two reviews, the landing (bin/land) and the Bead's close (bin/close-bead)
       flows/work  — The work node's checks, which its agent must pass before it may finish (fac-qpv.3)
     factory-build-gated/  — factory-build-gated, a fork of factory-build: adds a demo and a Human gate
       flows/work  — The work node's checks, as in factory-build (fac-qpv.3)
@@ -123,7 +125,7 @@
 ~/.local/share/factory  — Installed copies  [installed]
   notices/  — One Notice file per Project Manager, <pane>.md: bin/tell-pm appends a Run's ending, and the pi-notices package delivers each new line into the conversation (fac-qpv.2.1)  [runtime]
   project-manager/  — instructions.md, pm, start, status-check.md and status-check.ts; FactoryClaw's panes skill runs start, and the status check is asked for with pm --status-check, /status-check or /new-and-status-check; with neither the session opens at pi's prompt (fac-k10, fac-qpv.2.2)
-  bin/  — node-prompts, bead, work-finished, finish, pm-pane, archon-roles, archon-register, tell-pm, land, board
+  bin/  — node-prompts, bead, work-finished, close-bead, finish, pm-pane, archon-roles, archon-register, tell-pm, land, board
   commands/archon  — The archon wrapper, which install writes here: it sets ARCHON_HOME and LIBRARY to the Profile's values unless the shell sets them, and runs the Archon binary; ~/.local/bin/archon links here, so a link an earlier Factory left is replaced rather than written through, and FactoryClaw's allowlist names this real path (fac-lw9)
   jev-shadow.jsonl  — Jev's is-it-done answer for each Run's review pass; the record that retired Jev, kept as it stands (fac-60v.20.12, fac-qpv.3.3)
   jev-replay/  — The 2026-10-24 replay of Jev over 35 past review passes: cases, states, scripts, results (fac-60v.20.12)
@@ -171,14 +173,14 @@
     factory/  — The core Workflows, replaced whole by each install from this repo's workflows/factory/  [installed]
       README.md  — The router: what each core Workflow is for and when to pick it
       NODES.md  — The node library, installed beside the router (fac-60v.20.8)
-      factory-build/  — factory-build: work, checks, two reviews, the landing (bin/land)
+      factory-build/  — factory-build: work, checks, two reviews, the landing (bin/land) and the Bead's close (bin/close-bead)
         factory-build.yaml
         flows/work  — The work node's checks (fac-qpv.3)
-        fixtures/approved.stubs.yaml
+        fixtures/  — approved, after-landing, spec-withheld and standards-withheld stubs
       factory-build-gated/  — factory-build-gated, a fork of factory-build: adds a demo and a Human gate
         factory-build-gated.yaml
         flows/work  — The work node's checks, as in factory-build (fac-qpv.3)
-        fixtures/  — approved and rejected stubs
+        fixtures/  — approved, after-landing and rejected stubs
       factory-research/  — factory-research: two research agents and a combined findings file
         factory-research.yaml
         flows/look-a  — The first research agent's checks (fac-qpv.3)

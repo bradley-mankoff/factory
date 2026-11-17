@@ -1,0 +1,59 @@
+#!/bin/sh
+# close-bead <bead id> <workflow name>: the build Workflows' node after bin/land.
+#
+# Most clean landings need no Project Manager judgment, and a Run that closes its own Bead
+# writes the result into state before any Notice exists, which also makes a late Notice
+# harmless (fac-enj). The spec review already decided, in a fresh session, that the change
+# does all the Bead asks, and the landing only runs after it and the standards review
+# approve, so the only thing left is whether the Project Manager has steps after the
+# landing: installing, a live check, a live config change, starting a dependent Bead. The
+# Project Manager puts the `after-landing` label on a Bead whose steps follow its landing,
+# and the label is read here; no model decides anything.
+#
+# The Run record is one comment on the Bead: the Run's id, the Workflow's name and the
+# landing as bin/land wrote it. Then the Bead is closed with the landing as its reason. A
+# Bead carrying `after-landing` is left open for those steps, and the Project Manager closes
+# it once they are done.
+#
+# How the Bead was left goes in the Run's artifacts as the `bead-state` note, one line,
+# which bin/finish composes into the Notice: a node's own output cannot be read back after
+# it fails, because Archon refuses to splice it. The node never runs when bin/land failed,
+# because Archon skips a node whose dependency failed, and it fails on its own when the
+# landing note is missing rather than closing a Bead for a landing that did not happen.
+set -eu
+bead=${1:?close-bead: give the Bead id}
+workflow=${2:?close-bead: give the name of the Workflow}
+run=${WORKFLOW_ID:?close-bead: a Run gives this node \$WORKFLOW_ID}
+artifacts=${ARTIFACTS_DIR:?close-bead: a Run gives this node \$ARTIFACTS_DIR}
+landing_file=$artifacts/landing
+if [ ! -s "$landing_file" ]; then
+	printf 'close-bead: the Run left no landing note, so %s is left open.\n' "$bead" >&2
+	exit 1
+fi
+landing=$(cat "$landing_file")
+
+# note <file> <one line>: what became of the Bead, for bin/finish's Notice, which cannot
+# read this node's output back after it fails.
+note() {
+	printf '%s\n' "$2" >"$artifacts/$1"
+}
+
+# The Bead's labels, one per line, in the shape `bd show --json` prints them: an array of
+# one object, whose `labels` key is absent when the Bead carries none. A label is matched as
+# a whole line, so a longer label that holds `after-landing` is a different one.
+labels=$(bd show "$bead" --json | python3 -c '
+import json, sys
+print("\n".join(json.load(sys.stdin)[0].get("labels") or []))
+')
+if printf '%s\n' "$labels" | grep -qx after-landing; then
+	note bead-state "left the Bead open for its after-landing steps"
+	printf 'close-bead: %s carries the after-landing label, so it is left open for its steps.\n' "$bead"
+	exit 0
+fi
+
+comment="Run $run, Workflow $workflow: $landing"
+printf '%s\n' "$comment"
+bd comments add "$bead" "$comment"
+bd close "$bead" --reason "$landing"
+note bead-state "closed the Bead"
+printf 'close-bead: %s is closed with its Run record.\n' "$bead"

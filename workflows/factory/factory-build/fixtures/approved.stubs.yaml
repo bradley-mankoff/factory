@@ -7,4 +7,5 @@ spec: {approved: true, feedback: "Does what the Bead asks; the test checks subtr
 standards: {approved: true, feedback: "Renamed one variable and committed the fix."}
 recheck: "check passed"
 land: "merged pull request https://github.com/example/calc/pull/7 into main"
+close-bead: "closed the Bead with its Run record"
 tell-project-manager: ""
