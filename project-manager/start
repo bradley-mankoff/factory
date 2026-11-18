@@ -1,6 +1,8 @@
 #!/bin/sh
 # Starts a Project Manager: the Human's own pi in the current repo's top folder, with the
-# Project Manager's instructions and the glossary appended to its system prompt.
+# Project Manager's instructions and the glossary appended to its system prompt, and with the
+# two extensions a Project Manager keeps loaded: the status check (fac-k10) and the blocked
+# mark a project's open Ask puts on its herdr pane (fac-3mz.5).
 #
 #   project-manager/start [--status-check] [pi arguments...]
 #
@@ -123,4 +125,5 @@ exec pi \
 	--append-system-prompt "$factory/project-manager/instructions.md" \
 	--append-system-prompt "$factory/GLOSSARY.md" \
 	--extension "$factory/project-manager/status-check.ts" \
+	--extension "$factory/project-manager/blocked-mark.ts" \
 	"$@"
