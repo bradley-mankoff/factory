@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+"""The factory command: the one place the Mac's Asks live and are read (fac-3mz.1).
+
+An Ask is one thing waiting on the Human (GLOSSARY.md): a Decision, a grilling round or a
+Spec to review. It is held in state the Factory already has: a comment on the Bead or Epic
+it concerns, carrying the kind, the question in plain words and how to answer, plus the
+`waiting-on-human` label on that Bead. The label is what `factory asks` finds Asks by; the
+comment is where their fields come from. A gate is held in Archon's queue and joins this
+list in fac-3mz.3.
+
+    factory ask <bead id> <kind> <question>     put an Ask on a Bead
+    factory asks [--json] [--project <repo>]    list every open Ask across the Mac
+
+`factory asks` reads the projects in ~/.config/factory/projects and lists each open Ask
+with its project, kind, Bead id, question, how to answer and when it was asked. Its JSON
+form is what screens such as archon-bar read, so they never reimplement the list. A listed
+folder that is gone, or a project with no open Asks, contributes nothing and does not fail
+the command; a project whose Beads database cannot be read is reported and skipped, so one
+broken project never hides the rest.
+
+`factory ask` writes the comment first and the label second. When bd refuses the Bead (a
+mistyped id, a folder with no Beads) the command ends with a factory: line naming the Bead
+and writes nothing else, so a Bead that is labelled always carries an Ask to read.
+
+Everything here is mechanical: a comment, a label and a list, with no model call.
+"""
+import json
+import os
+import subprocess
+import sys
+from datetime import datetime
+
+KINDS = ("decision", "grilling", "spec-review")
+LABEL = "waiting-on-human"
+USAGE = "usage: factory ask <bead id> <kind> <question> | factory asks [--json] [--project <repo>]"
+# The prefix each field of an Ask's comment starts with, apart from the first line, which
+# names the kind. One map writes the comment and reads it back, so the two cannot drift.
+PREFIXES = {"asked": "Asked: ", "how_to_answer": "How to answer: ", "question": "Question: "}
+
+
+def run_bd(*args):
+    """Runs the Beads CLI in the current folder and hands back what it answered."""
+    return subprocess.run(["bd", *args], capture_output=True, text=True)
+
+
+def bd_write(bead, *args):
+    """Runs a bd write that puts part of an Ask on the Bead, passing bd's message on.
+
+    bd refuses a mistyped Bead id or a folder with no Beads; that is an ordinary refusal,
+    not a crash, so the command ends with a factory: line naming the Bead.
+    """
+    result = run_bd(*args)
+    if result.returncode != 0:
+        sys.stderr.write(result.stderr)
+        sys.exit(f"factory: could not write the Ask on {bead}: bd {' '.join(args[:2])} failed")
+
+
+def bd_json(*args):
+    """Runs the Beads CLI and reads its JSON, or None when it could not answer.
+
+    bd may refuse, or print something other than its JSON on stdout (a warning, say). Both
+    are a bd that could not answer, so the caller reports and skips that project.
+    """
+    result = run_bd(*args)
+    if result.returncode != 0:
+        sys.stderr.write(result.stderr)
+        return None
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+
+
+def ask(argv):
+    if len(argv) < 3:
+        sys.exit(f"factory: ask needs a Bead id, a kind and a question\n{USAGE}")
+    bead, kind, *words = argv
+    if kind not in KINDS:
+        sys.exit(f"factory: unknown kind '{kind}'; the kinds are {', '.join(KINDS)}")
+    # The rest is one question: a shell that does not quote it still asks the whole thing.
+    question = " ".join(words)
+    asked = datetime.now().strftime("%Y-%m-%d %H:%M")
+    comment = "\n".join(
+        [
+            f"Ask: {kind}",
+            PREFIXES["asked"] + asked,
+            PREFIXES["how_to_answer"] + f'factory answer {bead} "<your answer>"',
+            PREFIXES["question"] + question,
+        ]
+    )
+    # The comment first, so the label never advertises an Ask with no fields to read.
+    bd_write(bead, "comments", "add", bead, comment)
+    bd_write(bead, "label", "add", bead, LABEL)
+    print(f"factory: {bead} is now an Ask waiting on the Human: {kind}.")
+
+
+def parse_ask(text):
+    """An Ask's fields from its comment, or None when the comment is not an Ask's."""
+    lines = text.split("\n")
+    if not lines[0].startswith("Ask: "):
+        return None
+    fields = {}
+    for line in lines[1:]:
+        for field, prefix in PREFIXES.items():
+            if line.startswith(prefix):
+                fields[field] = line[len(prefix) :]
+                break
+        else:
+            # A question runs over its lines; every other field is one line.
+            if "question" in fields:
+                fields["question"] += "\n" + line
+    if not all(field in fields for field in PREFIXES):
+        return None
+    fields["kind"] = lines[0][len("Ask: ") :].strip()
+    return fields
+
+
+def same_repo(one, other):
+    """True when two paths name the same folder, with ~, a relative path and a link resolved.
+
+    A session's working directory comes back as /private/var/... on a Mac where the projects
+    file names /var/..., and --project . names whatever folder the caller stands in, so the
+    two spellings must be resolved before they are compared.
+    """
+    return os.path.realpath(os.path.expanduser(one)) == os.path.realpath(os.path.expanduser(other))
+
+
+def project_asks(repo):
+    """The open Asks of one project, read from its Beads.
+
+    A Beads it cannot read is reported on stderr and skipped, so one broken project never
+    hides the rest.
+    """
+    if not os.path.isdir(repo):
+        return []
+    project = os.path.basename(repo)
+    listed = bd_json("-C", repo, "list", "--label", LABEL, "--json", "--limit", "0")
+    if not isinstance(listed, list):
+        print(f"factory: skipped {project}: bd could not read its Beads", file=sys.stderr)
+        return []
+    asks = []
+    for bead in listed:
+        comments = bd_json("-C", repo, "comments", bead["id"], "--json")
+        if not isinstance(comments, list):
+            print(f"factory: skipped {project} {bead['id']}: bd could not read its comments", file=sys.stderr)
+            continue
+        # The latest Ask's comment holds the Ask; a later answer's comment is not one.
+        for comment in reversed(comments):
+            fields = parse_ask(comment.get("text", ""))
+            if fields:
+                asks.append(
+                    {
+                        "project": project,
+                        "kind": fields["kind"],
+                        "bead": bead["id"],
+                        "question": fields["question"],
+                        "how_to_answer": fields["how_to_answer"],
+                        "asked": fields["asked"],
+                    }
+                )
+                break
+    return asks
+
+
+def asks(argv):
+    as_json = False
+    wanted = None
+    while argv:
+        if argv[0] == "--json":
+            as_json = True
+            argv = argv[1:]
+        elif argv[0] == "--project":
+            if len(argv) < 2:
+                sys.exit(f"factory: --project needs the repo to limit the list to\n{USAGE}")
+            wanted = argv[1]
+            argv = argv[2:]
+        else:
+            sys.exit(f"factory: asks does not take '{argv[0]}'\n{USAGE}")
+    projects_file = os.path.join(os.path.expanduser("~"), ".config", "factory", "projects")
+    repos = []
+    if os.path.isfile(projects_file):
+        with open(projects_file) as handle:
+            repos = [line.strip() for line in handle if line.strip()]
+    open_asks = []
+    for repo in repos:
+        if wanted is None or same_repo(wanted, repo):
+            open_asks.extend(project_asks(repo))
+    if as_json:
+        print(json.dumps(open_asks, indent=2))
+        return
+    for index, open_ask in enumerate(open_asks):
+        if index:
+            print()
+        print(f"{open_ask['project']}  {open_ask['bead']}  {open_ask['kind']}  asked {open_ask['asked']}")
+        for line in open_ask["question"].split("\n"):
+            print(f"  {line}")
+        print(f"  How to answer: {open_ask['how_to_answer']}")
+
+
+def main(argv):
+    if not argv:
+        sys.exit(USAGE)
+    verb, rest = argv[0], argv[1:]
+    if verb == "ask":
+        ask(rest)
+    elif verb == "asks":
+        asks(rest)
+    else:
+        sys.exit(f"factory: no verb '{verb}'\n{USAGE}")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

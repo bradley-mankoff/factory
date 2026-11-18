@@ -35,6 +35,7 @@
     board.test.ts  — install on a temporary Mac with stand-ins at the edges: the launchd job it writes for the board, that job run the way launchd would, and what the board was asked for in its stand-in's log (fac-qpv.7.3)
     work-finished.test.ts  — bin/work-finished on a temporary artifacts folder with a stand-in for bd: the work node's failed checks are commented on the Bead and the node fails, so the reviews do not run (fac-qpv.3.3)
     close-bead.test.ts  — bin/close-bead then bin/finish on a temporary home with a stand-in for bd: a landed Bead with no after-landing label is closed with its Run record and the Notice says so, a Bead carrying the label is left open for those steps and the Notice says so, and a Run with no landing closes nothing (fac-enj)
+    factory.test.ts  — bin/factory on a temporary HOME with a projects file and a stand-in bd: factory ask writes a dated Ask comment and the waiting-on-human label for the three kinds, refuses an unknown one, and ends with a factory: line naming the Bead when bd refuses the comment, and factory asks lists each open Ask's project, kind, Bead, question, how to answer and date in text and JSON, filters by --project (a repo path, or . for the repo it runs in), skips a project whose bd answer is not JSON while listing the rest, and lists nothing for a project with no Asks or a folder that is gone (fac-3mz.1)
     size.test.ts  — scripts/size on a throwaway repo of one file per kind: policy lines counted, comments, docstrings and blanks left out, and the folders the Factory does not depend on skipped (fac-4tn)
     map-render.test.ts  — map/render beside a paths.txt the test writes: a tag before or after a note is never part of the path it checks, and a path with no folder is still reported missing (fac-fca)
     prompt-guidance.test.ts  — The prompts and guides read as a Run reads them: the module and test design rules each prompt carries, the work prompt's refactor rule and test-name example, the guides' own content, no prompt or guide naming Pocock's setup, and both build Workflows gating the standards review on the spec review's approval (fac-6a7.2, fac-6a7.4)
@@ -66,6 +67,7 @@
     land  — Lands a Run's commits the way the Profile says: a pull request into the base branch and its squash merge, or the commits squashed onto the base branch, checked again and pushed; refuses a protected or unnamed target before any git command moves one (fac-qpv.6.4)
     pm-pane  — Prints a project's pane name, pm-<folder>; start and install.sh both call it, so one rule names every pane
     tell-pm  — Appends a Run's one-line Notice, dated, to its Project Manager's Notice file, named by the pane the Run's message names first, and types nothing into any pane (fac-qpv.2.1)
+    factory  — Puts an Ask on the Bead it concerns, as a dated comment holding the kind, the question and how to answer plus the waiting-on-human label, and lists every open Ask across the projects in ~/.config/factory/projects with its project, kind, Bead, question, how to answer and date, in text or --json, limited by --project; the one command screens read (fac-3mz.1)
     archon-roles  — Sets Archon's small, medium and large tiers and its @aliases to Chain models and unsets every other install-scope alias, so a Workflow names a role and never a model or a seat (fac-qpv.1.4, fac-qpv.1.7)
     archon-register  — Registers a repo with Archon from its main checkout, when it is not registered yet; start runs it under the worktree shape, because Archon finds a worktree's project only through the main checkout (fac-qpv.6.5)
     board  — Starts the Beads board on the Profile's port from the first project with Beads and registers every project with it; the launchd job factory.bdui runs it at login (fac-qpv.7.3)
@@ -122,10 +124,11 @@
 ## Installed Factory files
 > Copies install.sh keeps in step with the repo. Project Managers and Runs read these.
 ~/.local/bin/pm  — Link to the installed project-manager/pm, the shorthand that starts a Project Manager  [installed]
+~/.local/bin/factory  — Link to the installed bin/factory, the one command that puts an Ask on a Bead and lists the Mac's open Asks (fac-3mz.1)  [installed]
 ~/.local/share/factory  — Installed copies  [installed]
   notices/  — One Notice file per Project Manager, <pane>.md: bin/tell-pm appends a Run's ending, and the pi-notices package delivers each new line into the conversation (fac-qpv.2.1)  [runtime]
   project-manager/  — instructions.md, pm, start, status-check.md and status-check.ts; FactoryClaw's panes skill runs start, and the status check is asked for with pm --status-check, /status-check or /new-and-status-check; with neither the session opens at pi's prompt (fac-k10, fac-qpv.2.2)
-  bin/  — node-prompts, bead, work-finished, close-bead, finish, pm-pane, archon-roles, archon-register, tell-pm, land, board
+  bin/  — node-prompts, bead, work-finished, close-bead, finish, factory, pm-pane, archon-roles, archon-register, tell-pm, land, board
   commands/archon  — The archon wrapper, which install writes here: it sets ARCHON_HOME and LIBRARY to the Profile's values unless the shell sets them, and runs the Archon binary; ~/.local/bin/archon links here, so a link an earlier Factory left is replaced rather than written through, and FactoryClaw's allowlist names this real path (fac-lw9)
   jev-shadow.jsonl  — Jev's is-it-done answer for each Run's review pass; the record that retired Jev, kept as it stands (fac-60v.20.12, fac-qpv.3.3)
   jev-replay/  — The 2026-10-24 replay of Jev over 35 past review passes: cases, states, scripts, results (fac-60v.20.12)

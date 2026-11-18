@@ -102,6 +102,9 @@ WRAPPER
 	ln -sfn "$factory/project-manager/pm" "$HOME/.local/bin/pm"
 	# The helpers, for project-manager/start, the Workflows and the board's login job.
 	rsync -a --delete "$src/bin/" "$factory/bin/"
+	# factory: the one command that puts an Ask and lists the Mac's Asks, which screens and
+	# Project Managers call (fac-3mz.1).
+	ln -sfn "$factory/bin/factory" "$HOME/.local/bin/factory"
 	# The node prompts that bin/node-prompts reads into every build Workflow.
 	rsync -a --delete "$src/prompts/" "$factory/prompts/"
 	rsync -a --delete "$src/skills/" "$factory/skills/"
