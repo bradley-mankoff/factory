@@ -260,7 +260,7 @@ if (sub === "attention" && rest[0] && !rest[0].startsWith("--")) {
 	const connector = (name: string, options: { failure?: string; hang?: boolean } = {}) => {
 		let ending = "";
 		if (options.failure) ending = `process.stderr.write(${JSON.stringify(`${options.failure}\n`)}); process.exit(1);`;
-		if (options.hang) ending = "setInterval(() => {}, 1000);";
+		else if (options.hang) ending = "setInterval(() => {}, 1000);";
 		writeFileSync(
 			join(bin, `factory-connector-${name}`),
 			`#!/usr/bin/env node
@@ -1249,7 +1249,7 @@ test("an Ask whose connector failed still lists when factory asks reads its Bead
 						{ text: "Connector telegram failed, 2026-11-18 09:06: telegram is down" },
 					],
 				},
-				labels: { "fac-1": ["waiting-on-human"] },
+				labels: { "fac-1": ["waiting-on-human", "connector-failed"] },
 			},
 		});
 
