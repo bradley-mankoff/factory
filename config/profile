@@ -82,6 +82,20 @@ OUTER_LAYER=factoryclaw
 # did.
 CONNECTORS=factoryclaw
 
+# Where a Human gate's demo video is reached. DEMOS_URL is the base address videos are
+# reached at, so a gate's Ask carries <DEMOS_URL>/<run id>.mp4 and any screen that shows
+# text can play it; the video stays on this Mac. It is the address `tailscale serve`
+# publishes below, such as https://my-mac.tailnet.ts.net/demos, which only this Mac's
+# tailnet can reach. Unset or empty leaves the gate's message carrying the video's file
+# path for FactoryClaw to attach, as it did before the key existed.
+# DEMOS_URL=https://my-mac.tailnet.ts.net/demos
+#
+# DEMOS_SERVE=tailscale has install publish the demo folder,
+# ~/.local/share/factory/demos, at the /demos path of this Mac's Tailscale address with
+# `tailscale serve`, tailnet only, so the links above work with no other hand step.
+# Without it install publishes nothing to the tailnet.
+# DEMOS_SERVE=tailscale
+
 # What a Project Manager leads:
 #   project   one Project Manager per project, on the project's base branch
 #   worktree  one Project Manager per git worktree, each on that worktree's branch

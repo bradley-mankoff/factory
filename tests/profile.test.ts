@@ -7,7 +7,7 @@
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { logOf, type Mac, makeMac, profileValue, repoRoot as root, shippedProfile, squashProfile } from "./fixtures/install-mac.ts";
@@ -150,6 +150,73 @@ test("a Mac whose Profile chooses the squash landing installs no FactoryClaw or 
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}
+});
+
+test("install makes the Factory's demo folder, names it in the project's .env, and links FactoryClaw's workspace demos to it", () => {
+	const mac = makeMac();
+	try {
+		const repo = projectRepo(mac);
+		const result = mac.install();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		const demos = join(mac.home, ".local", "share", "factory", "demos");
+		assert.ok(statSync(demos).isDirectory(), "install makes the Factory's demo folder");
+		assert.equal(envValue(repo, "FACTORY_DEMOS"), demos, "the project's .env names the Factory's folder");
+		const workspaceDemos = join(mac.home, ".openclaw", "workspace-factoryclaw", "demos");
+		assert.ok(lstatSync(workspaceDemos).isSymbolicLink(), "FactoryClaw's workspace demos is a link");
+		assert.equal(realpathSync(workspaceDemos), realpathSync(demos), "the link reaches the Factory's folder");
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("install over the folder an earlier install made moves its videos to the Factory's folder and links the workspace demos there", () => {
+	const mac = makeMac();
+	try {
+		const old = join(mac.home, ".openclaw", "workspace-factoryclaw", "demos");
+		mkdirSync(old, { recursive: true });
+		writeFileSync(join(old, "run-old.mp4"), "the video");
+
+		const result = mac.install();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		const demos = join(mac.home, ".local", "share", "factory", "demos");
+		assert.equal(readFileSync(join(demos, "run-old.mp4"), "utf8"), "the video", "the old video moves to the Factory's folder");
+		assert.equal(realpathSync(old), realpathSync(demos), "the workspace demos is a link to it");
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("a Profile with DEMOS_SERVE=tailscale has install publish the demo folder at the /demos path with tailscale serve", () => {
+	const mac = makeMac({ profile: squashProfile, profileExtra: "DEMOS_SERVE=tailscale\n" });
+	try {
+		const result = mac.install();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		const demos = join(mac.home, ".local", "share", "factory", "demos");
+		assert.equal(logOf(mac.logs.tailscale).trim(), `serve --bg --set-path /demos ${demos}`);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("install publishes nothing to the tailnet when the Profile names no DEMOS_SERVE", () => {
+	const mac = makeMac({ profile: squashProfile });
+	try {
+		const result = mac.install();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		assert.equal(logOf(mac.logs.tailscale), "", "tailscale is never called");
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("the one shipped Profile documents DEMOS_URL and DEMOS_SERVE beside the other choices", () => {
+	const profile = shippedProfile();
+	assert.match(profile, /^# DEMOS_URL=/m, "the example shows how DEMOS_URL is written");
+	assert.match(profile, /^# DEMOS_SERVE=tailscale$/m, "the example shows how DEMOS_SERVE is written");
 });
 
 test("on a Mac whose Profile chooses the squash landing, setting up a project needs no FactoryClaw and keeps demo videos in the Factory's root", () => {

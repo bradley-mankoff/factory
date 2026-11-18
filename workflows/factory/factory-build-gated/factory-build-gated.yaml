@@ -164,8 +164,12 @@ nodes:
       held=$(cat "$ARTIFACTS_DIR/held" 2>/dev/null) || exit 1
       demo="$FACTORY_DEMOS/$WORKFLOW_ID.mp4"
       # The Human judges from the video alone, and approving it approves the landing, so a
-      # link to the change goes to the Human only when there is no video.
-      if [ -s "$demo" ]; then video="Relay it through FactoryClaw with the demo video $demo and without a link to the change."; else video="There is no video: the demo node found the change broken or failed (archon workflow get $WORKFLOW_ID says which). If the change is broken, reject the Run and rework the Bead without asking the Human; otherwise record one with the record-demo skill, or relay the change instead."; fi
+      # link to the change goes to the Human only when there is no video. A Mac whose
+      # Profile names DEMOS_URL reaches the video at a private tailnet link, which any
+      # screen that shows text can play; without it the message names the file for
+      # FactoryClaw to attach (fac-3mz.7).
+      link=$("$HOME/.local/share/factory/bin/demos-link" "$WORKFLOW_ID" "$FACTORY_DEMOS")
+      if [ -n "$link" ]; then video="Watch the demo video at $link and do not open a link to the change."; elif [ -s "$demo" ]; then video="Relay it through FactoryClaw with the demo video $demo and without a link to the change."; else video="There is no video: the demo node found the change broken or failed (archon workflow get $WORKFLOW_ID says which). If the change is broken, reject the Run and rework the Bead without asking the Human; otherwise record one with the record-demo skill, or relay the change instead."; fi
       "$HOME/.local/share/factory/bin/tell-pm" "${ARGUMENTS%% · *}" "Run $WORKFLOW_ID (factory-build-gated) for Bead $("$HOME/.local/share/factory/bin/bead" --id "$ARGUMENTS") waits for the Human's taste-and-fit check of $held. $video Then answer with factory answer $WORKFLOW_ID approve, or factory answer $WORKFLOW_ID reject '<the Human's words>'."
 
   # Archon substitutes nothing in a wait's attention text: `archon workflow attention --json`

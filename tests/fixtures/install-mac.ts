@@ -1,9 +1,9 @@
 /**
  * One temporary Mac, for the tests whose seam is installation: a HOME with the files a Mac
  * already has, and stand-ins on PATH for the commands scripts/install.sh calls outside the
- * Factory (OpenClaw, Archon, the release's curl, herdr, launchd, pi, npm and bdui). A test
- * reads back the files install leaves on that Mac and the log each stand-in wrote; nothing
- * looks inside install.sh.
+ * Factory (OpenClaw, Archon, the release's curl, herdr, tailscale, launchd, pi, npm and
+ * bdui). A test reads back the files install leaves on that Mac and the log each stand-in
+ * wrote; nothing looks inside install.sh.
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -118,6 +118,9 @@ export const makeMac = (options: {
 		// prove install builds and signs nothing.
 		swift: join(dir, "swift.log"),
 		codesign: join(dir, "codesign.log"),
+		// Each `tailscale serve` install runs, so a test sees whether install published
+		// the demo folder to the tailnet.
+		tailscale: join(dir, "tailscale.log"),
 	};
 	mkdirSync(join(home, ".config", "factory"), { recursive: true });
 	const profile = join(home, ".config", "factory", "profile");
@@ -289,6 +292,8 @@ switch (args[0] + " " + args[1]) {
 		"/usr/bin/env node",
 	);
 	stub(join(bin, "herdr"), "exit 0");
+	// tailscale, as far as install can tell: each serve call is logged and accepted.
+	stub(join(bin, "tailscale"), 'printf "%s\\n" "$*" >> "$TAILSCALE_LOG"');
 	// launchd, as far as install can tell: a job it bootstraps is loaded until it is
 	// booted out, so a second install leaves a loaded job alone instead of starting it
 	// again. The log is what install asked; the state file is what the Mac has loaded.
@@ -353,6 +358,7 @@ exit 0`,
 		PI_LOG: logs.pi,
 		SWIFT_LOG: logs.swift,
 		CODESIGN_LOG: logs.codesign,
+		TAILSCALE_LOG: logs.tailscale,
 	};
 	if (options.pluginReloadFails) env.OPENCLAW_PLUGIN_RELOAD_FAILS = "1";
 	// The Profile is the one place a Mac's settings come from, not an inherited shell.

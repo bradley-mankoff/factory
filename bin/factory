@@ -22,10 +22,13 @@ answered ones out. --project limits the list to one project, and resolves a link
 to the main checkout the projects file names, so a Project Manager leading a worktree under
 WORKSPACE=worktree reads the same Asks as its main checkout. A gate is listed while its
 project's Archon queue lists the Run paused at it, with the Run's id and the Bead the Run's
-message names. Its JSON form is what screens such as archon-bar read, so they never
-reimplement the list. A listed folder that is gone, or a project with no Asks, contributes
-nothing and does not fail the command; a project whose Beads or Archon cannot be read is
-reported and skipped, so one broken project never hides the rest.
+message names, and with the private link to its demo video when the Mac's Profile names
+DEMOS_URL and the video is there, which bin/demos-link owns; the link is named in the text
+list too, so the Human can tap it wherever the list is shown. Its JSON form is what
+screens such as archon-bar read, so they never reimplement the list. A listed folder that
+is gone, or a project with no Asks, contributes nothing and does not fail the command; a
+project whose Beads or Archon cannot be read is reported and skipped, so one broken
+project never hides the rest.
 
 `factory ask` writes the comment first and the label second. When bd refuses the Bead (a
 mistyped id, a folder with no Beads) the command ends with a factory: line naming the Bead
@@ -87,6 +90,10 @@ NOTE_BEFORE, NOTE_AFTER = "Connector ", " failed, "
 BIN = os.path.dirname(os.path.realpath(__file__))
 # The one Profile install writes and every command reads for this Mac's settings.
 PROFILE = os.path.join(os.path.expanduser("~"), ".config", "factory", "profile")
+# The demo folder install makes for the videos a Human gate shows, named in every
+# project's .archon/.env as FACTORY_DEMOS. It stands in for a project set up before that
+# key existed, so a gate's video is still found (fac-3mz.7).
+DEMOS = os.path.join(os.path.expanduser("~"), ".local", "share", "factory", "demos")
 USAGE = (
     "usage: factory ask <bead id> <kind> <question> | factory answer <ask> <words> "
     "| factory asks [--json] [--open] [--project <repo>] [--failures]"
@@ -521,6 +528,25 @@ def is_human_gate(item):
     return item.get("kind") == "attention" and item.get("form") == "approval"
 
 
+def demo_link(repo, run):
+    """The private link to a gate's video, or None when the Mac names none or it is gone.
+
+    The Mac's Profile names the base address and bin/demos-link owns the rule: the link is
+    <DEMOS_URL>/<run id>.mp4, and it is left out when the video file is not there, so a
+    gate never carries a link to a missing file. A project's .archon/.env names the demo
+    folder install made; the Factory's own folder stands in for a project set up before
+    that key existed.
+    """
+    demos = file_value(os.path.join(repo, ".archon", ".env"), "FACTORY_DEMOS") or DEMOS
+    try:
+        result = subprocess.run([os.path.join(BIN, "demos-link"), run, demos], capture_output=True, text=True)
+    except OSError:
+        # A Mac whose install predates the helper still lists its Asks, with no video link.
+        return None
+    link = result.stdout.strip()
+    return link if result.returncode == 0 and link else None
+
+
 def project_gates(repo):
     """One project's Human gates: the Runs its Archon queue lists paused at an approval wait.
 
@@ -546,18 +572,22 @@ def project_gates(repo):
         if not bead:
             print(f"factory: skipped {project} gate {run}: its Bead could not be read", file=sys.stderr)
             continue
-        found.append(
-            {
-                "project": project,
-                "kind": GATE,
-                "bead": bead,
-                "run": run,
-                "status": "open",
-                "question": item.get("message", ""),
-                "how_to_answer": f'factory answer {run} {APPROVE}, or factory answer {run} {REJECT} "<your words>"',
-                "asked": local_date(item.get("pausedAt")),
-            }
-        )
+        ask = {
+            "project": project,
+            "kind": GATE,
+            "bead": bead,
+            "run": run,
+            "status": "open",
+            "question": item.get("message", ""),
+            "how_to_answer": f'factory answer {run} {APPROVE}, or factory answer {run} {REJECT} "<your words>"',
+            "asked": local_date(item.get("pausedAt")),
+        }
+        # The video is the one thing a gate's Ask adds beyond a question: the Human judges
+        # taste and fit from it, and a link lets any screen that shows text play it.
+        video = demo_link(repo, run)
+        if video:
+            ask["video"] = video
+        found.append(ask)
     return found
 
 
@@ -617,6 +647,8 @@ def asks(argv):
         print(f"{ask['project']}  {ask['bead']}  {ask['kind']}  {ask['status']}  asked {ask['asked']}")
         for line in ask["question"].split("\n"):
             print(f"  {line}")
+        if ask.get("video"):
+            print(f"  Video: {ask['video']}")
         print(f"  How to answer: {ask['how_to_answer']}")
 
 
