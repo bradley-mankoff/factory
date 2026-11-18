@@ -18,12 +18,14 @@ reads it from there instead of from a label.
 project, kind, Bead, status, question, how to answer and when it was asked: the open Asks,
 and the answered ones beside them until their Project Manager acts on the answer and
 removes the label, so an answer whose Notice was lost still shows. --open leaves the
-answered ones out. A gate is listed while its project's Archon queue lists the Run paused
-at it, with the Run's id and the Bead the Run's message names. Its JSON form is what
-screens such as archon-bar read, so they never reimplement the list. A listed folder that
-is gone, or a project with no Asks, contributes nothing and does not fail the command; a
-project whose Beads or Archon cannot be read is reported and skipped, so one broken
-project never hides the rest.
+answered ones out. --project limits the list to one project, and resolves a linked worktree
+to the main checkout the projects file names, so a Project Manager leading a worktree under
+WORKSPACE=worktree reads the same Asks as its main checkout. A gate is listed while its
+project's Archon queue lists the Run paused at it, with the Run's id and the Bead the Run's
+message names. Its JSON form is what screens such as archon-bar read, so they never
+reimplement the list. A listed folder that is gone, or a project with no Asks, contributes
+nothing and does not fail the command; a project whose Beads or Archon cannot be read is
+reported and skipped, so one broken project never hides the rest.
 
 `factory ask` writes the comment first and the label second. When bd refuses the Bead (a
 mistyped id, a folder with no Beads) the command ends with a factory: line naming the Bead
@@ -386,6 +388,31 @@ def same_repo(one, other):
     return os.path.realpath(os.path.expanduser(one)) == os.path.realpath(os.path.expanduser(other))
 
 
+def main_checkout(folder):
+    """The main checkout of the repo a linked worktree belongs to, or the folder itself.
+
+    On a Mac whose Profile says WORKSPACE=worktree, a Project Manager leads a linked worktree
+    and names that folder, while ~/.config/factory/projects names the main checkout. So a
+    folder handed to --project resolves to the worktree's main checkout before it is matched,
+    as bin/archon-register resolves one: git lists the main checkout first. A folder that is
+    no repo, and a git that cannot answer, are their own main checkout, so an ordinary
+    project matches as it did.
+    """
+    folder = os.path.expanduser(folder)
+    try:
+        listed = subprocess.run(
+            ["git", "-C", folder, "worktree", "list", "--porcelain"], capture_output=True, text=True
+        )
+    except OSError:
+        return folder
+    if listed.returncode != 0:
+        return folder
+    for line in listed.stdout.splitlines():
+        if line.startswith("worktree "):
+            return line[len("worktree ") :]
+    return folder
+
+
 def failed_sends(comments):
     """The failed-send notes in one Bead's comments, counted per connector."""
     counts = {}
@@ -562,7 +589,11 @@ def asks(argv):
         with open(projects_file) as handle:
             repos = [line.strip() for line in handle if line.strip()]
     if wanted is not None:
-        repos = [repo for repo in repos if same_repo(wanted, repo)]
+        # The projects file names main checkouts, so a worktree a Project Manager leads
+        # resolves to its main checkout before the comparison. Matching either spelling
+        # also suits a projects file that names a worktree itself.
+        main = main_checkout(wanted)
+        repos = [repo for repo in repos if same_repo(wanted, repo) or same_repo(main, repo)]
     if failures_only:
         # Count every failed send the Mac kept, however its Ask ended. --project narrows
         # the count to one project; the other filters describe the Ask list, not the record.
