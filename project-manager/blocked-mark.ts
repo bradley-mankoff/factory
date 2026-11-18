@@ -52,7 +52,7 @@ function openAsks(repo: string): Promise<Ask[] | undefined> {
 
 /** What the Human owes, in herdr's words for the pane: the Ask's Bead, its kind and its
  * question. With several open, the first listed is the one named, as a gate comes first. */
-const label = (ask: Ask): string => `${ask.bead} ${ask.kind}: ${ask.question}`;
+const askLabel = (ask: Ask): string => `${ask.bead} ${ask.kind}: ${ask.question}`;
 
 export default function blockedMark(pi: ExtensionAPI): void {
 	// A session outside herdr has no pane to mark, and herdr's integration is not loaded.
@@ -62,19 +62,19 @@ export default function blockedMark(pi: ExtensionAPI): void {
 	 * integration's count is raised once and lowered once. */
 	let marked = false;
 	/** The number of the newest check, so an answer overtaken by a later one is dropped. */
-	let newest = 0;
+	let newestCheck = 0;
 
 	async function check(repo: string): Promise<void> {
-		const mine = ++newest;
+		const thisCheck = ++newestCheck;
 		const asks = await openAsks(repo);
 		// A later check has begun: its read is the later truth about the project, so this
 		// one's answer, which may already be stale, must not move the mark.
-		if (mine !== newest) return;
+		if (thisCheck !== newestCheck) return;
 		if (asks === undefined) return;
 		if (asks.length > 0) {
 			if (marked) return;
 			marked = true;
-			pi.events.emit("herdr:blocked", { active: true, label: label(asks[0]) });
+			pi.events.emit("herdr:blocked", { active: true, label: askLabel(asks[0]) });
 		} else if (marked) {
 			marked = false;
 			pi.events.emit("herdr:blocked", { active: false });

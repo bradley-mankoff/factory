@@ -77,6 +77,15 @@ type Machine = {
 	fixtures: Fixtures;
 };
 
+/** The Asks of the fixture that are still open, which is what `factory asks --open` lists. */
+const openOf = (asks: unknown[]): unknown[] =>
+	asks.filter((ask) => (ask as { status: string }).status === "open");
+
+/** Writes the open Asks where the stand-in for `factory` prints them from. */
+function writeAsks(file: string, asks: unknown[]): void {
+	fs.writeFileSync(file, `${JSON.stringify(openOf(asks))}\n`);
+}
+
 /** One temporary Mac for one test: a home, a pi folder, a project repo and the stand-ins on
  * PATH. */
 function makeMachine(fixtures: Fixtures): Machine {
@@ -97,7 +106,8 @@ function makeMachine(fixtures: Fixtures): Machine {
 	const replyHold = path.join(root, "reply.hold");
 	const asksFile = path.join(root, "asks.json");
 
-	fs.writeFileSync(asksFile, fixtures.prints ?? `${JSON.stringify(openOf(fixtures.asks))}\n`);
+	if (fixtures.prints !== undefined) fs.writeFileSync(asksFile, fixtures.prints);
+	else writeAsks(asksFile, fixtures.asks);
 	if (fixtures.factoryStatus) fs.writeFileSync(path.join(root, "factory.status"), `${fixtures.factoryStatus}\n`);
 	if (fixtures.factoryHolds) fs.writeFileSync(factoryHold, fixtures.factoryHolds === "first" ? "1\n" : "every\n");
 	if (!fixtures.withoutFactory) {
@@ -147,13 +157,9 @@ printf '%s\\n' "$out"
 	};
 }
 
-/** The Asks of the fixture that are still open, which is what `factory asks --open` lists. */
-const openOf = (asks: unknown[]): unknown[] =>
-	asks.filter((ask) => (ask as { status: string }).status === "open");
-
 /** Rewrites the project's Asks, as an answer or a new Ask would, for the stand-in to print. */
 function setAsks(machine: Machine, asks: unknown[]): void {
-	fs.writeFileSync(machine.asksFile, `${JSON.stringify(openOf(asks))}\n`);
+	writeAsks(machine.asksFile, asks);
 }
 
 /** Releases a held command: `factory` or the model replies once its hold file is gone. */
@@ -304,9 +310,11 @@ function startPi(machine: Machine): Pi {
 const lines = (file: string): string[] =>
 	fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n").filter(Boolean) : [];
 
+/** One event, as the stand-in integration wrote it down. */
+const eventOf = (line: string): unknown => JSON.parse(line) as unknown;
+
 /** The `herdr:blocked` events the stand-in integration wrote down, in the order they came. */
-const events = (file: string): unknown[] =>
-	lines(file).map((line) => JSON.parse(line) as unknown);
+const events = (file: string): unknown[] => lines(file).map(eventOf);
 
 /** Wait until the file holds `count` lines, so a test reads a call that is on its way. */
 async function waitForLines(file: string, count: number, timeoutMs = 15000): Promise<string[]> {
@@ -321,31 +329,31 @@ async function waitForLines(file: string, count: number, timeoutMs = 15000): Pro
 	}
 }
 
-/** Wait until the stand-in has written `count` events, so a test reads one that is on its way. */
-async function waitForEvents(file: string, count: number, timeoutMs = 15000): Promise<unknown[]> {
-	const start = Date.now();
-	for (;;) {
-		const written = events(file);
-		if (written.length >= count) return written;
-		if (Date.now() - start > timeoutMs) {
-			throw new Error(
-				`${path.basename(file)} holds ${written.length} events, not ${count}: ${JSON.stringify(written)}`,
-			);
-		}
-		await new Promise((resolve) => setTimeout(resolve, 20));
-	}
-}
-
-/** Wait until the stand-in for `factory` has taken the Asks for `count` checks, so a test
- * knows what the check it waits on read, not merely that it started. */
-async function waitForReads(machine: Machine, count: number): Promise<void> {
-	await waitForLines(machine.factoryRead, count);
+/** Wait until the stand-in integration has written `count` events, so a test reads one that
+ * is on its way. */
+async function waitForEvents(file: string, count: number): Promise<unknown[]> {
+	return (await waitForLines(file, count)).map(eventOf);
 }
 
 /** How long a test waits before reading the events when it expects none: the extension asks
  * factory at the turn's start and end, and the event arrives once the answer is read, so a
  * test that read at once could miss one still on its way. */
 const QUIET_MS = 1000;
+
+/** Waits that window out, then returns the events herdr's integration would have been told,
+ * for a test that expects none. */
+async function quietEvents(machine: Machine): Promise<unknown[]> {
+	await new Promise((resolve) => setTimeout(resolve, QUIET_MS));
+	return events(machine.blockedLog);
+}
+
+/** Runs the first turn to its end and waits until the open Ask's mark has been raised and
+ * read by the checks at the turn's start and end, so a test starts from a standing mark. */
+async function firstTurnMarked(machine: Machine, pi: Pi): Promise<void> {
+	await pi.turn("plan the next Bead");
+	await waitForEvents(machine.blockedLog, 1);
+	await waitForLines(machine.factoryRead, 2);
+}
 
 test("an open Ask raises herdr:blocked with a label naming it", async () => {
 	const machine = makeMachine({ asks: OPEN_ASK });
@@ -368,10 +376,9 @@ test("no open Ask raises no event at all", async () => {
 	const pi = startPi(machine);
 	try {
 		await pi.turn("plan the next Bead");
-		await waitForReads(machine, 2);
-		await new Promise((resolve) => setTimeout(resolve, QUIET_MS));
+		await waitForLines(machine.factoryRead, 2);
 
-		assert.deepEqual(events(machine.blockedLog), []);
+		assert.deepEqual(await quietEvents(machine), []);
 	} finally {
 		await pi.stop();
 	}
@@ -397,13 +404,11 @@ test("a later turn with the Ask still open raises no second event", async () => 
 	const machine = makeMachine({ asks: OPEN_ASK });
 	const pi = startPi(machine);
 	try {
-		await pi.turn("plan the next Bead");
-		await waitForEvents(machine.blockedLog, 1);
+		await firstTurnMarked(machine, pi);
 		await pi.turn("read the Run's report");
 		await waitForLines(machine.factoryLog, 4);
-		await new Promise((resolve) => setTimeout(resolve, QUIET_MS));
 
-		assert.deepEqual(events(machine.blockedLog), [
+		assert.deepEqual(await quietEvents(machine), [
 			{ active: true, label: "fac-1 decision: Ship the smaller screen first?" },
 		]);
 	} finally {
@@ -418,9 +423,7 @@ test("an answered Ask clears the mark as soon as the next turn starts", async ()
 	const machine = makeMachine({ asks: OPEN_ASK });
 	const pi = startPi(machine);
 	try {
-		await pi.turn("plan the next Bead");
-		await waitForEvents(machine.blockedLog, 1);
-		await waitForReads(machine, 2);
+		await firstTurnMarked(machine, pi);
 
 		setAsks(machine, ANSWERED_ASK);
 		fs.writeFileSync(machine.replyHold, "");
@@ -442,13 +445,11 @@ test("an Ask answered during a turn clears the mark when the turn ends", async (
 	const machine = makeMachine({ asks: OPEN_ASK });
 	const pi = startPi(machine);
 	try {
-		await pi.turn("plan the next Bead");
-		await waitForEvents(machine.blockedLog, 1);
-		await waitForReads(machine, 2);
+		await firstTurnMarked(machine, pi);
 
 		fs.writeFileSync(machine.replyHold, "");
 		pi.send("check the board");
-		await waitForReads(machine, 3);
+		await waitForLines(machine.factoryRead, 3);
 		setAsks(machine, ANSWERED_ASK);
 		release(machine.replyHold);
 		await pi.waitForSettled(2);
@@ -490,16 +491,13 @@ test("a factory that cannot answer leaves a standing mark alone", async () => {
 	const machine = makeMachine({ asks: OPEN_ASK });
 	const pi = startPi(machine);
 	try {
-		await pi.turn("plan the next Bead");
-		await waitForEvents(machine.blockedLog, 1);
-		await waitForReads(machine, 2);
+		await firstTurnMarked(machine, pi);
 
 		fs.writeFileSync(machine.asksFile, "bd: could not read the Beads database\n");
 		await pi.turn("read the Run's report");
-		await waitForReads(machine, 4);
-		await new Promise((resolve) => setTimeout(resolve, QUIET_MS));
+		await waitForLines(machine.factoryRead, 4);
 
-		assert.deepEqual(events(machine.blockedLog), [
+		assert.deepEqual(await quietEvents(machine), [
 			{ active: true, label: "fac-1 decision: Ship the smaller screen first?" },
 		]);
 	} finally {
@@ -515,10 +513,9 @@ test("a factory that answers with something other than the Asks raises no event"
 	const pi = startPi(machine);
 	try {
 		await pi.turn("plan the next Bead");
-		await waitForReads(machine, 2);
-		await new Promise((resolve) => setTimeout(resolve, QUIET_MS));
+		await waitForLines(machine.factoryRead, 2);
 
-		assert.deepEqual(events(machine.blockedLog), []);
+		assert.deepEqual(await quietEvents(machine), []);
 	} finally {
 		await pi.stop();
 	}
@@ -530,9 +527,8 @@ test("a factory command that fails raises no event", async () => {
 	try {
 		await pi.turn("plan the next Bead");
 		await waitForLines(machine.factoryLog, 2);
-		await new Promise((resolve) => setTimeout(resolve, QUIET_MS));
 
-		assert.deepEqual(events(machine.blockedLog), []);
+		assert.deepEqual(await quietEvents(machine), []);
 	} finally {
 		await pi.stop();
 	}
@@ -543,9 +539,8 @@ test("without the factory command no event is raised", async () => {
 	const pi = startPi(machine);
 	try {
 		await pi.turn("plan the next Bead");
-		await new Promise((resolve) => setTimeout(resolve, QUIET_MS));
 
-		assert.deepEqual(events(machine.blockedLog), [], "a Mac with no factory command still runs its Project Managers");
+		assert.deepEqual(await quietEvents(machine), [], "a Mac with no factory command still runs its Project Managers");
 	} finally {
 		await pi.stop();
 	}
@@ -555,9 +550,7 @@ test("the extension runs no herdr command, because herdr's integration reports t
 	const machine = makeMachine({ asks: OPEN_ASK });
 	const pi = startPi(machine);
 	try {
-		await pi.turn("plan the next Bead");
-		await waitForEvents(machine.blockedLog, 1);
-		await waitForReads(machine, 2);
+		await firstTurnMarked(machine, pi);
 
 		assert.deepEqual(lines(machine.herdrLog), [], "the pane is left to herdr's own pi integration");
 	} finally {
@@ -570,10 +563,10 @@ test("outside herdr, where there is no pane to mark, the project's Asks are not 
 	const pi = startPi(machine);
 	try {
 		await pi.turn("plan the next Bead");
-		await new Promise((resolve) => setTimeout(resolve, QUIET_MS));
+		const told = await quietEvents(machine);
 
 		assert.deepEqual(lines(machine.factoryLog), [], "nothing could be marked, so nothing is read");
-		assert.deepEqual(events(machine.blockedLog), []);
+		assert.deepEqual(told, []);
 	} finally {
 		await pi.stop();
 	}
@@ -585,21 +578,18 @@ test("an Ask that comes back after a clear raises the mark again", async () => {
 	const machine = makeMachine({ asks: OPEN_ASK });
 	const pi = startPi(machine);
 	try {
-		await pi.turn("plan the next Bead");
-		await waitForEvents(machine.blockedLog, 1);
-		await waitForReads(machine, 2);
+		await firstTurnMarked(machine, pi);
 
 		setAsks(machine, ANSWERED_ASK);
 		await pi.turn("take up the answer");
 		await waitForEvents(machine.blockedLog, 2);
-		await waitForReads(machine, 4);
+		await waitForLines(machine.factoryRead, 4);
 
 		setAsks(machine, OPEN_ASK);
 		await pi.turn("ask the next question");
-		await waitForReads(machine, 6);
-		await new Promise((resolve) => setTimeout(resolve, QUIET_MS));
+		await waitForLines(machine.factoryRead, 6);
 
-		assert.deepEqual(events(machine.blockedLog), [
+		assert.deepEqual(await quietEvents(machine), [
 			{ active: true, label: "fac-1 decision: Ship the smaller screen first?" },
 			{ active: false },
 			{ active: true, label: "fac-1 decision: Ship the smaller screen first?" },
@@ -618,15 +608,14 @@ test("a check overtaken by a later one raises no stale mark", async () => {
 	try {
 		fs.writeFileSync(machine.replyHold, "");
 		pi.send("plan the next Bead");
-		await waitForReads(machine, 1);
+		await waitForLines(machine.factoryRead, 1);
 		setAsks(machine, ANSWERED_ASK);
 		release(machine.replyHold);
 		await pi.waitForSettled(1);
-		await waitForReads(machine, 2);
+		await waitForLines(machine.factoryRead, 2);
 		release(machine.factoryHold);
-		await new Promise((resolve) => setTimeout(resolve, QUIET_MS));
 
-		assert.deepEqual(events(machine.blockedLog), []);
+		assert.deepEqual(await quietEvents(machine), []);
 	} finally {
 		await pi.stop();
 	}
