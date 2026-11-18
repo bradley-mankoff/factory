@@ -764,7 +764,7 @@ test("factory answer approves a gate in Archon, comments the answer on its Bead 
 				["workflow", "get", "run-a", "--json"],
 				["workflow", "approve", "run-a", "--detach"],
 			],
-			"the gate is approved in Archon, in the folder the answer runs in",
+			"Archon is asked whether the gate still waits, which Bead it names, and then to approve it",
 		);
 		const comment = bdWrites(mac).find((call) => call[0] === "comments" && call[1] === "add");
 		assert.ok(comment, "the answer is a comment on the Run's Bead");
