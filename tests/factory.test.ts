@@ -830,6 +830,26 @@ const gate = (runId: string, message: string, pausedAt: string): Gate => ({
 	pausedAt,
 });
 
+/** One project whose Human gate waits on the Human, on a Mac whose Profile names DEMOS_URL,
+ * handing back the project's demo folder: what `factory asks` reads to reach a gate's video.
+ * A test that wants a video in the folder writes one there itself. */
+const projectWithPausedGate = (mac: Mac): string => {
+	const repo = mac.project("calc");
+	const demos = join(mac.dir, "demos");
+	mkdirSync(demos, { recursive: true });
+	mac.projects([repo]);
+	mac.projectEnv(repo, [`FACTORY_DEMOS=${demos}`]);
+	mac.profile(["DEMOS_URL=https://mac.example-tailnet.ts.net/demos"]);
+	mac.beads({ [repo]: { list: [], comments: {} } });
+	mac.archon({
+		[repo]: {
+			items: [gate("f0a1", "Taste and fit: does the total widget look right?", "2026-11-18T18:51:09.649Z")],
+			runs: { f0a1: { user_message: "pm-calc · fac-1" } },
+		},
+	});
+	return demos;
+};
+
 test("factory asks --json lists a paused Human gate in every project with its Bead from the Run's message", () => {
 	const mac = makeMac();
 	try {
@@ -889,26 +909,13 @@ test("factory asks --json lists a paused Human gate in every project with its Be
 test("a gate's Ask in factory asks carries the private link to its video when the Mac names DEMOS_URL and the video is there", () => {
 	const mac = makeMac();
 	try {
-		const repo = mac.project("calc");
-		const demos = join(mac.dir, "demos");
-		mkdirSync(demos, { recursive: true });
+		const demos = projectWithPausedGate(mac);
 		writeFileSync(join(demos, "f0a1.mp4"), "the video");
-		mac.projects([repo]);
-		mac.projectEnv(repo, [`FACTORY_DEMOS=${demos}`]);
-		mac.profile(["DEMOS_URL=https://mac.example-tailnet.ts.net/demos"]);
-		mac.beads({ [repo]: { list: [], comments: {} } });
-		mac.archon({
-			[repo]: {
-				items: [gate("f0a1", "Taste and fit: does the total widget look right?", "2026-11-18T18:51:09.649Z")],
-				runs: { f0a1: { user_message: "pm-calc · fac-1" } },
-			},
-		});
 
 		const result = mac.run(["asks", "--json"]);
 
 		assert.equal(result.status, 0, result.stderr);
 		const [ask] = JSON.parse(result.stdout);
-		assert.equal(ask.run, "f0a1");
 		assert.equal(ask.video, "https://mac.example-tailnet.ts.net/demos/f0a1.mp4");
 	} finally {
 		rmSync(mac.dir, { recursive: true, force: true });
@@ -918,19 +925,7 @@ test("a gate's Ask in factory asks carries the private link to its video when th
 test("a gate's Ask carries no video link when the video is not in the demo folder", () => {
 	const mac = makeMac();
 	try {
-		const repo = mac.project("calc");
-		const demos = join(mac.dir, "demos");
-		mkdirSync(demos, { recursive: true });
-		mac.projects([repo]);
-		mac.projectEnv(repo, [`FACTORY_DEMOS=${demos}`]);
-		mac.profile(["DEMOS_URL=https://mac.example-tailnet.ts.net/demos"]);
-		mac.beads({ [repo]: { list: [], comments: {} } });
-		mac.archon({
-			[repo]: {
-				items: [gate("f0a1", "Taste and fit: does the total widget look right?", "2026-11-18T18:51:09.649Z")],
-				runs: { f0a1: { user_message: "pm-calc · fac-1" } },
-			},
-		});
+		projectWithPausedGate(mac);
 
 		const result = mac.run(["asks", "--json"]);
 
@@ -945,20 +940,8 @@ test("a gate's Ask carries no video link when the video is not in the demo folde
 test("factory asks shows a gate's video link in its text so the Human can tap it", () => {
 	const mac = makeMac();
 	try {
-		const repo = mac.project("calc");
-		const demos = join(mac.dir, "demos");
-		mkdirSync(demos, { recursive: true });
+		const demos = projectWithPausedGate(mac);
 		writeFileSync(join(demos, "f0a1.mp4"), "the video");
-		mac.projects([repo]);
-		mac.projectEnv(repo, [`FACTORY_DEMOS=${demos}`]);
-		mac.profile(["DEMOS_URL=https://mac.example-tailnet.ts.net/demos"]);
-		mac.beads({ [repo]: { list: [], comments: {} } });
-		mac.archon({
-			[repo]: {
-				items: [gate("f0a1", "Taste and fit: does the total widget look right?", "2026-11-18T18:51:09.649Z")],
-				runs: { f0a1: { user_message: "pm-calc · fac-1" } },
-			},
-		});
 
 		const result = mac.run(["asks"]);
 

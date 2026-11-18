@@ -93,7 +93,7 @@ PROFILE = os.path.join(os.path.expanduser("~"), ".config", "factory", "profile")
 # The demo folder install makes for the videos a Human gate shows, named in every
 # project's .archon/.env as FACTORY_DEMOS. It stands in for a project set up before that
 # key existed, so a gate's video is still found (fac-3mz.7).
-DEMOS = os.path.join(os.path.expanduser("~"), ".local", "share", "factory", "demos")
+FACTORY_DEMOS = os.path.join(os.path.expanduser("~"), ".local", "share", "factory", "demos")
 USAGE = (
     "usage: factory ask <bead id> <kind> <question> | factory answer <ask> <words> "
     "| factory asks [--json] [--open] [--project <repo>] [--failures]"
@@ -537,7 +537,7 @@ def demo_link(repo, run):
     folder install made; the Factory's own folder stands in for a project set up before
     that key existed.
     """
-    demos = file_value(os.path.join(repo, ".archon", ".env"), "FACTORY_DEMOS") or DEMOS
+    demos = file_value(os.path.join(repo, ".archon", ".env"), "FACTORY_DEMOS") or FACTORY_DEMOS
     try:
         result = subprocess.run([os.path.join(BIN, "demos-link"), run, demos], capture_output=True, text=True)
     except OSError:

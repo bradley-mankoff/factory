@@ -47,10 +47,9 @@ type Run = {
 /**
  * One Run reaching its gate: a temporary home with the Factory's helpers where the node
  * looks for them, the Run's artifacts naming what the landing holds, and the video in the
- * Factory's demo folder. `url` is what the Mac's Profile names as DEMOS_URL, or undefined
- * for a Profile that names none.
+ * Factory's demo folder. `profile` is the Mac's Profile as the node reads it.
  */
-const makeRun = (url?: string): Run => {
+const makeRun = (profile: string): Run => {
 	const dir = mkdtempSync(join(tmpdir(), "factory-gated-notice-"));
 	const home = join(dir, "home");
 	const factory = join(home, ".local", "share", "factory");
@@ -60,7 +59,7 @@ const makeRun = (url?: string): Run => {
 	mkdirSync(demos, { recursive: true });
 	mkdirSync(artifacts, { recursive: true });
 	symlinkSync(join(root, "bin"), join(factory, "bin"));
-	writeFileSync(join(home, ".config", "factory", "profile"), url ? `DEMOS_URL=${url}\n` : "# This Mac names no DEMOS_URL.\n");
+	writeFileSync(join(home, ".config", "factory", "profile"), profile);
 	writeFileSync(join(artifacts, "held"), "the pull request https://github.com/example/calc/pull/7 into main\n");
 	writeFileSync(join(demos, "run-123.mp4"), "the video");
 
@@ -83,7 +82,7 @@ const makeRun = (url?: string): Run => {
 };
 
 test("the Notice before the gate names the video's private link when the Mac names DEMOS_URL", () => {
-	const run = makeRun("https://mac.example-tailnet.ts.net/demos");
+	const run = makeRun("DEMOS_URL=https://mac.example-tailnet.ts.net/demos\n");
 	try {
 		assert.match(run.notice(), /https:\/\/mac\.example-tailnet\.ts\.net\/demos\/run-123\.mp4/);
 	} finally {
@@ -92,7 +91,7 @@ test("the Notice before the gate names the video's private link when the Mac nam
 });
 
 test("a Profile that names no DEMOS_URL leaves the Notice naming the video's path for FactoryClaw", () => {
-	const run = makeRun();
+	const run = makeRun("# This Mac names no DEMOS_URL.\n");
 	try {
 		const notice = run.notice();
 		assert.match(notice, /with the demo video .*\/demos\/run-123\.mp4/);

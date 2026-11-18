@@ -1,9 +1,9 @@
 /**
  * The Profile is one Mac's settings file (GLOSSARY.md, `Profile`; fac-qpv.6.3, fac-qpv.6.7).
  * The seam is installation: scripts/install.sh runs with a temporary HOME and stand-ins at
- * the system's edges (OpenClaw, Archon, herdr, launchd, pi and npm), and the test reads back
- * the files install leaves on that Mac and the log each stand-in wrote. Nothing here looks
- * inside install.sh.
+ * the system's edges (OpenClaw, Archon, herdr, tailscale, launchd, pi and npm), and the test
+ * reads back the files install leaves on that Mac and the log each stand-in wrote. Nothing
+ * here looks inside install.sh.
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
