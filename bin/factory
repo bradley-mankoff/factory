@@ -1,37 +1,48 @@
 #!/usr/bin/env python3
-"""The factory command: the one place the Mac's Asks live and are read (fac-3mz.1, fac-3mz.2).
+"""The factory command: the one place the Mac's Asks live and are read (fac-3mz.1 to
+fac-3mz.3).
 
-An Ask is one thing waiting on the Human (GLOSSARY.md): a Decision, a grilling round or a
-Spec to review. It is held in state the Factory already has: a comment on the Bead or Epic
-it concerns, carrying the kind, the question in plain words and how to answer, plus the
-`waiting-on-human` label on that Bead. The label is what `factory asks` finds Asks by; the
-comment is where their fields come from. A gate is held in Archon's queue and joins this
-list in fac-3mz.3.
+An Ask is one thing waiting on the Human (GLOSSARY.md): a Decision, a grilling round, a
+Spec to review or a Human gate. Every kind but a gate is held in state the Factory already
+has: a comment on the Bead or Epic it concerns, carrying the kind, the question in plain
+words and how to answer, plus the `waiting-on-human` label on that Bead. The label is what
+`factory asks` finds those Asks by; the comment is where their fields come from. A Human
+gate is Archon's paused Run, so its project's Archon queue holds it and `factory asks`
+reads it from there instead of from a label.
 
     factory ask <bead id> <kind> <question>              put an Ask on a Bead
-    factory answer <bead id> <words>                     record the Human's answer
+    factory answer <ask> <words>                         record the Human's answer
     factory asks [--json] [--open] [--project <repo>]    list the Mac's Asks
 
 `factory asks` reads the projects in ~/.config/factory/projects and lists each Ask with its
 project, kind, Bead, status, question, how to answer and when it was asked: the open Asks,
 and the answered ones beside them until their Project Manager acts on the answer and
 removes the label, so an answer whose Notice was lost still shows. --open leaves the
-answered ones out. Its JSON form is what screens such as archon-bar read, so they never
-reimplement the list. A listed folder that is gone, or a project with no Asks, contributes
-nothing and does not fail the command; a project whose Beads database cannot be read is
-reported and skipped, so one broken project never hides the rest.
+answered ones out. A gate is listed while its project's Archon queue lists the Run paused
+at it, with the Run's id and the Bead the Run's message names. Its JSON form is what
+screens such as archon-bar read, so they never reimplement the list. A listed folder that
+is gone, or a project with no Asks, contributes nothing and does not fail the command; a
+project whose Beads or Archon cannot be read is reported and skipped, so one broken
+project never hides the rest.
 
 `factory ask` writes the comment first and the label second. When bd refuses the Bead (a
 mistyped id, a folder with no Beads) the command ends with a factory: line naming the Bead
-and writes nothing else, so a Bead that is labelled always carries an Ask to read.
+and writes nothing else, so a Bead that is labelled always carries an Ask to read. `factory
+ask <bead id> gate <question>` records a gate's question on its Bead and adds no label,
+because the gate waits in Archon's queue already; the Project Manager uses it to relay a
+gate once connectors exist.
 
 `factory answer` is the only writer of answers. It runs in the project's folder, as a screen
-or the Project Manager does, and refuses a Bead that no longer carries `waiting-on-human`,
-so a late relay or a second tap changes nothing. On an open Ask it writes the dated answer
-first and swaps the label second, then leaves a Notice for the project's Project Manager
-through bin/tell-pm, the way a Run's ending does. A project whose .archon/.env names no
-FACTORY_PM_AGENT still records the answer, because the answer in state is what the Project
-Manager's status check finds, and reports the Notice it could not leave.
+or the Project Manager does. On a Bead Ask it refuses a Bead that no longer carries
+`waiting-on-human`, so a late relay or a second tap changes nothing; on an open Ask it
+writes the dated answer first and swaps the label second, then leaves a Notice for the
+project's Project Manager through bin/tell-pm, the way a Run's ending does. On a Human gate
+it runs `archon workflow approve` or `archon workflow reject --reason`, refuses a Run its
+project's Archon queue no longer lists, then records the answer on the Run's Bead and
+leaves the same Notice. A gate has no answered label: it is done when Archon no longer
+lists it. A project whose .archon/.env names no FACTORY_PM_AGENT still records the answer,
+because the answer in state is what the Project Manager's status check finds, and reports
+the Notice it could not leave.
 
 Everything here is mechanical: a comment, a label and a list, with no model call.
 """
@@ -41,11 +52,13 @@ import subprocess
 import sys
 from datetime import datetime
 
-KINDS = ("decision", "grilling", "spec-review")
+KINDS = ("decision", "grilling", "spec-review", "gate")
+GATE = "gate"
 LABEL = "waiting-on-human"
 ANSWERED = "answered"
+BIN = os.path.dirname(os.path.realpath(__file__))
 USAGE = (
-    "usage: factory ask <bead id> <kind> <question> | factory answer <bead id> <words> "
+    "usage: factory ask <bead id> <kind> <question> | factory answer <ask> <words> "
     "| factory asks [--json] [--open] [--project <repo>]"
 )
 # The prefix each field of an Ask's comment starts with, apart from the first line, which
@@ -86,6 +99,50 @@ def bd_json(*args):
         return None
 
 
+def archon_json(repo, *args):
+    """Runs the Archon CLI in the project's folder and reads its JSON, or None.
+
+    Archon answers `workflow attention <run-id>` with ok false when the id names no Run,
+    so the caller reads `ok` rather than the exit status; a command that answered plain
+    text (an install with no project, say) is not JSON and is None.
+    """
+    try:
+        result = subprocess.run(["archon", *args], cwd=repo, capture_output=True, text=True)
+    except OSError as error:
+        sys.stderr.write(f"factory: could not run archon: {error}\n")
+        return None
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        if result.stderr:
+            sys.stderr.write(result.stderr)
+        return None
+
+
+def run_bead_id(message):
+    """The Bead id a Run's message names, as bin/bead reads it: the message's last field.
+
+    A Project Manager starts a Run with "<pane> · <bead id>", and bin/bead owns that
+    reading for every Run, so this asks it rather than reading the message its own way.
+    A message with no Bead, or a message the script could not read, names no Bead.
+    """
+    result = subprocess.run([os.path.join(BIN, "bead"), "--id", message], capture_output=True, text=True)
+    bead = result.stdout.strip()
+    return bead if result.returncode == 0 and bead else None
+
+
+def local_date(stamp):
+    """An Archon timestamp, such as 2026-11-18T18:51:09.649Z, as a local date and time.
+
+    Archon reports pausedAt in UTC; the list shows when the Human was asked in the same
+    local terms as the Asks held on Beads.
+    """
+    try:
+        return datetime.fromisoformat(stamp.replace("Z", "+00:00")).astimezone().strftime("%Y-%m-%d %H:%M")
+    except (AttributeError, ValueError):
+        return stamp or ""
+
+
 def env_file_value(path, key):
     """One value from a KEY=value file such as a project's .archon/.env, or None.
 
@@ -116,6 +173,12 @@ def ask(argv):
     # The rest is one question: a shell that does not quote it still asks the whole thing.
     question = " ".join(words)
     asked = datetime.now().strftime("%Y-%m-%d %H:%M")
+    # A gate waits in Archon's queue, so its record on the Bead carries the question and no
+    # label: a label would make `factory asks` read a second, stale copy of the same gate.
+    if kind == GATE:
+        bd_write(bead, "comments", "add", bead, f"Ask: {kind}\n{PREFIXES['asked']}{asked}\n{PREFIXES['question']}{question}")
+        print(f"factory: {bead} records a Human gate's question; Archon's queue holds the gate.")
+        return
     comment = "\n".join(
         [
             f"Ask: {kind}",
@@ -218,6 +281,48 @@ def project_asks(repo):
     return found
 
 
+def project_gates(repo):
+    """One project's Human gates: the Runs its Archon queue lists paused at an approval wait.
+
+    A gate lives in Archon, not on a Bead, so it is listed while the Run is in the queue and
+    gone once the Run is answered; the Bead's dated comment is only the record. The Run's id
+    is how `factory answer` names the gate, and its Bead is the last field of the Run's
+    message. A queue or a Run Archon cannot answer for is reported and skipped, so one
+    broken project never hides the rest.
+    """
+    if not os.path.isdir(repo):
+        return []
+    project = project_name(repo)
+    queue = archon_json(repo, "workflow", "attention", "--json")
+    if not isinstance(queue, dict) or not isinstance(queue.get("items"), list):
+        print(f"factory: skipped {project} gates: archon could not read its attention queue", file=sys.stderr)
+        return []
+    found = []
+    for item in queue["items"]:
+        # A Human gate is an approval wait; a usage limit or a select wait is not one.
+        if item.get("kind") != "attention" or item.get("form") != "approval":
+            continue
+        run = item.get("runId")
+        run_row = archon_json(repo, "workflow", "get", run, "--json") if run else None
+        bead = run_bead_id(run_row.get("user_message", "")) if isinstance(run_row, dict) else None
+        if not bead:
+            print(f"factory: skipped {project} gate {run}: archon could not read the Run's message", file=sys.stderr)
+            continue
+        found.append(
+            {
+                "project": project,
+                "kind": GATE,
+                "bead": bead,
+                "run": run,
+                "status": "open",
+                "question": item.get("message", ""),
+                "how_to_answer": f'factory answer {run} approve, or factory answer {run} reject "<your words>"',
+                "asked": local_date(item.get("pausedAt")),
+            }
+        )
+    return found
+
+
 def asks(argv):
     as_json = False
     open_only = False
@@ -244,6 +349,9 @@ def asks(argv):
     found = []
     for repo in repos:
         if wanted is None or same_repo(wanted, repo):
+            # A paused Run comes first: a gate holds work that is ready to land, where a
+            # Bead's Ask waits on a question the Project Manager can carry on around.
+            found.extend(project_gates(repo))
             found.extend(project_asks(repo))
     if open_only:
         found = [ask for ask in found if ask["status"] == "open"]
@@ -259,14 +367,18 @@ def asks(argv):
         print(f"  How to answer: {ask['how_to_answer']}")
 
 
+def answer_comment(text):
+    """The Human's answer as the Bead records it, dated, for every kind of Ask."""
+    return f"The Human's answer, {datetime.now().strftime('%Y-%m-%d %H:%M')}: {text}"
+
+
 def record_answer(bead, words):
     """Writes the Human's answer into state: the dated comment, then the label swap.
 
     The answer goes on the Bead before the label moves, so an Ask labelled answered always
     carries the words its status promises.
     """
-    answered = datetime.now().strftime("%Y-%m-%d %H:%M")
-    bd_write(bead, "comments", "add", bead, f"The Human's answer, {answered}: {words}")
+    bd_write(bead, "comments", "add", bead, answer_comment(words))
     bd_write(bead, "label", "remove", bead, LABEL)
     bd_write(bead, "label", "add", bead, ANSWERED)
 
@@ -286,7 +398,7 @@ def tell_project_manager(bead, words):
             f"factory: recorded the Human's answer on {bead}, but {repo}/.archon/.env names no "
             f"FACTORY_PM_AGENT, so {project}'s Project Manager was not told"
         )
-    tell_pm = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tell-pm")
+    tell_pm = os.path.join(BIN, "tell-pm")
     notice = f"The Human answered Ask {bead} in {project}: {words}"
     told = subprocess.run([tell_pm, pane, notice], capture_output=True, text=True)
     if told.returncode != 0:
@@ -295,26 +407,90 @@ def tell_project_manager(bead, words):
     print(f"factory: recorded the Human's answer on {bead} and told {pane}.")
 
 
+def gate_decision(words):
+    """The gate's decision in the Human's answer, or None when the words are no decision.
+
+    A gate is answered with `approve`, or `reject` and the Human's words, and nothing else:
+    a rejected gate needs the words its rework reads. Any other answer belongs to an Ask on
+    a Bead, even one whose first word happens to be "approve" or "reject".
+    """
+    if words[0] == "approve":
+        if len(words) > 1:
+            sys.exit(f"factory: approve takes no words after it; reject with the Human's words\n{USAGE}")
+        return "approve", ""
+    if words[0] == "reject":
+        reason = " ".join(words[1:]).strip()
+        if not reason:
+            sys.exit(f"factory: reject needs the Human's words for the rework\n{USAGE}")
+        return "reject", reason
+    return None
+
+
+def answer_gate(run, decision, reason):
+    """Answers a Human gate in Archon, records it on the Run's Bead, tells the Project Manager.
+
+    Archon's queue is the gate's state, so the answer reaches it first. The Run resumes in
+    the background (--detach), so this returns as soon as Archon accepts the answer and the
+    Bead comment and the Notice are not held up by the landing that follows. The Bead is
+    read from the Run's message before the answer, so the record names it either way. A
+    gate has no answered label: it is done when Archon no longer lists it.
+    """
+    repo = os.getcwd()
+    run_row = archon_json(repo, "workflow", "get", run, "--json")
+    bead = run_bead_id(run_row.get("user_message", "")) if isinstance(run_row, dict) else None
+    if not bead:
+        sys.exit(f"factory: could not read the Bead Run {run} names, so nothing was recorded")
+    if decision == "approve":
+        command, answer = ["workflow", "approve", run, "--detach"], f"approved gate Run {run}"
+    else:
+        command = ["workflow", "reject", run, "--reason", reason, "--detach"]
+        answer = f"rejected gate Run {run}: {reason}"
+    result = subprocess.run(["archon", *command], cwd=repo, capture_output=True, text=True)
+    if result.returncode != 0:
+        sys.stderr.write(result.stderr)
+        sys.exit(f"factory: archon could not {decision} Run {run}, so nothing was recorded")
+    bd_write(bead, "comments", "add", bead, answer_comment(answer))
+    tell_project_manager(bead, answer)
+
+
 def answer(argv):
     """Records the Human's answer on an open Ask, then tells its Project Manager.
 
     The answer goes into state first: an answer whose Notice goes missing is still on the
     Bead, where the Project Manager's status check finds it. An Ask that is no longer open
     is refused and nothing is written, so a late relay or a second tap changes nothing.
+    A gate's answer goes to Archon, whose queue is its state; a Bead id names no Run, so an
+    answer to a Bead that begins with "approve" or "reject" still goes to the Bead.
     """
     if len(argv) < 2:
-        sys.exit(f"factory: answer needs a Bead id and the Human's answer\n{USAGE}")
+        sys.exit(f"factory: answer needs an Ask and the Human's answer\n{USAGE}")
     bead, *words = argv
-    words = " ".join(words).strip()
-    if not words:
+    joined = " ".join(words).strip()
+    if not joined:
         sys.exit(f"factory: answer needs the Human's words for {bead}\n{USAGE}")
+    decision = None
+    if words[0] in ("approve", "reject"):
+        waiting = archon_json(os.getcwd(), "workflow", "attention", bead, "--json")
+        item = waiting.get("item") if isinstance(waiting, dict) and waiting.get("ok") else None
+        if isinstance(item, dict):
+            if item.get("form") != "approval":
+                sys.exit(f"factory: Run {bead} waits on something other than a Human gate, so nothing was answered")
+            decision = gate_decision(words)
+        elif isinstance(waiting, dict) and waiting.get("ok"):
+            project = project_name(os.getcwd())
+            sys.exit(f"factory: gate {bead} no longer waits in {project}'s Archon queue, so nothing was answered")
+        # Archon does not know the id as a Run, so it is a Bead: an answer to an Ask there
+        # may begin with either decision word, and all of it is the Human's answer.
+    if decision:
+        answer_gate(bead, *decision)
+        return
     labels = bd_json("label", "list", bead, "--json")
     if not isinstance(labels, list):
         sys.exit(f"factory: could not read the labels on {bead}, so nothing was recorded")
     if LABEL not in labels:
         sys.exit(f"factory: {bead} carries no open Ask, so nothing was recorded")
-    record_answer(bead, words)
-    tell_project_manager(bead, words)
+    record_answer(bead, joined)
+    tell_project_manager(bead, joined)
 
 
 def main(argv):
