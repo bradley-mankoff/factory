@@ -7,7 +7,7 @@
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { logOf, type Mac, makeMac, profileValue, repoRoot as root, shippedProfile, squashProfile } from "./fixtures/install-mac.ts";
@@ -222,6 +222,24 @@ test("a Profile that names no commit identity leaves the project's repo as it is
 		assert.equal(envValue(repo, "GIT_AUTHOR_NAME"), undefined, "project setup writes no identity");
 		assert.equal(gitConfig(repo, "user.name"), "The repo's own name", "the repo's own name is left alone");
 		assert.equal(gitConfig(repo, "user.email"), "someone@example.test", "the repo's own email is left alone");
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("install links the factory command that puts and lists Asks into ~/.local/bin", () => {
+	const mac = makeMac();
+	try {
+		const result = mac.install();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		const link = join(mac.home, ".local", "bin", "factory");
+		assert.ok(lstatSync(link).isSymbolicLink(), "~/.local/bin/factory is a link");
+		assert.equal(
+			realpathSync(link),
+			realpathSync(join(mac.home, ".local", "share", "factory", "bin", "factory")),
+			"the link resolves to the Factory's own command",
+		);
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}
