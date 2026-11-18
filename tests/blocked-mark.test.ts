@@ -7,7 +7,7 @@
  * Manager drives it: pi in RPC mode with the extension and a stand-in for herdr's own pi
  * integration, the one thing that turns pi's `herdr:blocked` event into a pane report. The
  * stand-in writes down every event the extension emits, so a test reads what herdr would be
- * told without starting herdr. A stub `factory` first on PATH holds the project's Asks, and
+ * told without starting herdr. A stub `factory` first on PATH serves the project's Asks, and
  * a stub `herdr` first on PATH catches any pane report the extension might still run.
  */
 import assert from "node:assert/strict";
