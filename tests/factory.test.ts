@@ -98,6 +98,34 @@ const writeFixture = (file: string, fixture: Record<string, unknown>) => {
 	writeFileSync(file, `${JSON.stringify(Object.fromEntries(resolved))}\n`);
 };
 
+/** Makes a folder a real git repo with one commit, so a linked worktree can be added of it.
+ * The commit carries an identity of its own, so the test never borrows the Mac's. */
+const gitRepo = (repo: string) => {
+	const git = (...args: string[]) => {
+		const result = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8" });
+		assert.equal(result.status, 0, result.stderr);
+	};
+	git("init", "--quiet");
+	git(
+		"-c",
+		"user.name=Factory Test",
+		"-c",
+		"user.email=factory-test@example.com",
+		"commit",
+		"--quiet",
+		"--allow-empty",
+		"-m",
+		"first commit",
+	);
+};
+
+/** Adds a linked worktree of the repo at the folder, which git leaves out of the repo's own
+ * folder, the way a Run's worktree sits beside its main checkout. */
+const linkedWorktree = (repo: string, folder: string) => {
+	const result = spawnSync("git", ["-C", repo, "worktree", "add", "--quiet", "--detach", folder], { encoding: "utf8" });
+	assert.equal(result.status, 0, result.stderr);
+};
+
 /** The JSON lines one stand-in tool wrote, as the values it recorded. */
 const readRecords = (file: string) => {
 	const text = existsSync(file) ? readFileSync(file, "utf8") : "";
@@ -478,6 +506,42 @@ test("factory asks --project limits the list to one project's Asks", () => {
 				question: "Which feeds?",
 				how_to_answer: 'factory answer news-7 "<your answer>"',
 				asked: "2026-11-17 16:40",
+			},
+		]);
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("factory asks --project lists a project's Asks from a linked worktree, as from its main checkout", () => {
+	const mac = makeMac();
+	try {
+		const calc = mac.project("calc");
+		gitRepo(calc);
+		const worktree = join(mac.dir, "worktrees", "calc-build");
+		linkedWorktree(calc, worktree);
+		// The projects file names the main checkout, as a Mac whose Profile lands Runs in
+		// worktrees does, so the worktree itself is not a project on its own.
+		mac.projects([calc]);
+		mac.beads({
+			[calc]: {
+				list: [{ id: "fac-1" }],
+				comments: { "fac-1": [{ text: askComment("decision", "fac-1", "Which total?", "2026-11-18 09:05") }] },
+			},
+		});
+
+		const result = mac.run(["asks", "--json", "--project", worktree]);
+		assert.equal(result.status, 0, result.stderr);
+
+		assert.deepEqual(JSON.parse(result.stdout), [
+			{
+				project: "calc",
+				kind: "decision",
+				bead: "fac-1",
+				status: "open",
+				question: "Which total?",
+				how_to_answer: 'factory answer fac-1 "<your answer>"',
+				asked: "2026-11-18 09:05",
 			},
 		]);
 	} finally {
