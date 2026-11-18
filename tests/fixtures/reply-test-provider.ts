@@ -5,8 +5,13 @@
  *
  * REPLY_TEST_LOG: one JSON object a line per request, holding the text of each message it
  * was sent.
+ *
+ * REPLY_TEST_HOLD: a file the reply waits for, the way a model that takes time holds its
+ * turn open; unset, or with the file gone, the reply is immediate. A test writes the file
+ * before a turn it wants to hold, so the turn is still running while the test reads what
+ * else happens.
  */
-import { appendFileSync } from "node:fs";
+import { appendFileSync, existsSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
 	createAssistantMessageEventStream,
@@ -18,6 +23,13 @@ import {
 
 const api = "reply-test";
 const log = process.env.REPLY_TEST_LOG ?? "/dev/null";
+const hold = process.env.REPLY_TEST_HOLD;
+
+/** Waits for the hold file to go, so a turn stays open while a test watches it. */
+const released = async (): Promise<void> => {
+	if (!hold) return;
+	while (existsSync(hold)) await new Promise((resolve) => setTimeout(resolve, 20));
+};
 
 const replyModel = {
 	id: "reply",
@@ -58,11 +70,14 @@ export default function replyTestProvider(pi: ExtensionAPI): void {
 		const stream = createAssistantMessageEventStream();
 		const text = "answered";
 		const reply = message(requested, text);
-		stream.push({ type: "start", partial: reply });
-		stream.push({ type: "text_start", contentIndex: 0, partial: reply });
-		stream.push({ type: "text_delta", contentIndex: 0, delta: text, partial: reply });
-		stream.push({ type: "text_end", contentIndex: 0, content: text, partial: reply });
-		stream.push({ type: "done", reason: "stop", message: reply });
+		void (async () => {
+			await released();
+			stream.push({ type: "start", partial: reply });
+			stream.push({ type: "text_start", contentIndex: 0, partial: reply });
+			stream.push({ type: "text_delta", contentIndex: 0, delta: text, partial: reply });
+			stream.push({ type: "text_end", contentIndex: 0, content: text, partial: reply });
+			stream.push({ type: "done", reason: "stop", message: reply });
+		})();
 		return stream;
 	};
 
