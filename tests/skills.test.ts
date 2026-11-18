@@ -66,6 +66,41 @@ test("the code-review skill runs both reviews itself when it has no sub-agents, 
 	assert.match(line, /say so/);
 });
 
+/** The planning skills that put questions to the Human (fac-3mz.6): grilling and to-spec
+ * reach the Human through factory, on the Idea's Epic, so every round and every review is
+ * an Ask that every screen can show. */
+test("the grilling skill opens the Idea's Epic before the first round", () => {
+	const line = lineContaining(installedSkill("grilling"), "bd create --type=epic");
+	assert.match(line, /before the first round/);
+});
+
+test("the grilling skill puts each round on the Epic with factory ask", () => {
+	assert.match(lineContaining(installedSkill("grilling"), "factory ask"), /factory ask <epic id> grilling/);
+});
+
+test("the grilling skill frames a round so one word answers it", () => {
+	const line = lineContaining(installedSkill("grilling"), "one word answers it");
+	assert.match(line, /yes/);
+});
+
+test("the grilling skill records the round's answer with factory answer", () => {
+	assert.match(lineContaining(installedSkill("grilling"), "factory answer"), /factory answer <epic id>/);
+});
+
+test("the to-spec skill writes the Spec into the Epic the grilling opened", () => {
+	const text = installedSkill("to-spec");
+	const line = lineContaining(text, "Write the Spec into the Epic's description");
+	assert.match(line, /rather than making another/);
+});
+
+test("the to-spec skill creates no new Epic", () => {
+	assert.doesNotMatch(installedSkill("to-spec"), /bd create --type=epic/);
+});
+
+test("the to-spec skill puts the Spec review on the Epic as an Ask", () => {
+	assert.match(lineContaining(installedSkill("to-spec"), "factory ask"), /factory ask <epic id> spec-review/);
+});
+
 test("no engineering skill names Pocock's own setup: no issue tracker, setup command, ticket or user to confirm with", () => {
 	const forbidden = /issue[- ]tracker|setup-matt-pocock-skills|\btickets?\b|\busers? to confirm|confirm (?:it|them|the seam|each seam) with (?:a|the) user/i;
 	for (const name of skillNames) assert.doesNotMatch(installedSkill(name), forbidden, `${name} names none of it`);

@@ -25,9 +25,7 @@ A Project Manager's message arrives in this chat as `From the <project> Project 
      ```
 
      The gate still waits for the Human when an item's `runId` is that one. When no item has it, its Run was approved or rejected already — but only when the command itself worked: when it fails, or its answer warns that coverage may have gaps, the check was not made, so I leave the pane alone and reply in one line: `→ <Product>: I could not check whether that is still open, so nothing was sent; send it again in a while.`
-   - **A Decision.** The Bead's id is in the message. Read its comments with `bd -C <repo> comments <bead id>`: the question is the comment that begins `Question for the Human`, and the Decision is still open while it is the last one; when a later comment begins `The Human's answer`, it was answered.
-
-   A grilling round and a Spec review keep no such record, so they are relayed without this look.
+   - **A Decision, a grilling round or a Spec review.** The Bead or Epic's id is in the message. Read it with `bd -C <repo> show <bead id> --json` and look at its labels: the Ask is open while they hold `waiting-on-human`, answered once `factory answer` has swapped that for `answered`, and done once the Project Manager has acted and removed it. A Bead carrying neither label is done or was never an Ask, so there is nothing to relay.
 
    When the item is already answered, type nothing into the pane. Say in one line where it was answered, so the Human knows his answer was not dropped: `→ <Product>: already answered in its window, so I left it alone.` When the record holds his answer, give it back in his words: `→ <Product>: already answered in its window ("yes, ship it"), so I left it alone.`
 3. **Make sure the pane is open**: find its Project Manager in `herdr pane list`, the pane whose `label` is its pane name and whose `agent` is `pi`. When there is none, the project is stopped, so open it with the `panes` skill and find the pane again. A reopened pane is a fresh session that does not remember its question, which is why the answer names its topic.

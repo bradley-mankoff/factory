@@ -36,7 +36,7 @@ Once the Ask is written, `factory ask` tells each connector the Mac's Profile na
 connector is a program, factory-connector-<name>, beside bin/factory or on PATH; it reads
 the Ask as JSON on stdin and exits 0 once the Human is reached, so each connector keeps its
 own message format. The first is factoryclaw, which sends the Ask into FactoryClaw's
-Telegram chat with the openclaw agent command the Project Manager's instructions use. A
+Telegram chat with openclaw's agent command. A
 Profile without CONNECTORS means factoryclaw when OUTER_LAYER=factoryclaw and no connectors
 otherwise, and an empty CONNECTORS means none. Sending is best effort: a connector that
 fails, or that has not answered within 30 seconds (FACTORY_CONNECTOR_TIMEOUT names another

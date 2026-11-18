@@ -4,7 +4,7 @@
 factory ask runs this program once for each connector the Mac's Profile names, handing the
 Ask to it as JSON on stdin (bin/factory says what the fields are). This connector reads the
 project's .archon/.env for the Project Manager's pane and FactoryClaw's Telegram chat, then
-sends the Ask with the same openclaw agent command the Project Manager's instructions use.
+sends the Ask into that chat with openclaw's agent command.
 It exits 0 when FactoryClaw took the message, and says why on stderr when it did not, so
 factory ask can leave a dated failure note on the Ask's Bead.
 """

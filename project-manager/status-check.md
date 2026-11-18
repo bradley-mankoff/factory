@@ -1,1 +1,1 @@
-Run your status check now: review the claimed Beads, the Runs that ended and the ready Beads, then propose the obvious next steps and wait for the Human to accept.
+Run your status check now: review the claimed Beads and the Runs that ended, list the project's answered Asks you have not acted on yet (`factory asks --project .`) because a Notice can be lost, and review the ready Beads. Then propose the obvious next steps and wait for the Human to accept.

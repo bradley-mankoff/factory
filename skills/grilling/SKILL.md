@@ -56,7 +56,9 @@ The Human often reads rounds on a phone, so keep each question and its context t
 
 ## Reaching the Human
 
-Ask each round where the Human last spoke to you, and take the reply there as the Human's answer. A Project Manager whose Idea or last answer came through FactoryClaw sends the whole round to FactoryClaw as one message, the way the Project Manager definition says to reach the Human; FactoryClaw types the Human's reply back into the pane.
+Open the Idea's Epic before the first round, so each round has a Bead to live on: `bd create --type=epic --title="<the Idea in a few words>"`. The `to-spec` skill writes the Spec into that Epic once the interview ends.
+
+Put each round to the Human as an Ask on that Epic: `factory ask <epic id> grilling "<the round>"`, which records the round on the Epic and tells every connector this Mac's Profile names, so the round reaches the Human wherever they are. Frame the round so one word answers it, as "yes" accepts every recommendation or "Q20: no, ..." answers question by question, because the Human often reads it hours later on a phone. When the answer comes, record it with `factory answer <epic id> "<the Human's answer>"` before you settle the round, and once you have acted on it remove the `answered` label with `bd label remove <epic id> answered`; the next round is a new Ask on the same Epic.
 
 ## Facts are yours, decisions are the Human's
 

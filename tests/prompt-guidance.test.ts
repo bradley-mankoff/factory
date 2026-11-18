@@ -319,3 +319,71 @@ test("both build Workflows gate the standards review on the spec review's approv
 		assert.match(standards, /when: "\$spec\.output\.approved == true"/, `${name}'s standards node runs only on the spec review's approval`);
 	}
 });
+
+/**
+ * The Project Manager's instructions as its session loads them (fac-3mz.6). The seam is the
+ * file project-manager/start appends to pi's system prompt, which tests/pm.test.ts holds to
+ * that path: every question the Project Manager puts to the Human is an Ask, and every answer
+ * is recorded, whether the Human typed it into the pane or a connector carried it.
+ */
+const instructions = readFileSync(join(root, "project-manager", "instructions.md"), "utf8");
+
+/** One part of the instructions, from its heading to the next line that starts another, so
+ * a rule is checked where the Project Manager reads it. */
+const part = (heading: string): string => {
+	const lines = instructions.split("\n");
+	const start = lines.findIndex((line) => line.startsWith(heading));
+	assert.ok(start >= 0, `the instructions hold ${heading}`);
+	const end = lines.findIndex((line, at) => at > start && /^#/.test(line));
+	return lines.slice(start, end < 0 ? undefined : end).join("\n");
+};
+
+test("the Project Manager reaches the Human with factory ask", () => {
+	const line = lineMatching(part("## Reaching the Human"), /factory ask <bead id> <kind>/);
+	assert.match(line, /"<the question>"/);
+});
+
+test("the Project Manager's instructions carry no connector's own command", () => {
+	assert.doesNotMatch(instructions, /openclaw agent/);
+});
+
+test("the instructions record an answer typed into the pane with factory answer before acting on it", () => {
+	const line = lineMatching(part("## Reaching the Human"), "factory answer");
+	assert.match(line, /typed into this pane/);
+	assert.match(line, /before you act/);
+});
+
+test("the instructions remove the answered label once the Project Manager has acted", () => {
+	const line = lineMatching(instructions, "bd label remove <bead id> answered");
+	assert.match(line, /acted/i);
+});
+
+test("the Decisions section puts a Decision in with factory ask", () => {
+	const line = lineMatching(part("## Decisions"), "factory ask");
+	assert.match(line, /factory ask <bead id> decision "<the question>"/);
+});
+
+test("the Decisions section records the Human's answer with factory answer", () => {
+	const line = lineMatching(part("## Decisions"), "factory answer");
+	assert.match(line, /factory answer <bead id> "<the Human's answer>"/);
+});
+
+test("the Human gates paragraph records the gate's question with factory ask", () => {
+	const line = lineMatching(part("**Human gates.**"), "factory ask");
+	assert.match(line, /factory ask <bead id> gate "<the question>"/);
+});
+
+test("the Human gates paragraph answers the gate with factory answer alone", () => {
+	const gates = part("**Human gates.**");
+	assert.match(lineMatching(gates, "factory answer"), /factory answer <run id> approve/);
+	assert.doesNotMatch(gates, /archon workflow (?:approve|reject)/);
+});
+
+test("the instructions' status check lists the project's answered Asks not yet acted on", () => {
+	assert.match(lineMatching(instructions, "answered Ask"), /factory asks --project \./);
+});
+
+test("the instructions' Idea to Beads steps put the Spec review on the Epic grilling opened", () => {
+	const line = lineMatching(part("## From Idea to Beads"), "factory ask <epic id> spec-review");
+	assert.match(line, /Spec/);
+});
