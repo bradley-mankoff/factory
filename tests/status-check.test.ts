@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const statusCheckExtension = path.join(repoRoot, "project-manager", "status-check.ts");
 const statusCheckText = fs.readFileSync(path.join(repoRoot, "project-manager", "status-check.md"), "utf8").trim();
-const testProvider = path.join(repoRoot, "tests", "fixtures", "status-check-test-provider.ts");
+const testProvider = path.join(repoRoot, "tests", "fixtures", "reply-test-provider.ts");
 
 /** One model request the test provider answered: the text of each message it was sent. */
 type Request = { messages: string[] };
@@ -63,7 +63,7 @@ function startPi(machine: Machine) {
 			"-e",
 			testProvider,
 			"--model",
-			"status-check-test/reply",
+			"reply-test/reply",
 		],
 		{
 			cwd: machine.dir,
@@ -75,7 +75,7 @@ function startPi(machine: Machine) {
 				PI_SKIP_VERSION_CHECK: "1",
 				PI_OFFLINE: "1",
 				PI_TELEMETRY: "0",
-				STATUS_CHECK_TEST_LOG: machine.log,
+				REPLY_TEST_LOG: machine.log,
 			},
 		},
 	);

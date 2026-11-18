@@ -172,8 +172,9 @@ const archonCalls = (log: string): string[] => {
 const statusCheckText = (): string =>
 	fs.readFileSync(path.join(repoRoot, "project-manager", "status-check.md"), "utf8").trim();
 
-/** The arguments pi is started with under the test's Profile, before any message. The
- * status-check extension comes with them, so both of its commands work in the session. */
+/** The arguments pi is started with under the test's Profile, before any message. Both of
+ * the Project Manager's extensions come with them: the status check's two commands and the
+ * blocked mark (fac-k10, fac-3mz.5). */
 const launcherArgs = [
 	"--model",
 	"test-provider/chosen-model",
@@ -183,6 +184,8 @@ const launcherArgs = [
 	path.join(repoRoot, "GLOSSARY.md"),
 	"--extension",
 	path.join(repoRoot, "project-manager", "status-check.ts"),
+	"--extension",
+	path.join(repoRoot, "project-manager", "blocked-mark.ts"),
 ];
 
 test("pm starts the Human's own pi in the repo's top folder with the role and glossary appended", () => {

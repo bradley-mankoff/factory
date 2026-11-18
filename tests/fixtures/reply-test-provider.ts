@@ -1,10 +1,10 @@
 /**
- * The outside service the status-check tests talk to: a pi provider that answers each
- * request with one line and records the conversation it was sent, so a test can see the
- * check's text arrive.
+ * The outside service the pi-extension tests talk to: a provider that answers each request
+ * with one line and records the conversation it was sent, so a test can see what pi sent it
+ * and can drive a turn to its end.
  *
- * STATUS_CHECK_TEST_LOG: one JSON object a line per request, holding the text of each
- * message it was sent.
+ * REPLY_TEST_LOG: one JSON object a line per request, holding the text of each message it
+ * was sent.
  */
 import { appendFileSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -16,8 +16,8 @@ import {
 	type SimpleStreamOptions,
 } from "@earendil-works/pi-ai";
 
-const api = "status-check-test";
-const log = process.env.STATUS_CHECK_TEST_LOG ?? "/dev/null";
+const api = "reply-test";
+const log = process.env.REPLY_TEST_LOG ?? "/dev/null";
 
 const replyModel = {
 	id: "reply",
@@ -47,7 +47,7 @@ const message = (requested: Model<Api>, text: string): AssistantMessage => ({
 	timestamp: Date.now(),
 });
 
-export default function statusCheckTestProvider(pi: ExtensionAPI): void {
+export default function replyTestProvider(pi: ExtensionAPI): void {
 	const streamSimple = (requested: Model<Api>, context: unknown, _options?: SimpleStreamOptions) => {
 		appendFileSync(
 			log,
@@ -66,8 +66,8 @@ export default function statusCheckTestProvider(pi: ExtensionAPI): void {
 		return stream;
 	};
 
-	pi.registerProvider("status-check-test", {
-		name: "Status check test provider",
+	pi.registerProvider("reply-test", {
+		name: "Reply test provider",
 		api,
 		apiKey: "test-key",
 		baseUrl: "http://localhost:0",
