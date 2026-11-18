@@ -34,7 +34,6 @@ const askComment = (kind: string, bead: string, question: string, asked: string)
 
 type Mac = {
 	dir: string;
-	home: string;
 	project: (name: string) => string;
 	projects: (repos: string[]) => void;
 	beads: (fixture: Record<string, Project>) => void;
@@ -110,7 +109,7 @@ else if (rest[0] === "comments") process.stdout.write(JSON.stringify(project.com
 			.filter(Boolean)
 			.map((record) => JSON.parse(record) as string[]);
 	};
-	return { dir, home, project, projects, beads, failOn, run, calls };
+	return { dir, project, projects, beads, failOn, run, calls };
 };
 
 test("factory ask puts a dated Ask on the Bead and labels it waiting on the Human", () => {
