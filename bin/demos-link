@@ -5,10 +5,11 @@
 #
 # A Run records its video as <run id>.mp4 in the demo folder install makes,
 # ~/.local/share/factory/demos, and the Mac's Profile DEMOS_URL is the base address that
-# folder is reached at, so the link is <DEMOS_URL>/<run id>.mp4 (fac-3mz.7). install
-# publishes the folder at that address's /demos path when the Profile asks for it with
-# DEMOS_SERVE=tailscale, and only the Mac's own tailnet can reach it, so the video never
-# leaves the Human's devices.
+# folder is reached at, so the link is <DEMOS_URL>/<run id>.mp4 (fac-3mz.7). When the
+# Profile asks for it with DEMOS_SERVE=tailscale, install serves the folder from a local web
+# server on the loopback address and forwards the Mac's /demos path to it, and only the
+# Mac's own tailnet can reach that, so the video never leaves the Human's devices
+# (fac-3mz.10).
 #
 # Nothing is printed when the Profile names no DEMOS_URL, or when the folder holds no
 # video for the Run: a link to a missing file would fail the Human's tap. The Project

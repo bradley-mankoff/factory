@@ -90,10 +90,14 @@ CONNECTORS=factoryclaw
 # path for FactoryClaw to attach, as it did before the key existed.
 # DEMOS_URL=https://my-mac.tailnet.ts.net/demos
 #
-# DEMOS_SERVE=tailscale has install publish the demo folder,
-# ~/.local/share/factory/demos, at the /demos path of this Mac's Tailscale address with
-# `tailscale serve`, tailnet only, so the links above work with no other hand step.
-# Without it install publishes nothing to the tailnet.
+# DEMOS_SERVE=tailscale has install serve the demo folder, ~/.local/share/factory/demos,
+# from a small local web server bound to 127.0.0.1 at a fixed port, started at login by the
+# launchd job factory.demos, and forward the /demos path of this Mac's Tailscale address to
+# it with `tailscale serve`, tailnet only, so the links above work with no other hand step.
+# The Mac App Store edition of Tailscale cannot serve a folder from disk, so the forwarding
+# is what publishes it; the server answers Range requests, which Safari on iPhone needs
+# before it plays an mp4. Without this key install starts no server and publishes nothing to
+# the tailnet.
 # DEMOS_SERVE=tailscale
 
 # What a Project Manager leads:

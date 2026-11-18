@@ -10,7 +10,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { logOf, type Mac, makeMac, profileValue, repoRoot as root, shippedProfile, squashProfile } from "./fixtures/install-mac.ts";
+import { logOf, type Mac, makeMac, pinnedValue, profileValue, repoRoot as root, shippedProfile, squashProfile } from "./fixtures/install-mac.ts";
 
 /**
  * The commit identity the tests expect a Run to use: a name and GitHub's private address,
@@ -34,6 +34,9 @@ const projectRepo = (mac: Mac): string => {
 	writeFileSync(join(mac.home, ".config", "factory", "projects"), `${repo}\n`);
 	return repo;
 };
+
+/** The demo folder install makes, ~/.local/share/factory/demos. */
+const demosFolder = (mac: Mac): string => join(mac.home, ".local", "share", "factory", "demos");
 
 /** A value the project's own repo holds in its local git config. */
 const gitConfig = (repo: string, key: string): string =>
@@ -159,7 +162,7 @@ test("install makes the Factory's demo folder, names it in the project's .env, a
 		const result = mac.install();
 		assert.equal(result.status, 0, result.stderr || result.stdout);
 
-		const demos = join(mac.home, ".local", "share", "factory", "demos");
+		const demos = demosFolder(mac);
 		assert.ok(statSync(demos).isDirectory(), "install makes the Factory's demo folder");
 		assert.equal(envValue(repo, "FACTORY_DEMOS"), demos, "the project's .env names the Factory's folder");
 		const workspaceDemos = join(mac.home, ".openclaw", "workspace-factoryclaw", "demos");
@@ -180,7 +183,7 @@ test("install over the folder an earlier install made moves its videos to the Fa
 		const result = mac.install();
 		assert.equal(result.status, 0, result.stderr || result.stdout);
 
-		const demos = join(mac.home, ".local", "share", "factory", "demos");
+		const demos = demosFolder(mac);
 		assert.equal(readFileSync(join(demos, "run-old.mp4"), "utf8"), "the video", "the old video moves to the Factory's folder");
 		assert.equal(realpathSync(old), realpathSync(demos), "the workspace demos is a link to it");
 	} finally {
@@ -188,25 +191,75 @@ test("install over the folder an earlier install made moves its videos to the Fa
 	}
 });
 
-test("a Profile with DEMOS_SERVE=tailscale has install publish the demo folder at the /demos path with tailscale serve", () => {
+/**
+ * The port install pins for the server that publishes the demo folder. The top of
+ * scripts/install.sh is the one place it lives, so the login job and the tailscale serve
+ * command cannot name two ports (fac-3mz.10).
+ */
+const demosPort = pinnedValue("demos_port");
+
+test("a Profile with DEMOS_SERVE=tailscale starts a login job that serves the demo folder on the loopback address", () => {
 	const mac = makeMac({ profile: squashProfile, profileExtra: "DEMOS_SERVE=tailscale\n" });
 	try {
 		const result = mac.install();
 		assert.equal(result.status, 0, result.stderr || result.stdout);
 
-		const demos = join(mac.home, ".local", "share", "factory", "demos");
-		assert.equal(logOf(mac.logs.tailscale).trim(), `serve --bg --set-path /demos ${demos}`);
+		const job = JSON.parse(
+			execFileSync("plutil", ["-convert", "json", "-o", "-", join(mac.home, "Library", "LaunchAgents", "factory.demos.plist")], {
+				encoding: "utf8",
+			}),
+		);
+		assert.equal(job.Label, "factory.demos");
+		assert.equal(job.RunAtLoad, true, "the server starts at login");
+		assert.deepEqual(
+			job.ProgramArguments,
+			[join(mac.home, ".local", "share", "factory", "bin", "demos-serve"), demosFolder(mac), String(demosPort)],
+			"the job runs the Factory's server over the demo folder at the pinned port",
+		);
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}
 });
 
-test("install publishes nothing to the tailnet when the Profile names no DEMOS_SERVE", () => {
+test("a Profile with DEMOS_SERVE=tailscale publishes the demo folder at /demos, forwarded to the local server", () => {
+	const mac = makeMac({ profile: squashProfile, profileExtra: "DEMOS_SERVE=tailscale\n" });
+	try {
+		const result = mac.install();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		// The Mac App Store edition of Tailscale cannot serve a folder from disk, and it can
+		// forward a path to a server, which is what the login job above runs (fac-3mz.10).
+		assert.equal(logOf(mac.logs.tailscale).trim(), `serve --bg --set-path /demos http://127.0.0.1:${demosPort}`);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("a second install leaves one demo job and one tailnet entry", () => {
+	const mac = makeMac({ profile: squashProfile, profileExtra: "DEMOS_SERVE=tailscale\n" });
+	try {
+		assert.equal(mac.install().status, 0);
+		const afterFirst = logOf(mac.logs.launchctl);
+		assert.equal(mac.install().status, 0);
+
+		const serve = `serve --bg --set-path /demos http://127.0.0.1:${demosPort}`;
+		assert.deepEqual(logOf(mac.logs.tailscale).trim().split("\n"), [serve, serve], "both installs set the same path to the same target, so the tailnet holds one entry");
+		assert.equal(afterFirst.match(/bootstrap gui\/\d+ .*factory\.demos\.plist/g)?.length, 1, "the first install loads the job once");
+		const second = logOf(mac.logs.launchctl).slice(afterFirst.length);
+		assert.doesNotMatch(second, /(bootout|bootstrap) gui\/\d+.*factory\.demos/, "a second install leaves the running server alone");
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("without DEMOS_SERVE install starts no demo job and publishes nothing", () => {
 	const mac = makeMac({ profile: squashProfile });
 	try {
 		const result = mac.install();
 		assert.equal(result.status, 0, result.stderr || result.stdout);
 
+		assert.equal(existsSync(join(mac.home, "Library", "LaunchAgents", "factory.demos.plist")), false, "no demo job is written");
+		assert.doesNotMatch(logOf(mac.logs.launchctl), /factory\.demos/, "no demo job is loaded");
 		assert.equal(logOf(mac.logs.tailscale), "", "tailscale is never called");
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });

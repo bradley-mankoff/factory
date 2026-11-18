@@ -39,6 +39,11 @@ archon_version=0.14.0
 pi_version=1.3.0
 bridge=pi-claude-bridge@0.9.3
 library_repo=https://github.com/bradley-mankoff/archon-workflows.git
+# The port the local server for the demo folder listens on, on the loopback address alone.
+# The login job factory.demos and the tailscale serve command that forwards /demos to it
+# both read it from here, so the two cannot name different ports (fac-3mz.10). 8793 was free
+# on this Mac's tailnet when the server was added.
+demos_port=8793
 claw=$HOME/.openclaw/workspace-factoryclaw
 plain_voice=$HOME/Developer/personal_code/pi-plain-voice/skills/plain-voice
 
@@ -224,20 +229,48 @@ WRAPPER
 
 # Publishes the Factory's demo folder on this Mac's own tailnet when the Profile asks, so
 # a gate's video link, <DEMOS_URL>/<run id>.mp4, plays wherever the Human taps it
-# (fac-3mz.7). DEMOS_SERVE=tailscale serves the folder at the /demos path of the Mac's
-# Tailscale address with tailscale serve, which only the tailnet can reach; without that
-# key install publishes nothing. The Tailscale CLI ships inside the Mac app and is often
-# not on PATH, so the app's own binary is used when PATH has none, as bin/land finds gh.
-# Serving the same path twice changes nothing, so a second install is safe.
+# (fac-3mz.7). DEMOS_SERVE=tailscale starts a login job that serves the folder on the
+# loopback address at the pinned port, and forwards the /demos path of the Mac's Tailscale
+# address to it with tailscale serve, which only the tailnet can reach; without that key
+# install publishes nothing. The Mac App Store and standalone editions of Tailscale cannot
+# serve a folder from disk ("Path serving is not supported on macOS due to sandbox
+# restrictions"), but both forward a path to a local server, which is how this Mac already
+# serves its other services (fac-3mz.10). Setting the same path again changes nothing, so a
+# second install is safe. The Tailscale CLI ships inside the Mac app and is often not on
+# PATH, so the app's own binary is used when PATH has none, as bin/land finds gh.
 publish_demos() {
 	[ "${DEMOS_SERVE-}" = tailscale ] || return 0
+	demos_job
 	tailscale_bin=$(command -v tailscale 2>/dev/null) || tailscale_bin=/Applications/Tailscale.app/Contents/MacOS/Tailscale
 	[ -x "$tailscale_bin" ] || {
 		echo "skipped publishing demo videos: no tailscale command on PATH or in /Applications/Tailscale.app" >&2
 		return 0
 	}
-	"$tailscale_bin" serve --bg --set-path /demos "$factory/demos" >/dev/null ||
-		echo "note: tailscale could not publish the demo folder; run: tailscale serve --bg --set-path /demos $factory/demos" >&2
+	"$tailscale_bin" serve --bg --set-path /demos "http://127.0.0.1:$demos_port" >/dev/null ||
+		echo "note: tailscale could not publish the demo folder; run: tailscale serve --bg --set-path /demos http://127.0.0.1:$demos_port" >&2
+}
+
+# The local web server for the demo folder, as its own launchd job started at login.
+# Tailscale on this Mac forwards /demos to it (publish_demos), so a gate's video plays from
+# any screen without the video leaving the tailnet. bin/demos-serve binds the loopback
+# address and answers Range requests, which Safari on iPhone needs (fac-3mz.10).
+demos_job() {
+	new=$(cat <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key><string>factory.demos</string>
+	<key>ProgramArguments</key>
+	<array><string>$factory/bin/demos-serve</string><string>$factory/demos</string><string>$demos_port</string></array>
+	<key>EnvironmentVariables</key>
+	<dict><key>PATH</key><string>/opt/homebrew/bin:$HOME/.local/bin:$standard_path</string></dict>
+	<key>RunAtLoad</key><true/>
+</dict>
+</plist>
+PLIST
+)
+	login_job factory.demos "$new"
 }
 
 # FactoryClaw's files and OpenClaw settings, under the outer layer this Mac's Profile
