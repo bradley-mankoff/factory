@@ -3,8 +3,9 @@
  * Bead or Epic it concerns as a comment plus the `waiting-on-human` label, and `factory
  * asks` is the Mac's one list of them. The seam is the command: it runs in a temporary
  * HOME whose projects file names temporary repos, with a stand-in for the Beads CLI on
- * PATH that answers `list` and `comments` from fixtures and writes down every call.
- * Nothing here looks inside bin/factory.
+ * PATH that answers `list` and `comments` from fixtures and writes down every call, and
+ * that a test can tell to refuse a verb the way bd refuses a mistyped Bead. Nothing here
+ * looks inside bin/factory.
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -18,8 +19,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const factoryCommand = join(root, "bin", "factory");
 
 /** What the stand-in bd answers for one project: its Beads carrying the label, and each
- * one's comments in the shape `bd comments --json` prints. */
-type Project = { list: { id: string }[]; comments: Record<string, { text: string }[]> };
+ * one's comments in the shape `bd comments --json` prints. A project carrying a warning
+ * has bd print that line on stdout instead of its JSON, as a bd with a broken setup does. */
+type Project = { list: { id: string }[]; comments: Record<string, { text: string }[]>; warning?: string };
 
 /** The text of one Ask's comment, as `factory ask` writes it and `factory asks` reads it. */
 const askComment = (kind: string, bead: string, question: string, asked: string): string =>
@@ -36,13 +38,16 @@ type Mac = {
 	project: (name: string) => string;
 	projects: (repos: string[]) => void;
 	beads: (fixture: Record<string, Project>) => void;
+	/** Makes the stand-in bd refuse these verbs, as bd refuses a Bead it cannot find. */
+	failOn: (verbs: string[]) => void;
 	run: (args: string[], cwd?: string) => { status: number | null; stdout: string; stderr: string };
 	calls: () => string[][];
 };
 
 /**
  * One temporary Mac: a HOME holding the projects file, project folders, and a stand-in
- * `bd` that records every call and answers `list` and `comments` from the fixture file.
+ * `bd` that records every call, answers `list` and `comments` from the fixture file, and
+ * refuses the verbs a test names in `failOn`.
  */
 const makeMac = (): Mac => {
 	const dir = mkdtempSync(join(tmpdir(), "factory-asks-"));
@@ -60,15 +65,20 @@ const fs = require("node:fs");
 const args = process.argv.slice(2);
 fs.appendFileSync(process.env.BD_LOG, JSON.stringify(args) + "\\n");
 const at = args.indexOf("-C");
+const repo = at === -1 ? "." : args[at + 1];
+const rest = at === -1 ? args : args.slice(at + 2);
+if ((process.env.BD_FAIL || "").split(",").includes(rest[0])) {
+	process.stderr.write("bd: error: no Bead matches '" + (rest[2] || rest[0]) + "'\\n");
+	process.exit(1);
+}
 if (at === -1) process.exit(0);
-const repo = args[at + 1];
-const rest = args.slice(at + 2);
 const project = JSON.parse(fs.readFileSync(process.env.BD_FIXTURE, "utf8"))[repo];
 if (!project) {
 	process.stderr.write("bd: no Beads database in " + repo + "\\n");
 	process.exit(1);
 }
-if (rest[0] === "list") process.stdout.write(JSON.stringify(project.list) + "\\n");
+if (project.warning) process.stdout.write(project.warning + "\\n");
+else if (rest[0] === "list") process.stdout.write(JSON.stringify(project.list) + "\\n");
 else if (rest[0] === "comments") process.stdout.write(JSON.stringify(project.comments[rest[1]] || []) + "\\n");
 `,
 		{ mode: 0o755 },
@@ -80,6 +90,7 @@ else if (rest[0] === "comments") process.stdout.write(JSON.stringify(project.com
 		PATH: `${bin}:${process.env.PATH ?? ""}`,
 		BD_LOG: log,
 		BD_FIXTURE: fixtureFile,
+		BD_FAIL: "",
 	};
 	const project = (name: string) => {
 		const repo = join(dir, "projects", name);
@@ -88,6 +99,9 @@ else if (rest[0] === "comments") process.stdout.write(JSON.stringify(project.com
 	};
 	const projects = (repos: string[]) => writeFileSync(join(home, ".config", "factory", "projects"), `${repos.join("\n")}\n`);
 	const beads = (fixture: Record<string, Project>) => writeFileSync(fixtureFile, `${JSON.stringify(fixture)}\n`);
+	const failOn = (verbs: string[]) => {
+		env.BD_FAIL = verbs.join(",");
+	};
 	const run = (args: string[], cwd = home) => spawnSync(factoryCommand, args, { cwd, encoding: "utf8", env });
 	const calls = () => {
 		const text = existsSync(log) ? readFileSync(log, "utf8") : "";
@@ -96,7 +110,7 @@ else if (rest[0] === "comments") process.stdout.write(JSON.stringify(project.com
 			.filter(Boolean)
 			.map((record) => JSON.parse(record) as string[]);
 	};
-	return { dir, home, project, projects, beads, run, calls };
+	return { dir, home, project, projects, beads, failOn, run, calls };
 };
 
 test("factory ask puts a dated Ask on the Bead and labels it waiting on the Human", () => {
@@ -284,6 +298,85 @@ test("a project with no open Asks and a project folder that is gone list nothing
 		const json = mac.run(["asks", "--json"]);
 		assert.equal(json.status, 0, json.stderr);
 		assert.deepEqual(JSON.parse(json.stdout), [], "the JSON list is empty");
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("factory ask fails with a factory: line naming the Bead when bd refuses the comment", () => {
+	const mac = makeMac();
+	try {
+		const repo = mac.project("calc");
+		mac.failOn(["comments"]);
+
+		const result = mac.run(["ask", "fac-nope", "decision", "Which total?"], repo);
+
+		assert.notEqual(result.status, 0, "the command fails with bd");
+		assert.match(result.stderr, /^factory: .*fac-nope/m, "the failure names the Bead");
+		assert.doesNotMatch(result.stderr, /Traceback/, "the command reports in its own words");
+		assert.deepEqual(
+			mac.calls().filter((call) => call[0] !== "comments"),
+			[],
+			"a Bead with no Ask comment is not labelled",
+		);
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("factory asks skips a project whose bd answer is not JSON and still lists the rest", () => {
+	const mac = makeMac();
+	try {
+		const calc = mac.project("calc");
+		const news = mac.project("news");
+		mac.projects([calc, news]);
+		mac.beads({
+			[calc]: {
+				list: [{ id: "fac-1" }],
+				comments: { "fac-1": [{ text: askComment("decision", "fac-1", "Which total?", "2026-11-18 09:05") }] },
+			},
+			[news]: { list: [], comments: {}, warning: "bd: warning: no database yet" },
+		});
+
+		const result = mac.run(["asks", "--json"]);
+
+		assert.equal(result.status, 0, result.stderr);
+		assert.deepEqual(
+			JSON.parse(result.stdout).map((ask: { bead: string }) => ask.bead),
+			["fac-1"],
+			"the project bd could not answer for contributes nothing",
+		);
+		assert.match(result.stderr, /news/, "the skipped project is named");
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("factory asks --project takes the repo to run in, so --project . finds that repo", () => {
+	const mac = makeMac();
+	try {
+		const calc = mac.project("calc");
+		const news = mac.project("news");
+		mac.projects([calc, news]);
+		mac.beads({
+			[calc]: {
+				list: [{ id: "fac-1" }],
+				comments: { "fac-1": [{ text: askComment("decision", "fac-1", "Which total?", "2026-11-18 09:05") }] },
+			},
+			[news]: {
+				list: [{ id: "news-7" }],
+				comments: { "news-7": [{ text: askComment("grilling", "news-7", "Which feeds?", "2026-11-17 16:40") }] },
+			},
+		});
+
+		const result = mac.run(["asks", "--json", "--project", "."], news);
+
+		assert.equal(result.status, 0, result.stderr);
+		assert.deepEqual(
+			JSON.parse(result.stdout).map((ask: { bead: string }) => ask.bead),
+			["news-7"],
+			"the repo the command runs in is the one project listed",
+		);
 	} finally {
 		rmSync(mac.dir, { recursive: true, force: true });
 	}

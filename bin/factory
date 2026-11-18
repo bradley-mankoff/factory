@@ -18,6 +18,10 @@ folder that is gone, or a project with no open Asks, contributes nothing and doe
 the command; a project whose Beads database cannot be read is reported and skipped, so one
 broken project never hides the rest.
 
+`factory ask` writes the comment first and the label second. When bd refuses the Bead (a
+mistyped id, a folder with no Beads) the command ends with a factory: line naming the Bead
+and writes nothing else, so a Bead that is labelled always carries an Ask to read.
+
 Everything here is mechanical: a comment, a label and a list, with no model call.
 """
 import json
@@ -34,18 +38,32 @@ USAGE = "usage: factory ask <bead id> <kind> <question> | factory asks [--json] 
 FIELDS = {"Asked: ": "asked", "How to answer: ": "how_to_answer", "Question: ": "question"}
 
 
-def bd(*args):
-    """Runs the Beads CLI in the current folder, passing its own failure message on."""
-    return subprocess.run(["bd", *args], check=True)
+def bd(bead, *args):
+    """Runs the Beads CLI in the current folder, passing its own failure message on.
+
+    bd refuses a mistyped Bead id or a folder with no Beads; that is an ordinary refusal,
+    not a crash, so the command ends with a factory: line naming the Bead.
+    """
+    result = subprocess.run(["bd", *args], capture_output=True, text=True)
+    if result.returncode != 0:
+        sys.stderr.write(result.stderr)
+        sys.exit(f"factory: could not write the Ask on {bead}: bd {' '.join(args[:2])} failed")
 
 
 def bd_json(*args):
-    """Runs the Beads CLI and reads its JSON, or None when it could not answer."""
+    """Runs the Beads CLI and reads its JSON, or None when it could not answer.
+
+    bd may refuse, or print something other than its JSON on stdout (a warning, say). Both
+    are a bd that could not answer, so the caller reports and skips that project.
+    """
     result = subprocess.run(["bd", *args], capture_output=True, text=True)
     if result.returncode != 0:
         sys.stderr.write(result.stderr)
         return None
-    return json.loads(result.stdout)
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
 
 
 def ask(argv):
@@ -66,8 +84,8 @@ def ask(argv):
         ]
     )
     # The comment first, so the label never advertises an Ask with no fields to read.
-    bd("comments", "add", bead, comment)
-    bd("label", "add", bead, LABEL)
+    bd(bead, "comments", "add", bead, comment)
+    bd(bead, "label", "add", bead, LABEL)
     print(f"factory: {bead} is now an Ask waiting on the Human: {kind}.")
 
 
@@ -91,21 +109,31 @@ def parse_ask(text):
     return fields if all(key in fields for key in ("kind", "asked", "how_to_answer", "question")) else None
 
 
+def same_repo(one, other):
+    """True when two paths name the same folder, with ~, a relative path and a link resolved.
+
+    A session's working directory comes back as /private/var/... on a Mac where the projects
+    file names /var/..., and --project . names whatever folder the caller stands in, so the
+    two spellings must be resolved before they are compared.
+    """
+    return os.path.realpath(os.path.expanduser(one)) == os.path.realpath(os.path.expanduser(other))
+
+
 def project_asks(repo, wanted):
     """The open Asks of one project, read from its Beads; a Beads it cannot read is skipped."""
     if not os.path.isdir(repo):
         return []
     project = os.path.basename(repo)
-    if wanted is not None and os.path.normpath(os.path.expanduser(wanted)) != os.path.normpath(repo):
+    if wanted is not None and not same_repo(wanted, repo):
         return []
     listed = bd_json("-C", repo, "list", "--label", LABEL, "--json", "--limit", "0")
-    if listed is None:
+    if not isinstance(listed, list):
         print(f"factory: skipped {project}: bd could not read its Beads", file=sys.stderr)
         return []
     asks = []
     for bead in listed:
         comments = bd_json("-C", repo, "comments", bead["id"], "--json")
-        if comments is None:
+        if not isinstance(comments, list):
             print(f"factory: skipped {project} {bead['id']}: bd could not read its comments", file=sys.stderr)
             continue
         # The latest Ask's comment holds the Ask; a later answer's comment is not one.
