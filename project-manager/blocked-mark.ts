@@ -12,7 +12,7 @@
 import { spawnSync } from "node:child_process";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-/** The source herdr files this state under, so its own pi report keeps its own account. */
+/** The source herdr files this state under, which is not herdr's own `herdr:pi`. */
 const SOURCE = "factory:asks";
 
 /**
@@ -23,17 +23,20 @@ const SOURCE = "factory:asks";
  */
 const AFTER_PI_MS = 250;
 
-/** The project's open Asks, or undefined when `factory` could not answer. */
-function openAsks(repo: string): unknown[] | undefined {
+/**
+ * Whether the project has an open Ask. A `factory` that fails, is missing or answers with
+ * something other than the Asks list counts as none, so the turn ends as it did before.
+ */
+function hasOpenAsk(repo: string): boolean {
 	const answer = spawnSync("factory", ["asks", "--project", repo, "--open", "--json"], {
 		encoding: "utf8",
 	});
-	if (answer.error || answer.status !== 0) return undefined;
+	if (answer.error || answer.status !== 0) return false;
 	try {
-		const asks = JSON.parse(answer.stdout);
-		return Array.isArray(asks) ? asks : undefined;
+		const asks: unknown = JSON.parse(answer.stdout);
+		return Array.isArray(asks) && asks.length > 0;
 	} catch {
-		return undefined;
+		return false;
 	}
 }
 
@@ -44,8 +47,7 @@ export default function blockedMark(pi: ExtensionAPI): void {
 		// The handler returns at once: pi awaits each handler in turn, so work done inside it
 		// would keep pi's own report from being sent at all until after this one.
 		setTimeout(() => {
-			const asks = openAsks(ctx.cwd);
-			if (!asks || asks.length === 0) return;
+			if (!hasOpenAsk(ctx.cwd)) return;
 			spawnSync("herdr", ["pane", "report-agent", pane, "--source", SOURCE, "--agent", "pi", "--state", "blocked"]);
 		}, AFTER_PI_MS);
 	});

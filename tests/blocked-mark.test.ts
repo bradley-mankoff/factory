@@ -43,18 +43,18 @@ const OPEN_ASK = [
 const ANSWERED_ASK = [{ ...OPEN_ASK[0], status: "answered" }];
 
 type Fixtures = {
-	/** What `factory asks --json` lists without --open: every Ask of the project. */
-	listed: unknown[];
+	/** The project's Asks, as `factory asks --json` lists them; `--open` leaves the answered ones out. */
+	asks: unknown[];
+	/** What the stand-in for `factory` prints instead of the open Asks, raw: a failed read. */
+	prints?: string;
 	/** What the stand-in for `factory` exits with, when a test wants it to fail. */
 	factoryStatus?: number;
 	/** Leave `factory` off PATH, the way a Mac without the command would have it. */
 	withoutFactory?: boolean;
-	/** What the stand-in for `factory` prints instead of the open Asks, raw. */
-	answers?: string;
 	/** Load the stand-in for pi's own turn-end report, as a Project Manager's session has one. */
-	piReport?: boolean;
-	/** Start pi outside a herdr pane, where the session has no HERDR_PANE_ID. */
-	noPane?: boolean;
+	piTurnEndReport?: boolean;
+	/** Start pi outside herdr, where the session has no HERDR_PANE_ID. */
+	outsideHerdr?: boolean;
 };
 
 type Machine = {
@@ -65,6 +65,8 @@ type Machine = {
 	factoryLog: string;
 	herdrLog: string;
 	providerLog: string;
+	/** What this Mac was built with, so the pi session started on it holds the same case. */
+	fixtures: Fixtures;
 };
 
 /** One temporary Mac for one test: a home, a pi folder, a project repo and the two
@@ -81,12 +83,9 @@ function makeMachine(fixtures: Fixtures): Machine {
 	const factoryLog = path.join(root, "factory.log");
 	const herdrLog = path.join(root, "herdr.log");
 
-	fs.writeFileSync(path.join(root, "listed.json"), `${JSON.stringify(fixtures.listed)}\n`);
-	fs.writeFileSync(
-		path.join(root, "open.json"),
-		fixtures.answers ??
-			`${JSON.stringify(fixtures.listed.filter((ask) => (ask as { status: string }).status === "open"))}\n`,
-	);
+	// The open Asks are what the extension asks `factory` for, and the only call it makes.
+	const open = fixtures.asks.filter((ask) => (ask as { status: string }).status === "open");
+	fs.writeFileSync(path.join(root, "asks.json"), fixtures.prints ?? `${JSON.stringify(open)}\n`);
 	if (!fixtures.withoutFactory) {
 		const factory = path.join(bin, "factory");
 		fs.writeFileSync(
@@ -94,10 +93,7 @@ function makeMachine(fixtures: Fixtures): Machine {
 			`#!/bin/sh
 printf '%s\\n' "$*" >> "$FACTORY_LOG"
 [ "\${FACTORY_STATUS:-0}" = 0 ] || exit "\${FACTORY_STATUS}"
-case " $* " in
-  *" --open "*) cat "$FACTORY_OPEN" ;;
-  *) cat "$FACTORY_LISTED" ;;
-esac
+cat "$FACTORY_ASKS"
 `,
 		);
 		fs.chmodSync(factory, 0o755);
@@ -114,6 +110,7 @@ esac
 		factoryLog,
 		herdrLog,
 		providerLog: path.join(root, "requests.jsonl"),
+		fixtures,
 	};
 }
 
@@ -130,7 +127,7 @@ function piOnPath(): string {
 
 /** The environment pi runs in: the stand-ins first on PATH, so `herdr` always resolves to the
  * stand-in, and no folder with a real `factory`, so the Mac's Asks are never read. */
-function childEnv(machine: Machine, fixtures: Fixtures): NodeJS.ProcessEnv {
+function childEnv(machine: Machine): NodeJS.ProcessEnv {
 	const bin = path.join(machine.root, "bin");
 	const inherited = (process.env.PATH ?? "")
 		.split(":")
@@ -147,14 +144,13 @@ function childEnv(machine: Machine, fixtures: Fixtures): NodeJS.ProcessEnv {
 		PI_TELEMETRY: "0",
 		HERDR_PANE_ID: pane,
 		FACTORY_LOG: machine.factoryLog,
-		FACTORY_LISTED: path.join(machine.root, "listed.json"),
-		FACTORY_OPEN: path.join(machine.root, "open.json"),
-		FACTORY_STATUS: String(fixtures.factoryStatus ?? 0),
+		FACTORY_ASKS: path.join(machine.root, "asks.json"),
+		FACTORY_STATUS: String(machine.fixtures.factoryStatus ?? 0),
 		HERDR_LOG: machine.herdrLog,
 		REPLY_TEST_LOG: machine.providerLog,
 	};
 	// A session outside herdr has no pane id at all, so the extension finds no pane to mark.
-	if (fixtures.noPane) delete child.HERDR_PANE_ID;
+	if (machine.fixtures.outsideHerdr) delete child.HERDR_PANE_ID;
 	return child;
 }
 
@@ -167,9 +163,9 @@ type Pi = {
 
 /** A pi session in RPC mode with the extension under test, the reply provider and, when a
  * test asks, a stand-in for pi's own turn-end report. */
-function startPi(machine: Machine, fixtures: Fixtures): Pi {
+function startPi(machine: Machine): Pi {
 	const extensions = [blockedMark, testProvider];
-	if (fixtures.piReport) extensions.push(path.join(repoRoot, "tests", "fixtures", "pi-turn-end-report.ts"));
+	if (machine.fixtures.piTurnEndReport) extensions.push(path.join(repoRoot, "tests", "fixtures", "pi-turn-end-report.ts"));
 	const child: ChildProcess = spawn(
 		piOnPath(),
 		[
@@ -184,13 +180,12 @@ function startPi(machine: Machine, fixtures: Fixtures): Pi {
 			"--model",
 			"reply-test/reply",
 		],
-		{ cwd: machine.repo, stdio: ["pipe", "pipe", "pipe"], env: childEnv(machine, fixtures) },
+		{ cwd: machine.repo, stdio: ["pipe", "pipe", "pipe"], env: childEnv(machine) },
 	);
 
 	let buffer = "";
 	let stderr = "";
 	let settled = 0;
-	const waiting: Array<() => void> = [];
 	child.stdout!.setEncoding("utf8");
 	child.stdout!.on("data", (chunk: string) => {
 		buffer += chunk;
@@ -200,10 +195,7 @@ function startPi(machine: Machine, fixtures: Fixtures): Pi {
 			buffer = buffer.slice(newline + 1);
 			newline = buffer.indexOf("\n");
 			if (!line) continue;
-			if ((JSON.parse(line) as { type?: string }).type === "agent_settled") {
-				settled += 1;
-				waiting.splice(0).forEach((wake) => wake());
-			}
+			if ((JSON.parse(line) as { type?: string }).type === "agent_settled") settled += 1;
 		}
 	});
 	child.stderr!.setEncoding("utf8");
@@ -218,10 +210,7 @@ function startPi(machine: Machine, fixtures: Fixtures): Pi {
 		while (settled < wanted) {
 			if (child.exitCode !== null) throw new Error(`pi exited before the turn ended\n${stderr}`);
 			if (Date.now() - start > 20000) throw new Error(`pi's turn never settled\n${stderr}`);
-			await new Promise<void>((wake) => {
-				waiting.push(wake);
-				setTimeout(wake, 50);
-			});
+			await new Promise((resolve) => setTimeout(resolve, 20));
 		}
 	};
 
@@ -259,9 +248,22 @@ async function waitForLines(file: string, count: number, timeoutMs = 15000): Pro
 	}
 }
 
+/** How long a test waits before reading herdr when it expects nothing: the extension asks
+ * factory at the turn's end and reports from a timer after pi's own report, so a test that
+ * read herdr at once would miss a report still on its way. */
+const REPORT_WINDOW_MS = 1000;
+
+/** Runs one turn to its end, waits out the mark's window, and returns the lines herdr was
+ * told, in the order it was told them. */
+async function reportsAfterTurn(machine: Machine, pi: Pi): Promise<string[]> {
+	await pi.turn("plan the next Bead");
+	await new Promise((resolve) => setTimeout(resolve, REPORT_WINDOW_MS));
+	return lines(machine.herdrLog);
+}
+
 test("an open Ask marks the Project Manager's pane blocked", async () => {
-	const machine = makeMachine({ listed: OPEN_ASK });
-	const pi = startPi(machine, { listed: OPEN_ASK });
+	const machine = makeMachine({ asks: OPEN_ASK });
+	const pi = startPi(machine);
 	try {
 		await pi.turn("plan the next Bead");
 		const calls = await waitForLines(machine.herdrLog, 1);
@@ -276,11 +278,12 @@ test("an open Ask marks the Project Manager's pane blocked", async () => {
 	}
 });
 
-test("the check asks factory for this project's open Asks, so an answered Ask cannot mark the pane", async () => {
-	// The project is the session's folder, and `--open` is what leaves answered Asks out:
-	// the answer swaps waiting-on-human for answered, and blocked means the Human owes one.
-	const machine = makeMachine({ listed: ANSWERED_ASK });
-	const pi = startPi(machine, { listed: ANSWERED_ASK });
+test("the check asks factory for this project's open Asks", async () => {
+	// `--open` is what keeps an answered Ask from marking the pane, since the answer swaps
+	// waiting-on-human for answered and blocked means the Human owes one; the project is the
+	// session's folder.
+	const machine = makeMachine({ asks: OPEN_ASK });
+	const pi = startPi(machine);
 	try {
 		await pi.turn("plan the next Bead");
 		const calls = await waitForLines(machine.factoryLog, 1);
@@ -292,44 +295,35 @@ test("the check asks factory for this project's open Asks, so an answered Ask ca
 });
 
 test("with no Ask at all the pane is left to pi's own turn-end report", async () => {
-	const machine = makeMachine({ listed: [] });
-	const pi = startPi(machine, { listed: [] });
+	const machine = makeMachine({ asks: [], piTurnEndReport: true });
+	const pi = startPi(machine);
 	try {
-		await pi.turn("plan the next Bead");
-		await waitForLines(machine.factoryLog, 1);
-		await new Promise((resolve) => setTimeout(resolve, 500));
-
-		assert.deepEqual(lines(machine.herdrLog), [], "nothing was reported, so pi's own idle report stands");
+		assert.deepEqual(
+			await reportsAfterTurn(machine, pi),
+			[IDLE_REPORT],
+			"nothing was reported on the empty list, so pi's own idle report is the only one",
+		);
 	} finally {
 		await pi.stop();
 	}
 });
 
 test("an answered Ask does not mark the pane, because the Human owes no answer", async () => {
-	const machine = makeMachine({ listed: ANSWERED_ASK });
-	const pi = startPi(machine, { listed: ANSWERED_ASK });
+	const machine = makeMachine({ asks: ANSWERED_ASK });
+	const pi = startPi(machine);
 	try {
-		await pi.turn("plan the next Bead");
-		await waitForLines(machine.factoryLog, 1);
-		await new Promise((resolve) => setTimeout(resolve, 500));
-
-		assert.deepEqual(lines(machine.herdrLog), []);
+		assert.deepEqual(await reportsAfterTurn(machine, pi), []);
 	} finally {
 		await pi.stop();
 	}
 });
 
 test("a factory command that fails leaves pi's own report standing", async () => {
-	const fixtures = { listed: OPEN_ASK, factoryStatus: 1 };
-	const machine = makeMachine(fixtures);
-	const pi = startPi(machine, { ...fixtures, piReport: true });
+	const machine = makeMachine({ asks: OPEN_ASK, factoryStatus: 1, piTurnEndReport: true });
+	const pi = startPi(machine);
 	try {
-		await pi.turn("plan the next Bead");
-		await waitForLines(machine.factoryLog, 1);
-		await new Promise((resolve) => setTimeout(resolve, 500));
-
 		assert.deepEqual(
-			lines(machine.herdrLog),
+			await reportsAfterTurn(machine, pi),
 			[IDLE_REPORT],
 			"a failed read is not a reason to tell the Human he owes an answer, so pi's report is the only one",
 		);
@@ -339,42 +333,39 @@ test("a factory command that fails leaves pi's own report standing", async () =>
 });
 
 test("without the factory command the turn ends as it did before", async () => {
-	const fixtures = { listed: OPEN_ASK, withoutFactory: true };
-	const machine = makeMachine(fixtures);
-	const pi = startPi(machine, { ...fixtures, piReport: true });
+	const machine = makeMachine({ asks: OPEN_ASK, withoutFactory: true, piTurnEndReport: true });
+	const pi = startPi(machine);
 	try {
-		await pi.turn("plan the next Bead");
-		await waitForLines(machine.herdrLog, 1);
-		await new Promise((resolve) => setTimeout(resolve, 500));
-
-		assert.deepEqual(lines(machine.herdrLog), [IDLE_REPORT], "a Mac with no factory command still runs its Project Managers");
+		assert.deepEqual(
+			await reportsAfterTurn(machine, pi),
+			[IDLE_REPORT],
+			"a Mac with no factory command still runs its Project Managers",
+		);
 	} finally {
 		await pi.stop();
 	}
 });
 
-test("a factory answer that is not the Asks list reports nothing", async () => {
-	const fixtures = { listed: OPEN_ASK, answers: "bd: could not read the Beads database\n" };
-	const machine = makeMachine(fixtures);
-	const pi = startPi(machine, { ...fixtures, piReport: true });
+test("a factory that prints something other than the Asks list reports nothing", async () => {
+	const machine = makeMachine({
+		asks: OPEN_ASK,
+		prints: "bd: could not read the Beads database\n",
+		piTurnEndReport: true,
+	});
+	const pi = startPi(machine);
 	try {
-		await pi.turn("plan the next Bead");
-		await waitForLines(machine.factoryLog, 1);
-		await new Promise((resolve) => setTimeout(resolve, 500));
-
-		assert.deepEqual(lines(machine.herdrLog), [IDLE_REPORT]);
+		assert.deepEqual(await reportsAfterTurn(machine, pi), [IDLE_REPORT]);
 	} finally {
 		await pi.stop();
 	}
 });
 
 test("outside herdr, where there is no pane to mark, the project's Asks are not read", async () => {
-	const fixtures = { listed: OPEN_ASK, noPane: true };
-	const machine = makeMachine(fixtures);
-	const pi = startPi(machine, fixtures);
+	const machine = makeMachine({ asks: OPEN_ASK, outsideHerdr: true });
+	const pi = startPi(machine);
 	try {
 		await pi.turn("plan the next Bead");
-		await new Promise((resolve) => setTimeout(resolve, 750));
+		await new Promise((resolve) => setTimeout(resolve, REPORT_WINDOW_MS));
 
 		assert.deepEqual(lines(machine.factoryLog), [], "nothing could be marked, so nothing is read");
 		assert.deepEqual(lines(machine.herdrLog), []);
@@ -388,8 +379,8 @@ test("the blocked report reaches herdr after pi's own turn-end report", async ()
 	// report that arrived first would be overwritten by pi's idle one at the same turn end.
 	// The stand-in for pi's report loads after the extension, as herdr's integration does in
 	// a Project Manager's session.
-	const machine = makeMachine({ listed: OPEN_ASK });
-	const pi = startPi(machine, { listed: OPEN_ASK, piReport: true });
+	const machine = makeMachine({ asks: OPEN_ASK, piTurnEndReport: true });
+	const pi = startPi(machine);
 	try {
 		await pi.turn("plan the next Bead");
 		const calls = await waitForLines(machine.herdrLog, 2);
