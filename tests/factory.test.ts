@@ -9,6 +9,8 @@
  * PATH answers `workflow attention` and `workflow get` from fixtures, writes down every
  * call in the folder it ran in, and accepts `workflow approve` and `workflow reject`. A
  * Notice lands in the temporary HOME's notices folder, written by the real bin/tell-pm.
+ * A test that needs a worktree makes a real git repo in the temporary folder and adds a
+ * linked worktree of it, because only git can say which checkout of a repo is the main one.
  * Nothing here looks inside bin/factory.
  */
 import assert from "node:assert/strict";
@@ -98,15 +100,18 @@ const writeFixture = (file: string, fixture: Record<string, unknown>) => {
 	writeFileSync(file, `${JSON.stringify(Object.fromEntries(resolved))}\n`);
 };
 
+/** Runs git in a folder, and fails the test with git's own words when it refuses. */
+const git = (folder: string, ...args: string[]) => {
+	const result = spawnSync("git", ["-C", folder, ...args], { encoding: "utf8" });
+	assert.equal(result.status, 0, result.stderr);
+};
+
 /** Makes a folder a real git repo with one commit, so a linked worktree can be added of it.
  * The commit carries an identity of its own, so the test never borrows the Mac's. */
-const gitRepo = (repo: string) => {
-	const git = (...args: string[]) => {
-		const result = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8" });
-		assert.equal(result.status, 0, result.stderr);
-	};
-	git("init", "--quiet");
+const makeGitRepo = (repo: string) => {
+	git(repo, "init", "--quiet");
 	git(
+		repo,
 		"-c",
 		"user.name=Factory Test",
 		"-c",
@@ -121,9 +126,8 @@ const gitRepo = (repo: string) => {
 
 /** Adds a linked worktree of the repo at the folder, which git leaves out of the repo's own
  * folder, the way a Run's worktree sits beside its main checkout. */
-const linkedWorktree = (repo: string, folder: string) => {
-	const result = spawnSync("git", ["-C", repo, "worktree", "add", "--quiet", "--detach", folder], { encoding: "utf8" });
-	assert.equal(result.status, 0, result.stderr);
+const addLinkedWorktree = (repo: string, folder: string) => {
+	git(repo, "worktree", "add", "--quiet", "--detach", folder);
 };
 
 /** The JSON lines one stand-in tool wrote, as the values it recorded. */
@@ -517,9 +521,9 @@ test("factory asks --project lists a project's Asks from a linked worktree, as f
 	const mac = makeMac();
 	try {
 		const calc = mac.project("calc");
-		gitRepo(calc);
+		makeGitRepo(calc);
 		const worktree = join(mac.dir, "worktrees", "calc-build");
-		linkedWorktree(calc, worktree);
+		addLinkedWorktree(calc, worktree);
 		// The projects file names the main checkout, as a Mac whose Profile lands Runs in
 		// worktrees does, so the worktree itself is not a project on its own.
 		mac.projects([calc]);
