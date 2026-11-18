@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The factory command: the one place the Mac's Asks live and are read (fac-3mz.1).
+"""The factory command: the one place the Mac's Asks live and are read (fac-3mz.1, fac-3mz.2).
 
 An Ask is one thing waiting on the Human (GLOSSARY.md): a Decision, a grilling round or a
 Spec to review. It is held in state the Factory already has: a comment on the Bead or Epic
@@ -8,19 +8,30 @@ it concerns, carrying the kind, the question in plain words and how to answer, p
 comment is where their fields come from. A gate is held in Archon's queue and joins this
 list in fac-3mz.3.
 
-    factory ask <bead id> <kind> <question>     put an Ask on a Bead
-    factory asks [--json] [--project <repo>]    list every open Ask across the Mac
+    factory ask <bead id> <kind> <question>              put an Ask on a Bead
+    factory answer <bead id> <words>                     record the Human's answer
+    factory asks [--json] [--open] [--project <repo>]    list the Mac's Asks
 
-`factory asks` reads the projects in ~/.config/factory/projects and lists each open Ask
-with its project, kind, Bead id, question, how to answer and when it was asked. Its JSON
-form is what screens such as archon-bar read, so they never reimplement the list. A listed
-folder that is gone, or a project with no open Asks, contributes nothing and does not fail
-the command; a project whose Beads database cannot be read is reported and skipped, so one
-broken project never hides the rest.
+`factory asks` reads the projects in ~/.config/factory/projects and lists each Ask with its
+project, kind, Bead, status, question, how to answer and when it was asked: the open Asks,
+and the answered ones beside them until their Project Manager acts on the answer and
+removes the label, so an answer whose Notice was lost still shows. --open leaves the
+answered ones out. Its JSON form is what screens such as archon-bar read, so they never
+reimplement the list. A listed folder that is gone, or a project with no Asks, contributes
+nothing and does not fail the command; a project whose Beads database cannot be read is
+reported and skipped, so one broken project never hides the rest.
 
 `factory ask` writes the comment first and the label second. When bd refuses the Bead (a
 mistyped id, a folder with no Beads) the command ends with a factory: line naming the Bead
 and writes nothing else, so a Bead that is labelled always carries an Ask to read.
+
+`factory answer` is the only writer of answers. It runs in the project's folder, as a screen
+or the Project Manager does, and refuses a Bead that no longer carries `waiting-on-human`,
+so a late relay or a second tap changes nothing. On an open Ask it writes the dated answer
+first and swaps the label second, then leaves a Notice for the project's Project Manager
+through bin/tell-pm, the way a Run's ending does. A project whose .archon/.env names no
+FACTORY_PM_AGENT still records the answer, because the answer in state is what the Project
+Manager's status check finds, and reports the Notice it could not leave.
 
 Everything here is mechanical: a comment, a label and a list, with no model call.
 """
@@ -32,7 +43,11 @@ from datetime import datetime
 
 KINDS = ("decision", "grilling", "spec-review")
 LABEL = "waiting-on-human"
-USAGE = "usage: factory ask <bead id> <kind> <question> | factory asks [--json] [--project <repo>]"
+ANSWERED = "answered"
+USAGE = (
+    "usage: factory ask <bead id> <kind> <question> | factory answer <bead id> <words> "
+    "| factory asks [--json] [--open] [--project <repo>]"
+)
 # The prefix each field of an Ask's comment starts with, apart from the first line, which
 # names the kind. One map writes the comment and reads it back, so the two cannot drift.
 PREFIXES = {"asked": "Asked: ", "how_to_answer": "How to answer: ", "question": "Question: "}
@@ -44,7 +59,7 @@ def run_bd(*args):
 
 
 def bd_write(bead, *args):
-    """Runs a bd write that puts part of an Ask on the Bead, passing bd's message on.
+    """Runs a bd write on the Bead, passing bd's message on.
 
     bd refuses a mistyped Bead id or a folder with no Beads; that is an ordinary refusal,
     not a crash, so the command ends with a factory: line naming the Bead.
@@ -52,7 +67,7 @@ def bd_write(bead, *args):
     result = run_bd(*args)
     if result.returncode != 0:
         sys.stderr.write(result.stderr)
-        sys.exit(f"factory: could not write the Ask on {bead}: bd {' '.join(args[:2])} failed")
+        sys.exit(f"factory: could not write to {bead}: bd {' '.join(args[:2])} failed")
 
 
 def bd_json(*args):
@@ -69,6 +84,29 @@ def bd_json(*args):
         return json.loads(result.stdout)
     except json.JSONDecodeError:
         return None
+
+
+def env_value(path, key):
+    """One value from a KEY=value file such as a project's .archon/.env, or None.
+
+    A missing file, a missing key and a key the file leaves empty all answer None. The
+    value may be quoted, because install quotes a value carrying a space or a quote.
+    """
+    try:
+        with open(path) as handle:
+            lines = handle.read().splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        line = line.strip()
+        if line.startswith("export "):
+            line = line[len("export ") :]
+        if line.startswith(key + "="):
+            value = line[len(key) + 1 :]
+            if len(value) > 1 and value[0] == value[-1] and value[0] in "'\"":
+                value = value[1:-1]
+            return value or None
+    return None
 
 
 def ask(argv):
@@ -126,48 +164,63 @@ def same_repo(one, other):
 
 
 def project_asks(repo):
-    """The open Asks of one project, read from its Beads.
+    """One project's Asks, open ones first and then answered ones, read from its Beads.
 
     A Beads it cannot read is reported on stderr and skipped, so one broken project never
-    hides the rest.
+    hides the rest. A Bead carrying both labels is listed once, as open: the open label is
+    the one that still waits on the Human.
     """
     if not os.path.isdir(repo):
         return []
     project = os.path.basename(repo)
-    listed = bd_json("-C", repo, "list", "--label", LABEL, "--json", "--limit", "0")
-    if not isinstance(listed, list):
-        print(f"factory: skipped {project}: bd could not read its Beads", file=sys.stderr)
-        return []
     asks = []
-    for bead in listed:
-        comments = bd_json("-C", repo, "comments", bead["id"], "--json")
-        if not isinstance(comments, list):
-            print(f"factory: skipped {project} {bead['id']}: bd could not read its comments", file=sys.stderr)
+    seen = set()
+    skipped = False
+    for status, label in (("open", LABEL), ("answered", ANSWERED)):
+        listed = bd_json("-C", repo, "list", "--label", label, "--json", "--limit", "0")
+        if not isinstance(listed, list):
+            # Both label queries read the same database, so they fail together: report once.
+            if not skipped:
+                print(f"factory: skipped {project}: bd could not read its Beads", file=sys.stderr)
+                skipped = True
             continue
-        # The latest Ask's comment holds the Ask; a later answer's comment is not one.
-        for comment in reversed(comments):
-            fields = parse_ask(comment.get("text", ""))
-            if fields:
-                asks.append(
-                    {
-                        "project": project,
-                        "kind": fields["kind"],
-                        "bead": bead["id"],
-                        "question": fields["question"],
-                        "how_to_answer": fields["how_to_answer"],
-                        "asked": fields["asked"],
-                    }
-                )
-                break
+        for bead in listed:
+            if bead["id"] in seen:
+                continue
+            seen.add(bead["id"])
+            comments = bd_json("-C", repo, "comments", bead["id"], "--json")
+            if not isinstance(comments, list):
+                print(f"factory: skipped {project} {bead['id']}: bd could not read its comments", file=sys.stderr)
+                continue
+            # The latest Ask's comment holds the Ask; a later answer's comment is not one.
+            for comment in reversed(comments):
+                fields = parse_ask(comment.get("text", ""))
+                if fields:
+                    asks.append(
+                        {
+                            "project": project,
+                            "kind": fields["kind"],
+                            "bead": bead["id"],
+                            "status": status,
+                            "question": fields["question"],
+                            "how_to_answer": fields["how_to_answer"],
+                            "asked": fields["asked"],
+                        }
+                    )
+                    break
     return asks
 
 
 def asks(argv):
     as_json = False
+    open_only = False
     wanted = None
     while argv:
         if argv[0] == "--json":
             as_json = True
+            argv = argv[1:]
+        elif argv[0] == "--open":
+            open_only = True
             argv = argv[1:]
         elif argv[0] == "--project":
             if len(argv) < 2:
@@ -181,20 +234,64 @@ def asks(argv):
     if os.path.isfile(projects_file):
         with open(projects_file) as handle:
             repos = [line.strip() for line in handle if line.strip()]
-    open_asks = []
+    asks = []
     for repo in repos:
         if wanted is None or same_repo(wanted, repo):
-            open_asks.extend(project_asks(repo))
+            asks.extend(project_asks(repo))
+    if open_only:
+        asks = [ask for ask in asks if ask["status"] == "open"]
     if as_json:
-        print(json.dumps(open_asks, indent=2))
+        print(json.dumps(asks, indent=2))
         return
-    for index, open_ask in enumerate(open_asks):
+    for index, ask in enumerate(asks):
         if index:
             print()
-        print(f"{open_ask['project']}  {open_ask['bead']}  {open_ask['kind']}  asked {open_ask['asked']}")
-        for line in open_ask["question"].split("\n"):
+        print(f"{ask['project']}  {ask['bead']}  {ask['kind']}  {ask['status']}  asked {ask['asked']}")
+        for line in ask["question"].split("\n"):
             print(f"  {line}")
-        print(f"  How to answer: {open_ask['how_to_answer']}")
+        print(f"  How to answer: {ask['how_to_answer']}")
+
+
+def answer(argv):
+    """Records the Human's answer on an open Ask, then tells its Project Manager.
+
+    The answer goes into state first: an answer whose Notice goes missing is still on the
+    Bead, where the Project Manager's status check finds it. An Ask that is no longer open
+    is refused and nothing is written, so a late relay or a second tap changes nothing.
+    """
+    if len(argv) < 2:
+        sys.exit(f"factory: answer needs a Bead id and the Human's answer\n{USAGE}")
+    bead, *words = argv
+    words = " ".join(words).strip()
+    if not words:
+        sys.exit(f"factory: answer needs the Human's words for {bead}\n{USAGE}")
+    labels = bd_json("label", "list", bead, "--json")
+    if not isinstance(labels, list):
+        sys.exit(f"factory: could not read the labels on {bead}, so nothing was recorded")
+    if LABEL not in labels:
+        sys.exit(f"factory: {bead} carries no open Ask, so nothing was recorded")
+    answered = datetime.now().strftime("%Y-%m-%d %H:%M")
+    bd_write(bead, "comments", "add", bead, f"The Human's answer, {answered}: {words}")
+    # The answer is on the Bead before the label moves, so an answered Ask always carries it.
+    bd_write(bead, "label", "remove", bead, LABEL)
+    bd_write(bead, "label", "add", bead, ANSWERED)
+    # The answer is in state; now tell the project's Project Manager the way a Run's ending
+    # does, so it picks the answer up as a message of its own and acts on it.
+    repo = os.getcwd()
+    project = os.path.basename(os.path.realpath(repo))
+    pane = env_value(os.path.join(repo, ".archon", ".env"), "FACTORY_PM_AGENT")
+    if not pane:
+        sys.exit(
+            f"factory: recorded the Human's answer on {bead}, but {repo}/.archon/.env names no "
+            f"FACTORY_PM_AGENT, so {project}'s Project Manager was not told"
+        )
+    tell_pm = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tell-pm")
+    notice = f"The Human answered Ask {bead} in {project}: {words}"
+    told = subprocess.run([tell_pm, pane, notice], capture_output=True, text=True)
+    if told.returncode != 0:
+        sys.stderr.write(told.stderr)
+        sys.exit(f"factory: recorded the Human's answer on {bead}, but bin/tell-pm could not tell {pane}")
+    print(f"factory: recorded the Human's answer on {bead} and told {pane}.")
 
 
 def main(argv):
@@ -203,6 +300,8 @@ def main(argv):
     verb, rest = argv[0], argv[1:]
     if verb == "ask":
         ask(rest)
+    elif verb == "answer":
+        answer(rest)
     elif verb == "asks":
         asks(rest)
     else:
