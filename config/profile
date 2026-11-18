@@ -70,6 +70,16 @@ PROTECTED_TARGETS=
 # writes no FactoryClaw or OpenClaw file.
 OUTER_LAYER=factoryclaw
 
+# What factory ask tells about a new Ask, space-separated, and it may be empty, so a Mac
+# with no Telegram names none. The first connector is factoryclaw, which sends the Ask into
+# FactoryClaw's Telegram chat. A connector named here is a program, factory-connector-<name>,
+# beside bin/factory or on PATH; it reads the Ask as JSON on stdin and exits 0 once the
+# Human is reached. A failed send leaves a dated note on the Ask and is never retried, and
+# factory asks --failures counts those notes per connector. A Profile without this key
+# still works: it means factoryclaw when OUTER_LAYER=factoryclaw and no connectors
+# otherwise, as Profiles written before the key did.
+CONNECTORS=factoryclaw
+
 # What a Project Manager leads:
 #   project   one Project Manager per project, on the project's base branch
 #   worktree  one Project Manager per git worktree, each on that worktree's branch

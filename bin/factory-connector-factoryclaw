@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""The factoryclaw connector: sends a new Ask into FactoryClaw's Telegram chat.
+
+factory ask runs this program once for each connector the Mac's Profile names, handing the
+Ask to it as JSON on stdin (bin/factory says what the fields are). This connector reads the
+project's .archon/.env for the Project Manager's pane and FactoryClaw's Telegram chat, then
+sends the Ask with the same openclaw agent command the Project Manager's instructions use.
+It exits 0 when FactoryClaw took the message, and says why on stderr when it did not, so
+factory ask can leave a dated failure note on the Ask's Bead.
+"""
+import json
+import os
+import subprocess
+import sys
+
+
+def env_value(path, key):
+    """One value from a KEY=value file such as a project's .archon/.env, or None.
+
+    A missing file, a missing key and a key the file leaves empty all answer None. The value
+    may be quoted, because install quotes a value carrying a space or a quote.
+    """
+    try:
+        with open(path) as handle:
+            lines = handle.read().splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        line = line.strip()
+        if line.startswith(key + "="):
+            value = line[len(key) + 1 :]
+            if len(value) > 1 and value[0] == value[-1] and value[0] in "'\"":
+                value = value[1:-1]
+            return value or None
+    return None
+
+
+def main():
+    ask = json.load(sys.stdin)
+    repo = ask["repo"]
+    pane = ask.get("pane")
+    if not pane:
+        sys.exit(f"{repo}/.archon/.env names no FACTORY_PM_AGENT, so the Ask names no Project Manager")
+    session = env_value(os.path.join(repo, ".archon", ".env"), "FACTORYCLAW_SESSION")
+    if not session:
+        sys.exit(f"{repo}/.archon/.env names no FACTORYCLAW_SESSION, so FactoryClaw's chat is unknown")
+    message = f"From the {ask['project']} Project Manager (herdr pane {pane}): {ask['kind']} Ask {ask['bead']}: {ask['question']}"
+    if ask.get("how_to_answer"):
+        message += f" How to answer: {ask['how_to_answer']}"
+    try:
+        told = subprocess.run(
+            ["openclaw", "agent", "--session-key", session, "--deliver", "--message", message],
+            capture_output=True,
+            text=True,
+        )
+    except OSError as error:
+        sys.exit(f"openclaw could not run: {error}")
+    if told.returncode != 0:
+        sys.exit((told.stderr or told.stdout).strip() or f"openclaw agent exited with status {told.returncode}")
+
+
+if __name__ == "__main__":
+    main()

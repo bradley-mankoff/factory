@@ -60,10 +60,19 @@ type Mac = {
 	archon: (fixture: Record<string, ArchonProject>) => void;
 	/** Makes the stand-in bd refuse these verbs, as bd refuses a Bead it cannot find. */
 	failOn: (verbs: string[]) => void;
+	/** Writes the Mac's Profile, the file install ships and factory reads. */
+	profile: (lines: string[]) => void;
+	/** Writes a stub connector program on PATH, which records the Ask it is given and,
+	 * when `failure` is set, refuses with that message. */
+	connector: (name: string, failure?: string) => void;
 	run: (args: string[], cwd?: string) => { status: number | null; stdout: string; stderr: string };
 	calls: () => string[][];
 	/** Every call the stand-in Archon answered, with the folder it ran in. */
 	archonCalls: () => { args: string[]; cwd: string }[];
+	/** Every Ask the stub connector programs were given. */
+	connectorCalls: () => { name: string; ask: Record<string, unknown> }[];
+	/** Every call the stand-in openclaw answered. */
+	openclawCalls: () => string[][];
 	/** One Project Manager's Notice file as written, or nothing when it has none. */
 	notice: (pane: string) => string;
 	/** The Notice files the Mac holds, by Project Manager. */
@@ -103,6 +112,8 @@ const makeMac = (): Mac => {
 	const fixtureFile = join(dir, "beads.json");
 	const archonLog = join(dir, "archon-log");
 	const archonFixture = join(dir, "archon.json");
+	const connectorLog = join(dir, "connector-log");
+	const openclawLog = join(dir, "openclaw-log");
 	mkdirSync(join(home, ".config", "factory"), { recursive: true });
 	mkdirSync(bin, { recursive: true });
 	writeFileSync(fixtureFile, "{}\n");
@@ -141,6 +152,15 @@ if (project.warning) {
 } else if (verb === "label") {
 	process.stdout.write(JSON.stringify((project.labels || {})[rest[2]] || []) + "\\n");
 }
+`,
+		{ mode: 0o755 },
+	);
+
+	writeFileSync(
+		join(bin, "openclaw"),
+		`#!/usr/bin/env node
+const fs = require("node:fs");
+fs.appendFileSync(process.env.OPENCLAW_LOG, JSON.stringify(process.argv.slice(2)) + "\\n");
 `,
 		{ mode: 0o755 },
 	);
@@ -195,6 +215,8 @@ if (sub === "attention" && rest[0] && !rest[0].startsWith("--")) {
 		BD_FAIL: "",
 		ARCHON_LOG: archonLog,
 		ARCHON_FIXTURE: archonFixture,
+		CONNECTOR_LOG: connectorLog,
+		OPENCLAW_LOG: openclawLog,
 	};
 	// The project's .archon/.env is the one place a pane is named, so a test never inherits
 	// the pane of the shell it runs in.
@@ -220,16 +242,54 @@ if (sub === "attention" && rest[0] && !rest[0].startsWith("--")) {
 	const failOn = (verbs: string[]) => {
 		env.BD_FAIL = verbs.join(",");
 	};
+	const profile = (lines: string[]) => {
+		writeFileSync(join(home, ".config", "factory", "profile"), `${lines.join("\n")}\n`);
+	};
+	const connector = (name: string, failure?: string) => {
+		const refusal = failure ? `process.stderr.write(${JSON.stringify(`${failure}\n`)}); process.exit(1);` : "";
+		writeFileSync(
+			join(bin, `factory-connector-${name}`),
+			`#!/usr/bin/env node
+const fs = require("node:fs");
+let input = "";
+process.stdin.on("data", (chunk) => input += chunk);
+process.stdin.on("end", () => {
+	fs.appendFileSync(process.env.CONNECTOR_LOG, JSON.stringify({ name: ${JSON.stringify(name)}, ask: JSON.parse(input) }) + "\\n");
+	${refusal}
+});
+`,
+			{ mode: 0o755 },
+		);
+	};
 	const run = (args: string[], cwd = home) => spawnSync(factoryCommand, args, { cwd, encoding: "utf8", env });
 	const calls = () => readRecords(log) as string[][];
 	const archonCalls = () => readRecords(archonLog) as { args: string[]; cwd: string }[];
+	const connectorCalls = () => readRecords(connectorLog) as { name: string; ask: Record<string, unknown> }[];
+	const openclawCalls = () => readRecords(openclawLog) as string[][];
 	const noticesDir = join(home, ".local", "share", "factory", "notices");
 	const notice = (pane: string) => {
 		const file = join(noticesDir, `${pane}.md`);
 		return existsSync(file) ? readFileSync(file, "utf8") : "";
 	};
 	const notices = () => (existsSync(noticesDir) ? readdirSync(noticesDir) : []);
-	return { dir, project, projects, projectEnv, beads, archon, failOn, run, calls, archonCalls, notice, notices };
+	return {
+		dir,
+		project,
+		projects,
+		projectEnv,
+		beads,
+		archon,
+		failOn,
+		profile,
+		connector,
+		run,
+		calls,
+		archonCalls,
+		connectorCalls,
+		openclawCalls,
+		notice,
+		notices,
+	};
 };
 
 test("factory ask puts a dated Ask on the Bead and labels it waiting on the Human", () => {
@@ -889,6 +949,257 @@ test("factory ask records a gate's question on the Bead without the waiting-on-h
 		assert.equal(lines[0], "Ask: gate", "the comment names the gate");
 		assert.match(lines[1], /^Asked: \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/, "the record is dated");
 		assert.equal(lines[2], "Question: Taste and fit: does the total widget look right?");
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("factory ask tells each connector the Profile names the Ask as JSON", () => {
+	const mac = makeMac();
+	try {
+		const repo = mac.project("calc");
+		mac.profile(["CONNECTORS=first second"]);
+		mac.projectEnv(repo, ["FACTORY_PM_AGENT=pm-calc"]);
+		mac.connector("first");
+		mac.connector("second");
+
+		const result = mac.run(["ask", "fac-1", "decision", "Should the total round up?"], repo);
+
+		assert.equal(result.status, 0, result.stderr);
+		assert.deepEqual(
+			mac.connectorCalls().map((call) => call.name),
+			["first", "second"],
+			"each connector the Profile names is told, in its order",
+		);
+		const ask = mac.connectorCalls()[0].ask;
+		assert.deepEqual(
+			{
+				project: ask.project,
+				repo: ask.repo,
+				pane: ask.pane,
+				kind: ask.kind,
+				bead: ask.bead,
+				question: ask.question,
+				how_to_answer: ask.how_to_answer,
+			},
+			{
+				project: "calc",
+				repo: realpathSync(repo),
+				pane: "pm-calc",
+				kind: "decision",
+				bead: "fac-1",
+				question: "Should the total round up?",
+				how_to_answer: 'factory answer fac-1 "<your answer>"',
+			},
+			"the connector is told the Ask, its project and its Project Manager's pane",
+		);
+		assert.match(String(ask.asked), /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/, "the connector is told when the Ask was asked");
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("a Profile without CONNECTORS tells factoryclaw when FactoryClaw is the outer layer, sending the Ask to its Telegram chat", () => {
+	const mac = makeMac();
+	try {
+		const repo = mac.project("calc");
+		mac.profile(["OUTER_LAYER=factoryclaw"]);
+		mac.projectEnv(repo, ["FACTORY_PM_AGENT=pm-calc", "FACTORYCLAW_SESSION=agent:factoryclaw:telegram:direct:123"]);
+
+		const result = mac.run(["ask", "fac-1", "decision", "Should the total round up?"], repo);
+
+		assert.equal(result.status, 0, result.stderr);
+		const calls = mac.openclawCalls();
+		assert.equal(calls.length, 1, "FactoryClaw is told once");
+		const [command, ...args] = calls[0];
+		assert.equal(command, "agent", "the connector uses the openclaw agent command");
+		assert.deepEqual(
+			args.slice(0, 4),
+			["--session-key", "agent:factoryclaw:telegram:direct:123", "--deliver", "--message"],
+			"the Ask goes to the Telegram chat the project's .env names",
+		);
+		const message = args[4];
+		assert.match(message, /calc/, "the message names the project");
+		assert.match(message, /pm-calc/, "the message names the Project Manager's pane");
+		assert.match(message, /Should the total round up\?/, "the message carries the question");
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("a Profile without CONNECTORS tells nobody when there is no outer layer", () => {
+	const mac = makeMac();
+	try {
+		const repo = mac.project("calc");
+		mac.profile(["OUTER_LAYER=none"]);
+		mac.projectEnv(repo, ["FACTORY_PM_AGENT=pm-calc", "FACTORYCLAW_SESSION=agent:factoryclaw:telegram:direct:123"]);
+
+		const result = mac.run(["ask", "fac-1", "decision", "Should the total round up?"], repo);
+
+		assert.equal(result.status, 0, result.stderr);
+		assert.deepEqual(mac.openclawCalls(), [], "no connector is told about the Ask");
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("an explicit empty CONNECTORS tells nobody even when FactoryClaw is the outer layer", () => {
+	const mac = makeMac();
+	try {
+		const repo = mac.project("calc");
+		mac.profile(["OUTER_LAYER=factoryclaw", "CONNECTORS="]);
+		mac.projectEnv(repo, ["FACTORY_PM_AGENT=pm-calc", "FACTORYCLAW_SESSION=agent:factoryclaw:telegram:direct:123"]);
+
+		const result = mac.run(["ask", "fac-1", "decision", "Should the total round up?"], repo);
+
+		assert.equal(result.status, 0, result.stderr);
+		assert.deepEqual(mac.openclawCalls(), [], "a Mac that names no connectors tells nobody");
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("factory ask tells the connectors about a Human gate's Ask too", () => {
+	const mac = makeMac();
+	try {
+		const repo = mac.project("calc");
+		mac.profile(["CONNECTORS=telegram"]);
+		mac.projectEnv(repo, ["FACTORY_PM_AGENT=pm-calc"]);
+		mac.connector("telegram");
+
+		const result = mac.run(["ask", "fac-1", "gate", "Taste and fit: does the total widget look right?"], repo);
+
+		assert.equal(result.status, 0, result.stderr);
+		const calls = mac.connectorCalls();
+		assert.equal(calls.length, 1, "the connector is told");
+		assert.equal(calls[0].ask.kind, "gate");
+		assert.equal(calls[0].ask.how_to_answer, null, "a gate is answered by its Run's id, which this Ask does not carry");
+		assert.deepEqual(
+			mac.calls().filter((call) => call[0] === "label"),
+			[],
+			"the gate's record still carries no label",
+		);
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("a failed connector leaves a dated note naming itself and its error, and the Ask stays open", () => {
+	const mac = makeMac();
+	try {
+		const repo = mac.project("calc");
+		mac.profile(["CONNECTORS=telegram"]);
+		mac.projectEnv(repo, ["FACTORY_PM_AGENT=pm-calc"]);
+		mac.connector("telegram", "telegram is down");
+
+		const result = mac.run(["ask", "fac-1", "decision", "Which total?"], repo);
+
+		assert.equal(result.status, 0, result.stderr);
+		const comments = mac.calls().filter((call) => call[0] === "comments" && call[1] === "add");
+		assert.equal(comments.length, 2, "the Ask is written and its failed send is noted");
+		assert.equal(comments[0][3].split("\n")[0], "Ask: decision", "the Ask itself is written first");
+		assert.match(
+			comments[1][3],
+			/^Connector telegram failed, \d{4}-\d{2}-\d{2} \d{2}:\d{2}: telegram is down$/,
+			"the note is dated and names the connector and its error",
+		);
+		assert.deepEqual(
+			mac.calls().filter((call) => call[0] === "label"),
+			[["label", "add", "fac-1", "waiting-on-human"]],
+			"the Ask still waits on the Human",
+		);
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("factory asks --failures counts the failed-send notes per connector", () => {
+	const mac = makeMac();
+	try {
+		const calc = mac.project("calc");
+		mac.projects([calc]);
+		mac.beads({
+			[calc]: {
+				list: [{ id: "fac-1" }, { id: "fac-2" }],
+				comments: {
+					"fac-1": [
+						{ text: askComment("decision", "fac-1", "Which total?", "2026-11-18 09:05") },
+						{ text: "Connector factoryclaw failed, 2026-11-18 09:06: telegram is down" },
+						{ text: "Connector factoryclaw failed, 2026-11-18 09:10: telegram is down" },
+					],
+					"fac-2": [
+						{ text: askComment("grilling", "fac-2", "Which feeds?", "2026-11-17 16:40") },
+						{ text: "Connector email failed, 2026-11-17 16:41: no mail server" },
+					],
+				},
+				labels: { "fac-1": ["waiting-on-human"], "fac-2": ["waiting-on-human"] },
+			},
+		});
+
+		const result = mac.run(["asks", "--failures"]);
+
+		assert.equal(result.status, 0, result.stderr);
+		assert.deepEqual(result.stdout.split("\n").filter(Boolean), ["email  1", "factoryclaw  2"]);
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("an Ask whose connector failed still lists when factory asks reads its Bead", () => {
+	const mac = makeMac();
+	try {
+		const calc = mac.project("calc");
+		mac.projects([calc]);
+		mac.beads({
+			[calc]: {
+				list: [{ id: "fac-1" }],
+				comments: {
+					"fac-1": [
+						{ text: askComment("decision", "fac-1", "Which total?", "2026-11-18 09:05") },
+						{ text: "Connector telegram failed, 2026-11-18 09:06: telegram is down" },
+					],
+				},
+				labels: { "fac-1": ["waiting-on-human"] },
+			},
+		});
+
+		const result = mac.run(["asks", "--json"]);
+
+		assert.equal(result.status, 0, result.stderr);
+		assert.deepEqual(
+			JSON.parse(result.stdout).map((ask: { bead: string }) => ask.bead),
+			["fac-1"],
+			"the failure note does not hide the Ask",
+		);
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("factory asks --failures counts a failed send noted on a Human gate's Bead", () => {
+	const mac = makeMac();
+	try {
+		const calc = mac.project("calc");
+		mac.projects([calc]);
+		mac.beads({
+			[calc]: {
+				list: [],
+				comments: {
+					"fac-1": [{ text: "Connector factoryclaw failed, 2026-11-18 18:52: telegram is down" }],
+				},
+			},
+		});
+		mac.archon({
+			[calc]: {
+				items: [gate("run-a", "Taste and fit: does the total widget look right?", "2026-11-18T18:51:09.649Z")],
+				runs: { "run-a": { user_message: "pm-calc · fac-1" } },
+			},
+		});
+
+		const result = mac.run(["asks", "--failures"]);
+
+		assert.equal(result.status, 0, result.stderr);
+		assert.deepEqual(result.stdout.split("\n").filter(Boolean), ["factoryclaw  1"]);
 	} finally {
 		rmSync(mac.dir, { recursive: true, force: true });
 	}

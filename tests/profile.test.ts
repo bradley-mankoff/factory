@@ -245,14 +245,25 @@ test("install links the factory command that puts and lists Asks into ~/.local/b
 	}
 });
 
+test("install accepts a Profile that names no CONNECTORS, as one written before the key does", () => {
+	// An existing Profile is never overwritten, so the key has to be optional.
+	const mac = makeMac({ profile: squashProfile });
+	try {
+		const result = mac.install();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
 test("the one shipped Profile names the personal Mac's choices", () => {
 	const mac = makeMac();
 	const example = join(root, "config", "profile");
 	const value = (key: string) => profileValue(mac.home, example, key);
 	try {
 		assert.deepEqual(
-			{ landing: value("LANDING"), outer: value("OUTER_LAYER"), workspace: value("WORKSPACE") },
-			{ landing: "pull-request", outer: "factoryclaw", workspace: "project" },
+			{ landing: value("LANDING"), outer: value("OUTER_LAYER"), workspace: value("WORKSPACE"), connectors: value("CONNECTORS") },
+			{ landing: "pull-request", outer: "factoryclaw", workspace: "project", connectors: "factoryclaw" },
 		);
 		assert.equal(value("PROTECTED_TARGETS"), "");
 		assert.equal(value("ARCHON_HOME"), join(mac.home, ".local", "share", "factory", "archon"));
