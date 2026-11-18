@@ -20,25 +20,39 @@ Work the tree in rounds. Ask the whole frontier in one round: number each questi
 
 Number the questions across the whole interview, never starting again at Q1: if Round 1 asked Q1 to Q3, Round 2 starts at Q4. Head each round with its number. A question that follows up an earlier one repeats, in plain text, that earlier question and the Human's answer to it before asking the new one. The Human may read the round hours later on a phone, where a bare "following up Q1" means nothing, and FactoryClaw's rewrite for the phone drops links and folded text, so only the repeated words are sure to arrive.
 
+Put everything a question needs directly above that question, so the Human reads one question's context, answers it, and moves on to the next. Never gather the context into sections ahead of the questions: the Human starts answering what comes first, then finds the questions further down asking the same things and answers them with "see above" (the Human, 2026-11-18). A question's context is the facts you found for it, your reply to anything the Human said or asked about it, a draft to react to, and, for a follow-up, the repeated earlier question and answer. A fact that two questions rest on goes above the first, and the second repeats it in a sentence. What the Human should know but need not decide goes after the last question, under **For your information**, in a line or two each, so no question comes after it.
+
 Format a round like this:
 
 ```
 **Round 2**
 
-❓ **Q4** - **<question title>**: <the question, with the choices if there are any>
+❓ **Q4** - **<question title>**
+
+<what the Human needs to answer it: the facts you found, your reply to what the Human said>
+
+<the question, with the choices if there are any>
 
 ➡️ <your recommended answer>
 
 ---
 
-❓ **Q5** - **<question title>**: In Q2 I asked <the earlier question>, and you answered <the Human's answer>. <the follow-up question>
+❓ **Q5** - **<question title>**
+
+In Q2 I asked <the earlier question>, and you answered <the Human's answer>. <what you have found since>
+
+<the follow-up question>
 
 ➡️ <your recommended answer>
+
+---
+
+**For your information**: <what the Human should know but need not decide>
 ```
 
 Word each question so "yes" accepts your recommended answer. The Human may answer a whole round with one "yes", or question by question ("Q5: no, …"). A question the Human skips stays open for the next round and keeps its number.
 
-The Human often reads rounds on a phone, so keep each question to a few short lines in plain words, with choices as a short list and no tables.
+The Human often reads rounds on a phone, so keep each question and its context to a few short lines in plain words, with choices as a short list and no tables.
 
 ## Reaching the Human
 
