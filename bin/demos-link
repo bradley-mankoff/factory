@@ -1,0 +1,33 @@
+#!/bin/sh
+# Prints the private link a Human gate's demo video is reached at, or nothing.
+#
+#   demos-link <run id> <demos folder>
+#
+# A Run records its video as <run id>.mp4 in the demo folder install makes,
+# ~/.local/share/factory/demos, and the Mac's Profile DEMOS_URL is the base address that
+# folder is reached at, so the link is <DEMOS_URL>/<run id>.mp4 (fac-3mz.7). install
+# publishes the folder at that address's /demos path when the Profile asks for it with
+# DEMOS_SERVE=tailscale, and only the Mac's own tailnet can reach it, so the video never
+# leaves the Human's devices.
+#
+# Nothing is printed when the Profile names no DEMOS_URL, or when the folder holds no
+# video for the Run: a link to a missing file would fail the Human's tap. The Project
+# Manager deletes the video once the gate is answered, so a gate's link stops working
+# after its answer, as it should. The exit status is 0 either way, so a caller that only
+# wants the link reads empty output as "none".
+set -u
+run=${1:?usage: demos-link <run id> <demos folder>}
+demos=${2:?usage: demos-link <run id> <demos folder>}
+profile=$HOME/.config/factory/profile
+[ -f "$profile" ] || exit 0
+# The Profile is a plain shell file, so it is sourced as install and start do; a DEMOS_URL
+# the caller's shell inherited must not stand in for one the Profile does not name.
+url=$(
+	unset DEMOS_URL
+	# shellcheck source=/dev/null
+	. "$profile" >/dev/null 2>&1
+	printf '%s' "${DEMOS_URL-}"
+)
+[ -n "$url" ] || exit 0
+[ -s "$demos/$run.mp4" ] || exit 0
+printf '%s/%s.mp4\n' "${url%/}" "$run"

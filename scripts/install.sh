@@ -205,6 +205,11 @@ WRAPPER
 	grep -qs "\"version\": \"${bridge#*@}\"" "$pi_dir/npm/node_modules/${bridge%@*}/package.json" ||
 		PI_CODING_AGENT_DIR="$pi_dir" pi install "npm:$bridge" >/dev/null
 
+	# The demo videos a Run records for a Human gate, in a folder the Factory owns rather
+	# than FactoryClaw's workspace, so the Factory does not depend on FactoryClaw being
+	# installed (fac-3mz.7). Every project's .archon/.env names it as FACTORY_DEMOS.
+	mkdir -p "$factory/demos"
+	publish_demos
 	# FactoryClaw and OpenClaw exist only where the Profile names that outer layer.
 	if [ "$OUTER_LAYER" = factoryclaw ]; then
 		install_factoryclaw
@@ -217,6 +222,24 @@ WRAPPER
 	"$src/map/render"
 }
 
+# Publishes the Factory's demo folder on this Mac's own tailnet when the Profile asks, so
+# a gate's video link, <DEMOS_URL>/<run id>.mp4, plays wherever the Human taps it
+# (fac-3mz.7). DEMOS_SERVE=tailscale serves the folder at the /demos path of the Mac's
+# Tailscale address with tailscale serve, which only the tailnet can reach; without that
+# key install publishes nothing. The Tailscale CLI ships inside the Mac app and is often
+# not on PATH, so the app's own binary is used when PATH has none, as bin/land finds gh.
+# Serving the same path twice changes nothing, so a second install is safe.
+publish_demos() {
+	[ "${DEMOS_SERVE-}" = tailscale ] || return 0
+	tailscale_bin=$(command -v tailscale 2>/dev/null) || tailscale_bin=/Applications/Tailscale.app/Contents/MacOS/Tailscale
+	[ -x "$tailscale_bin" ] || {
+		echo "skipped publishing demo videos: no tailscale command on PATH or in /Applications/Tailscale.app" >&2
+		return 0
+	}
+	"$tailscale_bin" serve --bg --set-path /demos "$factory/demos" >/dev/null ||
+		echo "note: tailscale could not publish the demo folder; run: tailscale serve --bg --set-path /demos $factory/demos" >&2
+}
+
 # FactoryClaw's files and OpenClaw settings, under the outer layer this Mac's Profile
 # names (fac-qpv.6.3). A Mac whose Profile chooses no outer layer gets none of this.
 install_factoryclaw() {
@@ -226,8 +249,17 @@ install_factoryclaw() {
 	# The Human's plain-voice skill, which every message to the Human follows. Copied after
 	# the rsync above, which would delete it. The Project Managers read it from its repo.
 	rsync -a --delete "$plain_voice/" "$claw/skills/plain-voice/"
-	# Demo videos from Runs, in FactoryClaw's workspace so it may attach them on Telegram.
-	mkdir -p "$claw/demos"
+	# Demo videos from Runs live in the Factory's own folder (fac-3mz.7). OpenClaw reads
+	# media only inside FactoryClaw's workspace, so the workspace's demos is a link to it
+	# and FactoryClaw still attaches a gate's video on Telegram. A real folder an earlier
+	# install made moves everything it holds to the Factory's folder first, so the link can
+	# go in without losing a video, and the Project Manager's after-landing move finds the
+	# folder empty.
+	if [ -d "$claw/demos" ] && [ ! -L "$claw/demos" ]; then
+		find "$claw/demos" -mindepth 1 -maxdepth 1 -exec mv {} "$factory/demos/" \;
+		rmdir "$claw/demos"
+	fi
+	ln -sfn "$factory/demos" "$claw/demos"
 	# The workshop-catch plugin (fac-60v.23) archives each skill OpenClaw's Skill Workshop
 	# learns for FactoryClaw and files it as a Bead in this repo. The gateway runs with a
 	# bare PATH, so the plugin is given this one to find bd and openclaw.
@@ -449,8 +481,7 @@ setup_project() {
 	# start gives the pane.
 	pane=$("$src/bin/pm-pane" "$repo")
 	# The Profile says whether an outer layer carries the Human's messages. With none, a
-	# project needs no Telegram chat, FactoryClaw keeps no list of projects, and demo videos
-	# stay in the Factory's root.
+	# project needs no Telegram chat, and FactoryClaw keeps no list of projects.
 	read_profile
 	if [ "$OUTER_LAYER" = factoryclaw ]; then
 		session=$(openclaw sessions --agent factoryclaw --json | python3 -c '
@@ -458,11 +489,12 @@ import json, sys
 keys = [s["key"] for s in json.load(sys.stdin)["sessions"] if s["key"].startswith("agent:factoryclaw:telegram:direct:")]
 print(keys[0] if keys else "")')
 		[ -n "$session" ] || { echo "error: FactoryClaw has no Telegram chat yet; message it on Telegram once" >&2; exit 1; }
-		demos=$claw/demos
 	else
 		session=
-		demos=$factory/demos
 	fi
+	# Demo videos are the Factory's, whatever the outer layer, so one FACTORY_DEMOS serves
+	# every project and a Mac with no FactoryClaw keeps its videos (fac-3mz.7).
+	demos=$factory/demos
 	mkdir -p "$demos"
 
 	# The Factory's Workflows are shared from the Workflow library (install_factory). A

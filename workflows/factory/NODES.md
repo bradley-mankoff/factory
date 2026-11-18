@@ -329,12 +329,14 @@ Workflow's name.
 ### The question and the wait (`ask-human`, `taste`)
 
 `ask-human` tells the Project Manager's pane that the Run waits at the Human's taste-and-fit check,
-naming what the landing holds and the demo video's path. It reads the video from its file, not from
-`$demo.output`, so a failed demo still lets the Human judge from what the landing holds; with no
-video it says so, and the Project Manager records one or rejects the Run. `taste` holds the Run for
-the answer, written as `wait: {attention: ..., form: approval}`; the deprecated `approval:` gate is
-never used. The question is taste and fit only: how the new piece looks and feels, and whether it
-fits the Idea; an error is never a taste question.
+naming what the landing holds and the demo video: the private tailnet link the Mac's Profile
+`DEMOS_URL` names, so any screen that shows text can play it, or else the video's path for
+FactoryClaw to attach (fac-3mz.7). It reads the video from its file, not from `$demo.output`, so a
+failed demo still lets the Human judge from what the landing holds; with no video it says so, and
+the Project Manager records one or rejects the Run. `taste` holds the Run for the answer, written as
+`wait: {attention: ..., form: approval}`; the deprecated `approval:` gate is never used. The question
+is taste and fit only: how the new piece looks and feels, and whether it fits the Idea; an error is
+never a taste question.
 
 ```yaml
   - id: ask-human
@@ -343,7 +345,13 @@ fits the Idea; an error is never a taste question.
     bash: |
       held=$(cat "$ARTIFACTS_DIR/held" 2>/dev/null) || exit 1
       demo="$FACTORY_DEMOS/$WORKFLOW_ID.mp4"
-      if [ -s "$demo" ]; then video="Relay it through FactoryClaw with the demo video $demo and without a link to the change."; else video="There is no video: the demo node found the change broken or failed (archon workflow get $WORKFLOW_ID says which). If the change is broken, reject the Run and rework the Bead without asking the Human; otherwise record one with the record-demo skill, or relay the change instead."; fi
+      # The Human judges from the video alone, and approving it approves the landing, so a
+      # link to the change goes to the Human only when there is no video. A Mac whose
+      # Profile names DEMOS_URL reaches the video at a private tailnet link, which any
+      # screen that shows text can play; without it the message names the file for
+      # FactoryClaw to attach (fac-3mz.7).
+      link=$("$HOME/.local/share/factory/bin/demos-link" "$WORKFLOW_ID" "$FACTORY_DEMOS")
+      if [ -n "$link" ]; then video="Watch the demo video at $link and do not open a link to the change."; elif [ -s "$demo" ]; then video="Relay it through FactoryClaw with the demo video $demo and without a link to the change."; else video="There is no video: the demo node found the change broken or failed (archon workflow get $WORKFLOW_ID says which). If the change is broken, reject the Run and rework the Bead without asking the Human; otherwise record one with the record-demo skill, or relay the change instead."; fi
       "$HOME/.local/share/factory/bin/tell-pm" "${ARGUMENTS%% · *}" "Run $WORKFLOW_ID (factory-build-gated) for Bead $("$HOME/.local/share/factory/bin/bead" --id "$ARGUMENTS") waits for the Human's taste-and-fit check of $held. $video Then answer with factory answer $WORKFLOW_ID approve, or factory answer $WORKFLOW_ID reject '<the Human's words>'."
 
   - id: taste
