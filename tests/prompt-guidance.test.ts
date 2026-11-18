@@ -328,14 +328,14 @@ test("both build Workflows gate the standards review on the spec review's approv
  */
 const instructions = readFileSync(join(root, "project-manager", "instructions.md"), "utf8");
 
-/** One part of the instructions, from its heading to the next line that starts another, so
- * a rule is checked where the Project Manager reads it. */
-const part = (heading: string): string => {
+/** One part of the instructions, from the line it starts on to the next heading or bold
+ * paragraph, so a rule is checked where the Project Manager reads it and no further. */
+const part = (start: string): string => {
 	const lines = instructions.split("\n");
-	const start = lines.findIndex((line) => line.startsWith(heading));
-	assert.ok(start >= 0, `the instructions hold ${heading}`);
-	const end = lines.findIndex((line, at) => at > start && /^#/.test(line));
-	return lines.slice(start, end < 0 ? undefined : end).join("\n");
+	const at = lines.findIndex((line) => line.startsWith(start));
+	assert.ok(at >= 0, `the instructions hold ${start}`);
+	const end = lines.findIndex((line, index) => index > at && /^(?:#|\*\*)/.test(line));
+	return lines.slice(at, end < 0 ? undefined : end).join("\n");
 };
 
 test("the Project Manager reaches the Human with factory ask", () => {
@@ -380,7 +380,8 @@ test("the Human gates paragraph answers the gate with factory answer alone", () 
 });
 
 test("the instructions' status check lists the project's answered Asks not yet acted on", () => {
-	assert.match(lineMatching(instructions, "answered Ask"), /factory asks --project \./);
+	const check = part("## When a session starts");
+	assert.match(lineMatching(check, "answered Ask"), /factory asks --project \./);
 });
 
 test("the instructions' Idea to Beads steps put the Spec review on the Epic grilling opened", () => {

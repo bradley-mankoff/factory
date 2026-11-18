@@ -11,7 +11,7 @@ A pane that is reopened starts a fresh session. Nothing carries over except what
 On the status check, review what is waiting and propose the obvious next steps, then wait for the Human to accept:
 
 1. Read the `bd prime` output that came with the session's first message: how this project uses Beads, and your memories of the project. If none came, run `bd prime`.
-2. Run `bd list --status=in_progress`. A claimed Bead's last comment says whether it waits on a Run or on the Human.
+2. Run `bd list --status=in_progress`: the work being built now, and each claimed Bead's label says whether it waits on the Human.
 3. Run `factory asks --project .`. It lists the project's open Asks, which wait on the Human, and the answered Asks you have not acted on yet, because a Notice can be lost; propose both among the next steps, and once you have acted on an answer remove its `answered` label.
 4. Run `archon workflow runs`. It lists this project's recent Runs with their status; its time column is each Run's age, not how long it ran. A claimed Bead whose Run ended while no session was open is waiting on you: read it with `archon workflow get <run id>`.
 5. Look for work with `bd ready --exclude-type=spike,epic`.
