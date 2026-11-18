@@ -198,7 +198,7 @@ test("install over the folder an earlier install made moves its videos to the Fa
  */
 const demosPort = pinnedValue("demos_port");
 
-test("a Profile with DEMOS_SERVE=tailscale starts a login job that serves the demo folder on the loopback address", () => {
+test("a Profile with DEMOS_SERVE=tailscale starts a login job that runs the demo server over the demo folder at the pinned port", () => {
 	const mac = makeMac({ profile: squashProfile, profileExtra: "DEMOS_SERVE=tailscale\n" });
 	try {
 		const result = mac.install();

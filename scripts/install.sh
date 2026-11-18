@@ -385,7 +385,7 @@ login_job() {
 
 # The folders every login job's PATH ends with, after the ones that job needs itself:
 # Homebrew's on an Intel Mac, then the standard ones launchd's bare PATH leaves out. One
-# copy, so the two jobs' PATHs cannot drift apart.
+# copy, so no job's PATH can drift from another's.
 standard_path=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 
 # The herdr server where Project Managers run, as its own launchd job started at login.
