@@ -204,3 +204,18 @@ test("/new-and-status-check starts a new session with the check's text as its fi
 		await pi.stop();
 	}
 });
+
+test("/status-check sends a check that lists the project's answered Asks not yet acted on", async () => {
+	const machine = makeMachine();
+	const pi = startPi(machine);
+	try {
+		await pi.request({ type: "prompt", message: "/status-check" });
+		const [request] = await waitForRequests(machine.log, 1);
+		const sent = conversation(request).split("\n");
+		const line = sent.find((each) => each.includes("answered Asks you have not acted on"));
+		assert.ok(line, `the check names the answered Asks: ${sent.join("\n")}`);
+		assert.match(line, /factory asks --project \./, "the check names the command that lists them");
+	} finally {
+		await pi.stop();
+	}
+});

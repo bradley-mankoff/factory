@@ -317,17 +317,18 @@ test("relay-message checks a Human gate is still open before it types the answer
 	}
 });
 
-/** A Decision is recorded on its Bead, the question first and the Human's answer after it. */
-test("relay-message checks a Decision is still open on its Bead before it types the answer into the pane", () => {
+/** Every Ask but a gate is held by its Bead's label, which `factory answer` swaps and the
+ * Project Manager removes once it has acted (fac-3mz.6). */
+test("relay-message checks an Ask is still open on its Bead's label before it types the answer into the pane", () => {
 	const mac = installedMac();
 	try {
 		const answer = answerSteps(mac);
-		assert.match(answer, /bd -C <repo> comments/, "the answer step reads the Bead's comments");
-		assert.match(answer, /`Question for the Human`/, "the answer step names the comment that records the question");
-		assert.match(answer, /`The Human's answer`/, "the answer step names the comment that shows it was answered");
+		assert.match(answer, /bd -C <repo> show/, "the answer step reads the Bead");
+		assert.match(answer, /`waiting-on-human`/, "the answer step names the label that says the Ask is open");
+		assert.match(answer, /`answered`/, "the answer step names the label that shows it was answered");
 		assert.ok(
-			stepAt(answer, "bd -C <repo> comments") < stepAt(answer, "herdr agent prompt <pane id>"),
-			"the answer step checks the Decision before it types anything into the pane",
+			stepAt(answer, "bd -C <repo> show") < stepAt(answer, "herdr agent prompt <pane id>"),
+			"the answer step checks the Ask before it types anything into the pane",
 		);
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });

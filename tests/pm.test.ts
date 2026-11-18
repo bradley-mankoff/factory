@@ -216,7 +216,7 @@ test("project-manager/start with no arguments starts pi with no first message", 
 test("the check's file asks for the review the Bead describes", () => {
 	assert.match(
 		statusCheckText(),
-		/review the claimed Beads, the Runs that ended and the ready Beads/,
+		/review the claimed Beads and the Runs that ended, list the project's answered Asks you have not acted on yet/,
 		"the words /status-check and --status-check send are the Bead's review",
 	);
 });

@@ -344,7 +344,7 @@ fits the Idea; an error is never a taste question.
       held=$(cat "$ARTIFACTS_DIR/held" 2>/dev/null) || exit 1
       demo="$FACTORY_DEMOS/$WORKFLOW_ID.mp4"
       if [ -s "$demo" ]; then video="Relay it through FactoryClaw with the demo video $demo and without a link to the change."; else video="There is no video: the demo node found the change broken or failed (archon workflow get $WORKFLOW_ID says which). If the change is broken, reject the Run and rework the Bead without asking the Human; otherwise record one with the record-demo skill, or relay the change instead."; fi
-      "$HOME/.local/share/factory/bin/tell-pm" "${ARGUMENTS%% · *}" "Run $WORKFLOW_ID (factory-build-gated) for Bead $("$HOME/.local/share/factory/bin/bead" --id "$ARGUMENTS") waits for the Human's taste-and-fit check of $held. $video Then answer with archon workflow approve $WORKFLOW_ID or archon workflow reject $WORKFLOW_ID --reason '<the Human's words>'."
+      "$HOME/.local/share/factory/bin/tell-pm" "${ARGUMENTS%% · *}" "Run $WORKFLOW_ID (factory-build-gated) for Bead $("$HOME/.local/share/factory/bin/bead" --id "$ARGUMENTS") waits for the Human's taste-and-fit check of $held. $video Then answer with factory answer $WORKFLOW_ID approve, or factory answer $WORKFLOW_ID reject '<the Human's words>'."
 
   - id: taste
     depends_on: [ask-human]
