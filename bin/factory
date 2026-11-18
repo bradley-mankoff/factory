@@ -86,7 +86,7 @@ def bd_json(*args):
         return None
 
 
-def env_value(path, key):
+def env_file_value(path, key):
     """One value from a KEY=value file such as a project's .archon/.env, or None.
 
     A missing file, a missing key and a key the file leaves empty all answer None. The
@@ -99,8 +99,6 @@ def env_value(path, key):
         return None
     for line in lines:
         line = line.strip()
-        if line.startswith("export "):
-            line = line[len("export ") :]
         if line.startswith(key + "="):
             value = line[len(key) + 1 :]
             if len(value) > 1 and value[0] == value[-1] and value[0] in "'\"":
@@ -153,6 +151,15 @@ def parse_ask(text):
     return fields
 
 
+def project_name(repo):
+    """The project a folder is, as its Asks name it: the folder's own name.
+
+    A project is named the same way whether the path comes from the projects file, with a
+    link or a trailing slash, or from the folder the command runs in.
+    """
+    return os.path.basename(os.path.realpath(repo))
+
+
 def same_repo(one, other):
     """True when two paths name the same folder, with ~, a relative path and a link resolved.
 
@@ -172,8 +179,8 @@ def project_asks(repo):
     """
     if not os.path.isdir(repo):
         return []
-    project = os.path.basename(repo)
-    asks = []
+    project = project_name(repo)
+    found = []
     seen = set()
     skipped = False
     for status, label in (("open", LABEL), ("answered", ANSWERED)):
@@ -196,7 +203,7 @@ def project_asks(repo):
             for comment in reversed(comments):
                 fields = parse_ask(comment.get("text", ""))
                 if fields:
-                    asks.append(
+                    found.append(
                         {
                             "project": project,
                             "kind": fields["kind"],
@@ -208,7 +215,7 @@ def project_asks(repo):
                         }
                     )
                     break
-    return asks
+    return found
 
 
 def asks(argv):
@@ -234,22 +241,58 @@ def asks(argv):
     if os.path.isfile(projects_file):
         with open(projects_file) as handle:
             repos = [line.strip() for line in handle if line.strip()]
-    asks = []
+    found = []
     for repo in repos:
         if wanted is None or same_repo(wanted, repo):
-            asks.extend(project_asks(repo))
+            found.extend(project_asks(repo))
     if open_only:
-        asks = [ask for ask in asks if ask["status"] == "open"]
+        found = [ask for ask in found if ask["status"] == "open"]
     if as_json:
-        print(json.dumps(asks, indent=2))
+        print(json.dumps(found, indent=2))
         return
-    for index, ask in enumerate(asks):
+    for index, ask in enumerate(found):
         if index:
             print()
         print(f"{ask['project']}  {ask['bead']}  {ask['kind']}  {ask['status']}  asked {ask['asked']}")
         for line in ask["question"].split("\n"):
             print(f"  {line}")
         print(f"  How to answer: {ask['how_to_answer']}")
+
+
+def record_answer(bead, words):
+    """Writes the Human's answer into state: the dated comment, then the label swap.
+
+    The answer goes on the Bead before the label moves, so an Ask labelled answered always
+    carries the words its status promises.
+    """
+    answered = datetime.now().strftime("%Y-%m-%d %H:%M")
+    bd_write(bead, "comments", "add", bead, f"The Human's answer, {answered}: {words}")
+    bd_write(bead, "label", "remove", bead, LABEL)
+    bd_write(bead, "label", "add", bead, ANSWERED)
+
+
+def tell_project_manager(bead, words):
+    """Leaves the Notice a Run's ending leaves, for the Project Manager of this project.
+
+    The command runs in the project's folder, as a screen or the Project Manager does, so
+    that folder's .archon/.env names the pane. A project that names no pane names no
+    Project Manager, so the answer is recorded and the command ends saying so.
+    """
+    repo = os.getcwd()
+    project = project_name(repo)
+    pane = env_file_value(os.path.join(repo, ".archon", ".env"), "FACTORY_PM_AGENT")
+    if not pane:
+        sys.exit(
+            f"factory: recorded the Human's answer on {bead}, but {repo}/.archon/.env names no "
+            f"FACTORY_PM_AGENT, so {project}'s Project Manager was not told"
+        )
+    tell_pm = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tell-pm")
+    notice = f"The Human answered Ask {bead} in {project}: {words}"
+    told = subprocess.run([tell_pm, pane, notice], capture_output=True, text=True)
+    if told.returncode != 0:
+        sys.stderr.write(told.stderr)
+        sys.exit(f"factory: recorded the Human's answer on {bead}, but bin/tell-pm could not tell {pane}")
+    print(f"factory: recorded the Human's answer on {bead} and told {pane}.")
 
 
 def answer(argv):
@@ -270,28 +313,8 @@ def answer(argv):
         sys.exit(f"factory: could not read the labels on {bead}, so nothing was recorded")
     if LABEL not in labels:
         sys.exit(f"factory: {bead} carries no open Ask, so nothing was recorded")
-    answered = datetime.now().strftime("%Y-%m-%d %H:%M")
-    bd_write(bead, "comments", "add", bead, f"The Human's answer, {answered}: {words}")
-    # The answer is on the Bead before the label moves, so an answered Ask always carries it.
-    bd_write(bead, "label", "remove", bead, LABEL)
-    bd_write(bead, "label", "add", bead, ANSWERED)
-    # The answer is in state; now tell the project's Project Manager the way a Run's ending
-    # does, so it picks the answer up as a message of its own and acts on it.
-    repo = os.getcwd()
-    project = os.path.basename(os.path.realpath(repo))
-    pane = env_value(os.path.join(repo, ".archon", ".env"), "FACTORY_PM_AGENT")
-    if not pane:
-        sys.exit(
-            f"factory: recorded the Human's answer on {bead}, but {repo}/.archon/.env names no "
-            f"FACTORY_PM_AGENT, so {project}'s Project Manager was not told"
-        )
-    tell_pm = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tell-pm")
-    notice = f"The Human answered Ask {bead} in {project}: {words}"
-    told = subprocess.run([tell_pm, pane, notice], capture_output=True, text=True)
-    if told.returncode != 0:
-        sys.stderr.write(told.stderr)
-        sys.exit(f"factory: recorded the Human's answer on {bead}, but bin/tell-pm could not tell {pane}")
-    print(f"factory: recorded the Human's answer on {bead} and told {pane}.")
+    record_answer(bead, words)
+    tell_project_manager(bead, words)
 
 
 def main(argv):
