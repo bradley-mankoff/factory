@@ -1,5 +1,5 @@
 /**
- * The factory command (fac-3mz.1 to fac-3mz.3). An Ask is one thing waiting on the Human,
+ * The factory command (fac-3mz.1 to fac-3mz.4). An Ask is one thing waiting on the Human,
  * held on the Bead or Epic it concerns as a comment plus the `waiting-on-human` label,
  * turned into `answered` by `factory answer`, and `factory asks` is the Mac's one list of
  * them. The seam is the command: it runs in a temporary HOME whose projects file names
@@ -25,12 +25,14 @@ const factoryCommand = join(root, "bin", "factory");
 /** What the stand-in bd answers for one project: its Beads, each one's comments in the
  * shape `bd comments --json` prints and each one's labels in the shape `bd label list
  * --json` prints. `list` filters by the `--label` it is given from `labels`, so a labelled
- * Bead answers only the query for its own label. A project carrying a warning has bd print
- * that line on stdout instead of its JSON, as a bd with a broken setup does. */
+ * Bead answers only the query for its own label, and leaves `closed` Beads out unless
+ * `--all` is given, as bd does. A project carrying a warning has bd print that line on
+ * stdout instead of its JSON, as a bd with a broken setup does. */
 type Project = {
 	list: { id: string }[];
 	comments: Record<string, { text: string }[]>;
 	labels?: Record<string, string[]>;
+	closed?: string[];
 	warning?: string;
 };
 
@@ -62,10 +64,16 @@ type Mac = {
 	failOn: (verbs: string[]) => void;
 	/** Writes the Mac's Profile, the file install ships and factory reads. */
 	profile: (lines: string[]) => void;
-	/** Writes a stub connector program on PATH, which records the Ask it is given and,
-	 * when `failure` is set, refuses with that message. */
-	connector: (name: string, failure?: string) => void;
-	run: (args: string[], cwd?: string) => { status: number | null; stdout: string; stderr: string };
+	/** Writes a stub connector program on PATH, which records the Ask it is given and then
+	 * accepts it, or refuses with `failure`, or hangs until factory ask gives up on it. */
+	connector: (name: string, options?: { failure?: string; hang?: boolean }) => void;
+	/** Sets an environment variable for every factory command run from now on. */
+	setEnv: (values: Record<string, string>) => void;
+	run: (
+		args: string[],
+		cwd?: string,
+		options?: { timeout?: number },
+	) => { status: number | null; stdout: string; stderr: string };
 	calls: () => string[][];
 	/** Every call the stand-in Archon answered, with the folder it ran in. */
 	archonCalls: () => { args: string[]; cwd: string }[];
@@ -145,7 +153,11 @@ if (project.warning) {
 	const flag = rest.indexOf("--label");
 	const label = flag === -1 ? null : rest[flag + 1];
 	const labels = project.labels || {};
-	const listed = label && project.labels ? project.list.filter((bead) => (labels[bead.id] || []).includes(label)) : project.list;
+	const closed = project.closed || [];
+	const listed = project.list.filter((bead) => {
+		if (!rest.includes("--all") && closed.includes(bead.id)) return false;
+		return !label || !project.labels || (labels[bead.id] || []).includes(label);
+	});
 	process.stdout.write(JSON.stringify(listed) + "\\n");
 } else if (verb === "comments") {
 	process.stdout.write(JSON.stringify(project.comments[rest[1]] || []) + "\\n");
@@ -245,8 +257,10 @@ if (sub === "attention" && rest[0] && !rest[0].startsWith("--")) {
 	const profile = (lines: string[]) => {
 		writeFileSync(join(home, ".config", "factory", "profile"), `${lines.join("\n")}\n`);
 	};
-	const connector = (name: string, failure?: string) => {
-		const refusal = failure ? `process.stderr.write(${JSON.stringify(`${failure}\n`)}); process.exit(1);` : "";
+	const connector = (name: string, options: { failure?: string; hang?: boolean } = {}) => {
+		let ending = "";
+		if (options.failure) ending = `process.stderr.write(${JSON.stringify(`${options.failure}\n`)}); process.exit(1);`;
+		if (options.hang) ending = "setInterval(() => {}, 1000);";
 		writeFileSync(
 			join(bin, `factory-connector-${name}`),
 			`#!/usr/bin/env node
@@ -255,13 +269,15 @@ let input = "";
 process.stdin.on("data", (chunk) => input += chunk);
 process.stdin.on("end", () => {
 	fs.appendFileSync(process.env.CONNECTOR_LOG, JSON.stringify({ name: ${JSON.stringify(name)}, ask: JSON.parse(input) }) + "\\n");
-	${refusal}
+	${ending}
 });
 `,
 			{ mode: 0o755 },
 		);
 	};
-	const run = (args: string[], cwd = home) => spawnSync(factoryCommand, args, { cwd, encoding: "utf8", env });
+	const setEnv = (values: Record<string, string>) => Object.assign(env, values);
+	const run = (args: string[], cwd = home, options: { timeout?: number } = {}) =>
+		spawnSync(factoryCommand, args, { cwd, encoding: "utf8", env, ...options });
 	const calls = () => readRecords(log) as string[][];
 	const archonCalls = () => readRecords(archonLog) as { args: string[]; cwd: string }[];
 	const connectorCalls = () => readRecords(connectorLog) as { name: string; ask: Record<string, unknown> }[];
@@ -282,6 +298,7 @@ process.stdin.on("end", () => {
 		failOn,
 		profile,
 		connector,
+		setEnv,
 		run,
 		calls,
 		archonCalls,
@@ -1084,13 +1101,13 @@ test("factory ask tells the connectors about a Human gate's Ask too", () => {
 	}
 });
 
-test("a failed connector leaves a dated note naming itself and its error, and the Ask stays open", () => {
+test("a failed connector leaves a dated note and a lasting label, and the Ask stays open", () => {
 	const mac = makeMac();
 	try {
 		const repo = mac.project("calc");
 		mac.profile(["CONNECTORS=telegram"]);
 		mac.projectEnv(repo, ["FACTORY_PM_AGENT=pm-calc"]);
-		mac.connector("telegram", "telegram is down");
+		mac.connector("telegram", { failure: "telegram is down" });
 
 		const result = mac.run(["ask", "fac-1", "decision", "Which total?"], repo);
 
@@ -1104,9 +1121,12 @@ test("a failed connector leaves a dated note naming itself and its error, and th
 			"the note is dated and names the connector and its error",
 		);
 		assert.deepEqual(
-			mac.calls().filter((call) => call[0] === "label"),
-			[["label", "add", "fac-1", "waiting-on-human"]],
-			"the Ask still waits on the Human",
+			mac.calls().filter((call) => call[0] === "label" && call[1] === "add"),
+			[
+				["label", "add", "fac-1", "waiting-on-human"],
+				["label", "add", "fac-1", "connector-failed"],
+			],
+			"the Ask still waits on the Human, and the failed send keeps a label that outlives the Ask",
 		);
 	} finally {
 		rmSync(mac.dir, { recursive: true, force: true });
@@ -1132,7 +1152,7 @@ test("factory asks --failures counts the failed-send notes per connector", () =>
 						{ text: "Connector email failed, 2026-11-17 16:41: no mail server" },
 					],
 				},
-				labels: { "fac-1": ["waiting-on-human"], "fac-2": ["waiting-on-human"] },
+				labels: { "fac-1": ["waiting-on-human", "connector-failed"], "fac-2": ["waiting-on-human", "connector-failed"] },
 			},
 		});
 
@@ -1140,6 +1160,76 @@ test("factory asks --failures counts the failed-send notes per connector", () =>
 
 		assert.equal(result.status, 0, result.stderr);
 		assert.deepEqual(result.stdout.split("\n").filter(Boolean), ["email  1", "factoryclaw  2"]);
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("factory asks --failures counts only the project --project names", () => {
+	const mac = makeMac();
+	try {
+		const calc = mac.project("calc");
+		const news = mac.project("news");
+		mac.projects([calc, news]);
+		mac.beads({
+			[calc]: {
+				list: [{ id: "fac-1" }],
+				comments: {
+					"fac-1": [{ text: "Connector factoryclaw failed, 2026-11-18 09:06: telegram is down" }],
+				},
+				labels: { "fac-1": ["connector-failed"] },
+			},
+			[news]: {
+				list: [{ id: "fac-2" }],
+				comments: {
+					"fac-2": [{ text: "Connector factoryclaw failed, 2026-11-17 16:41: telegram is down" }],
+				},
+				labels: { "fac-2": ["connector-failed"] },
+			},
+		});
+
+		const result = mac.run(["asks", "--failures", "--project", calc]);
+
+		assert.equal(result.status, 0, result.stderr);
+		assert.deepEqual(
+			result.stdout.split("\n").filter(Boolean),
+			["factoryclaw  1"],
+			"only the project --project names is counted",
+		);
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("factory asks --failures counts a failed send after its Ask is done and its Bead closed", () => {
+	const mac = makeMac();
+	try {
+		const calc = mac.project("calc");
+		mac.projects([calc]);
+		mac.beads({
+			[calc]: {
+				list: [{ id: "fac-1" }, { id: "fac-2" }],
+				comments: {
+					"fac-1": [
+						{ text: askComment("decision", "fac-1", "Which total?", "2026-11-18 09:05") },
+						{ text: "The Human's answer, 2026-11-18 10:02: round up" },
+						{ text: "Connector factoryclaw failed, 2026-11-18 09:06: telegram is down" },
+					],
+					"fac-2": [{ text: "Connector email failed, 2026-11-17 16:41: no mail server" }],
+				},
+				labels: { "fac-1": ["connector-failed"], "fac-2": ["connector-failed"] },
+				closed: ["fac-2"],
+			},
+		});
+
+		const result = mac.run(["asks", "--failures"]);
+
+		assert.equal(result.status, 0, result.stderr);
+		assert.deepEqual(
+			result.stdout.split("\n").filter(Boolean),
+			["email  1", "factoryclaw  1"],
+			"a failure still counts once its Ask is done and once its Bead is closed",
+		);
 	} finally {
 		rmSync(mac.dir, { recursive: true, force: true });
 	}
@@ -1176,30 +1266,58 @@ test("an Ask whose connector failed still lists when factory asks reads its Bead
 	}
 });
 
-test("factory asks --failures counts a failed send noted on a Human gate's Bead", () => {
+test("factory asks --failures counts a failed send noted on a Human gate's Bead after the gate is answered", () => {
 	const mac = makeMac();
 	try {
 		const calc = mac.project("calc");
 		mac.projects([calc]);
 		mac.beads({
 			[calc]: {
-				list: [],
+				list: [{ id: "fac-1" }],
 				comments: {
 					"fac-1": [{ text: "Connector factoryclaw failed, 2026-11-18 18:52: telegram is down" }],
 				},
+				labels: { "fac-1": ["connector-failed"] },
 			},
 		});
-		mac.archon({
-			[calc]: {
-				items: [gate("run-a", "Taste and fit: does the total widget look right?", "2026-11-18T18:51:09.649Z")],
-				runs: { "run-a": { user_message: "pm-calc · fac-1" } },
-			},
-		});
+		mac.archon({ [calc]: { items: [] } });
 
 		const result = mac.run(["asks", "--failures"]);
 
 		assert.equal(result.status, 0, result.stderr);
 		assert.deepEqual(result.stdout.split("\n").filter(Boolean), ["factoryclaw  1"]);
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("factory ask gives up on a connector that hangs and notes the timeout", () => {
+	const mac = makeMac();
+	try {
+		const repo = mac.project("calc");
+		mac.profile(["CONNECTORS=slow"]);
+		mac.projectEnv(repo, ["FACTORY_PM_AGENT=pm-calc"]);
+		mac.connector("slow", { hang: true });
+		mac.setEnv({ FACTORY_CONNECTOR_TIMEOUT: "0.5" });
+
+		const result = mac.run(["ask", "fac-1", "decision", "Which total?"], repo, { timeout: 10_000 });
+
+		assert.equal(result.status, 0, result.stderr);
+		const comments = mac.calls().filter((call) => call[0] === "comments" && call[1] === "add");
+		assert.equal(comments.length, 2, "the Ask is written and its timed-out send is noted");
+		assert.match(
+			comments[1][3],
+			/^Connector slow failed, \d{4}-\d{2}-\d{2} \d{2}:\d{2}: no answer within 0\.5 seconds$/,
+			"the note names the connector and that it did not answer in time",
+		);
+		assert.deepEqual(
+			mac.calls().filter((call) => call[0] === "label" && call[1] === "add"),
+			[
+				["label", "add", "fac-1", "waiting-on-human"],
+				["label", "add", "fac-1", "connector-failed"],
+			],
+			"the Ask still waits on the Human, and the timeout keeps the label that outlives it",
+		);
 	} finally {
 		rmSync(mac.dir, { recursive: true, force: true });
 	}

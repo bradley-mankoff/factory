@@ -74,10 +74,12 @@ OUTER_LAYER=factoryclaw
 # with no Telegram names none. The first connector is factoryclaw, which sends the Ask into
 # FactoryClaw's Telegram chat. A connector named here is a program, factory-connector-<name>,
 # beside bin/factory or on PATH; it reads the Ask as JSON on stdin and exits 0 once the
-# Human is reached. A failed send leaves a dated note on the Ask and is never retried, and
-# factory asks --failures counts those notes per connector. A Profile without this key
-# still works: it means factoryclaw when OUTER_LAYER=factoryclaw and no connectors
-# otherwise, as Profiles written before the key did.
+# Human is reached, and one still running after 30 seconds is cut off. A failed send leaves
+# a dated note and the lasting connector-failed label on the Ask's Bead and is never
+# retried, and factory asks --failures counts those notes per connector, so the count
+# outlives the Ask. A Profile without this key still works: it means factoryclaw when
+# OUTER_LAYER=factoryclaw and no connectors otherwise, as Profiles written before the key
+# did.
 CONNECTORS=factoryclaw
 
 # What a Project Manager leads:
