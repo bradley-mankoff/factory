@@ -1,6 +1,6 @@
 # The Factory (spec, 2026-10-16)
 
-Status: agreed with the Human on 2026-10-16. This is a greenfield build in this repo, `~/Developer/personal_code/factory/`. It takes no code from the earlier Factory in `~/Developer/graph_engineering`, needs no migration from it, and keeps no compatibility with it.
+Status: agreed with the Human on 2026-10-16. This is a greenfield build in this repo, `~/Developer/personal_code/factory/`. It takes no code from the earlier Factory in `~/Developer/graph_engineering` (deleted 2026-11-18, archived in `~/Developer/archive/graph_engineering-2026-11-18/`), needs no migration from it, and keeps no compatibility with it.
 
 ## Goal
 
@@ -210,7 +210,7 @@ Every Run leaves a comment on its Bead naming its Workflow and the commit it ran
 
 ## Out of scope
 
-- Everything about the earlier Factory in `~/Developer/graph_engineering`: its code, its Beads, its FactoryClaw skill, and deleting any of them.
+- Everything about the earlier Factory, `~/Developer/graph_engineering`: its code, its Beads and its FactoryClaw skill. The Human had it deleted on 2026-11-18, a month after its last commit; it is archived in `~/Developer/archive/graph_engineering-2026-11-18/`.
 - Removing herdsman from the Human's personal pi setup. It does not block this build. (The installed pi was upgraded to 1.3.0 on 2026-10-17, with Archon 0.12.1.)
 - Claude models in FactoryClaw, and in Runs beyond code review.
 

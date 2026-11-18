@@ -33,7 +33,7 @@ The one glossary of the Factory. Other files in this repo use these words as def
 
 ## Words this Factory does not use
 
-These belonged to the earlier Factory in `~/Developer/graph_engineering`. Using them here would mix the two systems up.
+These belonged to the earlier Factory, `~/Developer/graph_engineering`, deleted on 2026-11-18 and archived in `~/Developer/archive/graph_engineering-2026-11-18/`. Using them here would mix the two systems up.
 
 - Boss: say Human. The home-folder `AGENTS.md` files still say Boss; they describe the same person.
 - Ticket: say Bead. Matt Pocock's `to-tickets` skill, which `to-beads` is adapted from, uses it.

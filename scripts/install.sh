@@ -17,8 +17,7 @@
 # the Chains file. install reads it and follows it, ships config/profile when no Profile
 # exists, and never overwrites one (fac-qpv.6.3).
 #
-# Running either twice gives the same result. It never prints auth.json's contents,
-# and it touches nothing in ~/Developer/graph_engineering.
+# Running either twice gives the same result. It never prints auth.json's contents.
 set -eu
 
 src=$(cd "$(dirname "$0")/.." && pwd)

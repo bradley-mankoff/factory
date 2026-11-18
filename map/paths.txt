@@ -324,11 +324,10 @@
 ## Related
 > Outside the Factory, but it leans on them.
 /opt/homebrew/bin/bdui  — beads-ui 0.12.6, the Beads board on 127.0.0.1:3917; the launchd job factory.bdui starts it at login with bin/board, which adds each Factory project to the dropdown (fac-qpv.5, fac-qpv.7.3)
-~/.local/bin/factory  — Link into the retired earlier Factory's ~/Developer/graph_engineering/scripts/factory; on PATH, and not this Factory's
 ~/AGENTS.md  — Home instructions: words, finding things, working with you
 ~/Developer/personal_code/AGENTS.md  — The universal law and the project list
 ~/Developer/personal_code/claw-setup  — The OpenClaw setup shared by both Macs; its factoryclaw/ folder is gone
-~/Developer/graph_engineering  — The earlier Factory: read-only, never aimed at
+~/Developer/archive/graph_engineering-2026-11-18  — The earlier Factory, deleted 2026-11-18: a git bundle of every branch, its Beads database and untracked flows
 ~/Developer/archive/jev_opportunity_study/REPORT.md  — Where a decision model pays: the four areas
 Keychain: Claude Code-credentials  — Claude Code's login, kept for pi-claude-bridge  [secret]
 /opt/homebrew/bin/bd  — Beads

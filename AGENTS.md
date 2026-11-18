@@ -10,7 +10,7 @@ This repo is the source of the Factory: the skills, the Project Manager's defini
 
 ## Rules
 
-- **Greenfield.** Write everything here new. The earlier Factory in `~/Developer/graph_engineering` stays as it is: take no code from it, migrate nothing, keep no compatibility, delete nothing there.
+- **Greenfield.** Write everything here new. The earlier Factory, `~/Developer/graph_engineering`, was deleted on 2026-11-18 and is archived in `~/Developer/archive/graph_engineering-2026-11-18/`: take no code from it, migrate nothing, keep no compatibility.
 - **Judgment in models.** Write code only for what a model cannot do reliably. Prefer guidance in instructions to code that checks. A gate whose job is to restrict which changes are allowed is never proposed.
 - **Scripts for mechanical checks.** A mechanical check (reading a field or a label, comparing two values, whether a record exists) is a short script, near instant and free, never a model call; models keep the judgment (the Human, 2026-11-17).
 - **Fix the source.** Prevent a problem in the instructions that create the work, not with a later fix that cleans up after it.
