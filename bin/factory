@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""The factory command: the one place the Mac's Asks live and are read (fac-3mz.1 to
-fac-3mz.3).
+"""The factory command: the one place the Mac's Asks live, are read and reach the Human
+(fac-3mz.1 to fac-3mz.4).
 
 An Ask is one thing waiting on the Human (GLOSSARY.md): a Decision, a grilling round, a
 Spec to review or a Human gate. Every kind but a gate is held in state the Factory already
@@ -10,9 +10,9 @@ words and how to answer, plus the `waiting-on-human` label on that Bead. The lab
 gate is Archon's paused Run, so its project's Archon queue holds it and `factory asks`
 reads it from there instead of from a label.
 
-    factory ask <bead id> <kind> <question>              put an Ask on a Bead
-    factory answer <ask> <words>                         record the Human's answer
-    factory asks [--json] [--open] [--project <repo>]    list the Mac's Asks
+    factory ask <bead id> <kind> <question>                        put an Ask on a Bead
+    factory answer <ask> <words>                                   record the Human's answer
+    factory asks [--json] [--open] [--project <repo>] [--failures]  list the Mac's Asks
 
 `factory asks` reads the projects in ~/.config/factory/projects and lists each Ask with its
 project, kind, Bead, status, question, how to answer and when it was asked: the open Asks,
@@ -30,8 +30,21 @@ mistyped id, a folder with no Beads) the command ends with a factory: line namin
 and writes nothing else, so a Bead that is labelled always carries an Ask to read. `factory
 ask <bead id> gate <question>` records a gate's question on its Bead, with no how to answer
 and no label: the gate waits in Archon's queue already and is answered there with its Run's
-id, and a label would make `factory asks` read a second, stale copy of it. The Project
-Manager uses it to relay a gate once connectors exist.
+id, and a label would make `factory asks` read a second, stale copy of it.
+
+Once the Ask is written, `factory ask` tells each connector the Mac's Profile names. A
+connector is a program, factory-connector-<name>, beside bin/factory or on PATH; it reads
+the Ask as JSON on stdin and exits 0 once the Human is reached, so each connector keeps its
+own message format. The first is factoryclaw, which sends the Ask into FactoryClaw's
+Telegram chat with the openclaw agent command the Project Manager's instructions use. A
+Profile without CONNECTORS means factoryclaw when OUTER_LAYER=factoryclaw and no connectors
+otherwise, and an empty CONNECTORS means none. Sending is best effort: a connector that
+fails, or that has not answered within 30 seconds (FACTORY_CONNECTOR_TIMEOUT names another
+number of seconds), leaves a dated note on the Ask's Bead naming itself and its error, plus
+the lasting `connector-failed` label, and nothing is retried, so the Ask itself is never
+lost. `factory asks --failures` counts those notes per connector on every Bead carrying
+that label, whatever became of its Ask, so the count outlives the Ask: a Bead whose Ask is
+done and an answered gate still count.
 
 `factory answer` is the only writer of answers. It runs in the project's folder, as a screen
 or the Project Manager does. On a Bead Ask it refuses a Bead that no longer carries
@@ -49,6 +62,7 @@ Everything here is mechanical: a comment, a label and a list, with no model call
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 from datetime import datetime
@@ -61,10 +75,19 @@ REJECT = "reject"
 KINDS = ("decision", "grilling", "spec-review", GATE)
 LABEL = "waiting-on-human"
 ANSWERED = "answered"
+# The label a failed send leaves beside its dated note on the Ask's Bead. Nothing else
+# removes it, so `factory asks --failures` still finds the note once the Ask is done and
+# the Bead closed; without it the count would fall back to zero as work moved on.
+FAILED = "connector-failed"
+# The wording of a failed send's note, which failure_comment writes and connector_failure
+# reads back, so the two cannot drift, as one map keeps an Ask's comment from drifting.
+NOTE_BEFORE, NOTE_AFTER = "Connector ", " failed, "
 BIN = os.path.dirname(os.path.realpath(__file__))
+# The one Profile install writes and every command reads for this Mac's settings.
+PROFILE = os.path.join(os.path.expanduser("~"), ".config", "factory", "profile")
 USAGE = (
     "usage: factory ask <bead id> <kind> <question> | factory answer <ask> <words> "
-    "| factory asks [--json] [--open] [--project <repo>]"
+    "| factory asks [--json] [--open] [--project <repo>] [--failures]"
 )
 # The prefix each field of an Ask's comment starts with, apart from the first line, which
 # names the kind. One map writes the comment and reads it back, so the two cannot drift.
@@ -151,11 +174,14 @@ def local_date(stamp):
         return stamp or ""
 
 
-def env_file_value(path, key):
-    """One value from a KEY=value file such as a project's .archon/.env, or None.
+def file_value(path, key):
+    """One value from a KEY=value file, such as a project's .archon/.env or the Profile.
 
-    A missing file, a missing key and a key the file leaves empty all answer None. The
-    value may be quoted, because install quotes a value carrying a space or a quote.
+    The answer is None when the file or the key is absent, and "" when the key is there
+    but empty: the Profile reads an empty CONNECTORS as "no connectors", which is not a
+    Profile written before the key existed, while an empty pane or session names nothing
+    and its caller says so. The value is unquoted, because install quotes one that carries
+    a space or a quote.
     """
     try:
         with open(path) as handle:
@@ -168,21 +194,134 @@ def env_file_value(path, key):
             value = line[len(key) + 1 :]
             if len(value) > 1 and value[0] == value[-1] and value[0] in "'\"":
                 value = value[1:-1]
-            return value or None
+            return value
     return None
 
 
-def ask_comment(bead, kind, question, asked):
+def connector_names():
+    """The connectors factory ask tells about a new Ask, as this Mac's Profile names them.
+
+    A Profile without CONNECTORS keeps the behaviour before the key existed: factoryclaw
+    when FactoryClaw is the outer layer, and none otherwise. An explicit empty CONNECTORS
+    names none, so a Mac without Telegram says so in its Profile.
+    """
+    named = file_value(PROFILE, "CONNECTORS")
+    if named is not None:
+        return named.split()
+    if file_value(PROFILE, "OUTER_LAYER") == "factoryclaw":
+        return ["factoryclaw"]
+    return []
+
+
+def connector_program(name):
+    """The program that tells one connector about an Ask, or None when the Mac has none.
+
+    The core's own connectors sit beside bin/factory, so install carries them; another
+    person's connector is a factory-connector-<name> program on PATH.
+    """
+    own = os.path.join(BIN, f"factory-connector-{name}")
+    if os.path.isfile(own) and os.access(own, os.X_OK):
+        return own
+    return shutil.which(f"factory-connector-{name}")
+
+
+def ask_record(bead, kind, question):
+    """An Ask as it is written and told: its fields, its project, folder and pane.
+
+    A gate records no how to answer: a gate is answered with its Run's id, which only
+    Archon's queue names, so its comment is a record rather than a listable Ask.
+    """
+    repo = os.getcwd()
+    return {
+        "project": project_name(repo),
+        "repo": repo,
+        "pane": file_value(os.path.join(repo, ".archon", ".env"), "FACTORY_PM_AGENT") or None,
+        "bead": bead,
+        "kind": kind,
+        "question": question,
+        "how_to_answer": None if kind == GATE else f'factory answer {bead} "<your answer>"',
+        "asked": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+
+
+def ask_comment(record):
     """An Ask's comment: its kind, when it was asked, how to answer and its question.
 
-    A gate's comment leaves out how to answer: a gate is answered with its Run's id, which
-    only Archon's queue names, so its comment is a record rather than a listable Ask.
+    It reads what `ask_record` built, so the comment a Bead keeps and the Ask a connector is
+    told cannot disagree.
     """
-    lines = [f"Ask: {kind}", PREFIXES["asked"] + asked]
-    if kind != GATE:
-        lines.append(PREFIXES["how_to_answer"] + f'factory answer {bead} "<your answer>"')
-    lines.append(PREFIXES["question"] + question)
+    lines = [f"Ask: {record['kind']}", PREFIXES["asked"] + record["asked"]]
+    if record["how_to_answer"]:
+        lines.append(PREFIXES["how_to_answer"] + record["how_to_answer"])
+    lines.append(PREFIXES["question"] + record["question"])
     return "\n".join(lines)
+
+
+def failure_comment(name, error):
+    """The dated note a failed send leaves on the Ask's Bead, naming the connector."""
+    return f"{NOTE_BEFORE}{name}{NOTE_AFTER}{datetime.now().strftime('%Y-%m-%d %H:%M')}: {error}"
+
+
+def connector_failure(text):
+    """The connector a failed-send note names, or None when the comment is not one."""
+    first = text.split("\n", 1)[0]
+    if not first.startswith(NOTE_BEFORE):
+        return None
+    name, separator, _ = first[len(NOTE_BEFORE) :].partition(NOTE_AFTER)
+    return name if separator and name else None
+
+
+def connector_timeout():
+    """How long one connector may take, in seconds: 30 unless the environment names another.
+
+    A connector that waits on a chat service can hang, and the Ask is already written, so a
+    hung connector is cut off and noted like any other failure. FACTORY_CONNECTOR_TIMEOUT
+    lets a Mac with a slow connector raise the limit and lets a test set it small.
+    """
+    try:
+        return float(os.environ.get("FACTORY_CONNECTOR_TIMEOUT") or 30)
+    except ValueError:
+        return 30.0
+
+
+def tell_connector(name, record):
+    """Tells one connector about a new Ask, returning its error or None when it was sent.
+
+    A connector is a program that reads the Ask as JSON on stdin and exits 0 once the Human
+    has been reached. Its own message on a refusal is the error the failure note records; a
+    connector still running at the timeout is cut off, and the note says so.
+    """
+    program = connector_program(name)
+    if not program:
+        return f"no factory-connector-{name} program beside bin/factory or on PATH"
+    seconds = connector_timeout()
+    try:
+        told = subprocess.run([program], input=json.dumps(record), capture_output=True, text=True, timeout=seconds)
+    except subprocess.TimeoutExpired:
+        return f"no answer within {seconds:g} seconds"
+    except OSError as error:
+        return str(error)
+    if told.returncode == 0:
+        return None
+    error = (told.stderr or told.stdout).strip().replace("\n", " ")
+    return error or f"exited with status {told.returncode}"
+
+
+def tell_connectors(bead, record):
+    """Tells every connector the Profile names, noting each failure and retrying nothing.
+
+    Sending is best effort: the Ask is already written, so a connector that cannot send it
+    leaves a dated note on the Bead naming itself and its error, and the command carries on
+    to the next connector. The note's lasting label is what lets `factory asks --failures`
+    find it again once the Ask is done. A failed send never fails the Ask.
+    """
+    for name in connector_names():
+        error = tell_connector(name, record)
+        if error is None:
+            continue
+        bd_write(bead, "comments", "add", bead, failure_comment(name, error))
+        bd_write(bead, "label", "add", bead, FAILED)
+        print(f"factory: connector {name} could not send {bead}; the failure is noted on the Bead.", file=sys.stderr)
 
 
 def ask(argv):
@@ -193,16 +332,18 @@ def ask(argv):
         sys.exit(f"factory: unknown kind '{kind}'; the kinds are {', '.join(KINDS)}")
     # The rest is one question: a shell that does not quote it still asks the whole thing.
     question = " ".join(words)
-    asked = datetime.now().strftime("%Y-%m-%d %H:%M")
+    record = ask_record(bead, kind, question)
     # The comment first, so the label never advertises an Ask with no fields to read.
-    bd_write(bead, "comments", "add", bead, ask_comment(bead, kind, question, asked))
+    bd_write(bead, "comments", "add", bead, ask_comment(record))
+    if kind != GATE:
+        bd_write(bead, "label", "add", bead, LABEL)
+    tell_connectors(bead, record)
     if kind == GATE:
         # A gate waits in Archon's queue, so its record carries no label: a label would make
         # `factory asks` read a second, stale copy of the same gate.
         print(f"factory: {bead} records a Human gate's question; Archon's queue holds the gate.")
-        return
-    bd_write(bead, "label", "add", bead, LABEL)
-    print(f"factory: {bead} is now an Ask waiting on the Human: {kind}.")
+    else:
+        print(f"factory: {bead} is now an Ask waiting on the Human: {kind}.")
 
 
 def parse_ask(text):
@@ -243,6 +384,57 @@ def same_repo(one, other):
     two spellings must be resolved before they are compared.
     """
     return os.path.realpath(os.path.expanduser(one)) == os.path.realpath(os.path.expanduser(other))
+
+
+def failed_sends(comments):
+    """The failed-send notes in one Bead's comments, counted per connector."""
+    counts = {}
+    for comment in comments:
+        name = connector_failure(comment.get("text", ""))
+        if name:
+            counts[name] = counts.get(name, 0) + 1
+    return counts
+
+
+def add_counts(counts, more):
+    """One place's per-connector counts added into another's, returning the total."""
+    for name, number in more.items():
+        counts[name] = counts.get(name, 0) + number
+    return counts
+
+
+def project_failures(repo):
+    """One project's failed sends, counted per connector, whatever became of the Asks.
+
+    A failed send leaves the lasting `connector-failed` label beside its dated note, so this
+    reads the Beads carrying that label instead of the Asks factory asks currently lists:
+    a done Ask and an answered gate still count, and `bd list --all` includes a closed Bead.
+    A project whose Beads cannot be read is reported and skipped, so one broken project
+    never hides the rest.
+    """
+    if not os.path.isdir(repo):
+        return {}
+    project = project_name(repo)
+    listed = bd_json("-C", repo, "list", "--label", FAILED, "--all", "--json", "--limit", "0")
+    if not isinstance(listed, list):
+        print(f"factory: skipped {project} failed sends: bd could not read its Beads", file=sys.stderr)
+        return {}
+    counts = {}
+    for bead in listed:
+        comments = bd_json("-C", repo, "comments", bead["id"], "--json")
+        if not isinstance(comments, list):
+            print(f"factory: skipped {project} {bead['id']} failed sends: bd could not read its comments", file=sys.stderr)
+            continue
+        counts = add_counts(counts, failed_sends(comments))
+    return counts
+
+
+def failure_counts(repos):
+    """Every failed send the Mac kept, counted per connector, however its Ask ended."""
+    counts = {}
+    for repo in repos:
+        counts = add_counts(counts, project_failures(repo))
+    return counts
 
 
 def project_asks(repo):
@@ -345,6 +537,7 @@ def project_gates(repo):
 def asks(argv):
     as_json = False
     open_only = False
+    failures_only = False
     wanted = None
     while argv:
         if argv[0] == "--json":
@@ -352,6 +545,9 @@ def asks(argv):
             argv = argv[1:]
         elif argv[0] == "--open":
             open_only = True
+            argv = argv[1:]
+        elif argv[0] == "--failures":
+            failures_only = True
             argv = argv[1:]
         elif argv[0] == "--project":
             if len(argv) < 2:
@@ -365,13 +561,20 @@ def asks(argv):
     if os.path.isfile(projects_file):
         with open(projects_file) as handle:
             repos = [line.strip() for line in handle if line.strip()]
+    if wanted is not None:
+        repos = [repo for repo in repos if same_repo(wanted, repo)]
+    if failures_only:
+        # Count every failed send the Mac kept, however its Ask ended. --project narrows
+        # the count to one project; the other filters describe the Ask list, not the record.
+        for name, number in sorted(failure_counts(repos).items()):
+            print(f"{name}  {number}")
+        return
     found = []
     for repo in repos:
-        if wanted is None or same_repo(wanted, repo):
-            # A paused Run comes first: a gate holds work that is ready to land, where a
-            # Bead's Ask waits on a question the Project Manager can carry on around.
-            found.extend(project_gates(repo))
-            found.extend(project_asks(repo))
+        # A paused Run comes first: a gate holds work that is ready to land, where a
+        # Bead's Ask waits on a question the Project Manager can carry on around.
+        found.extend(project_gates(repo))
+        found.extend(project_asks(repo))
     if open_only:
         found = [ask for ask in found if ask["status"] == "open"]
     if as_json:
@@ -411,7 +614,7 @@ def tell_project_manager(bead, words):
     """
     repo = os.getcwd()
     project = project_name(repo)
-    pane = env_file_value(os.path.join(repo, ".archon", ".env"), "FACTORY_PM_AGENT")
+    pane = file_value(os.path.join(repo, ".archon", ".env"), "FACTORY_PM_AGENT") or None
     if not pane:
         sys.exit(
             f"factory: recorded the Human's answer on {bead}, but {repo}/.archon/.env names no "
