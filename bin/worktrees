@@ -1,0 +1,347 @@
+#!/usr/bin/env python3
+"""worktrees [--json]: a read-only report of this repo's worktrees, one row each, with the
+verdict a person reads and the exact command that would remove the dead ones (fac-2jm).
+
+A Run leaves its worktree behind, and nothing in the Workflows removes it. This report never
+removes one either: it names what would. Each row carries the destination, the Run, the
+dirty and ignored counts, the unpushed commits, the content verdict and the command.
+
+The destination is the base the Run recorded (`metadata.dispatch.base_branch`), because a
+Run lands by squash and only the base it recorded can say whether the work arrived; a
+worktree with no Run falls back to its branch's upstream, then to origin's HEAD, never to a
+hard-coded main. A branch used by Runs with several bases is tested against every base they
+recorded.
+
+Runs and their recorded bases come from `archon workflow runs --all --json`, the newest
+5000; a Run older than those is not seen, so its worktree falls back to its branch's upstream.
+
+The content test is `git merge-tree --write-tree <destination> HEAD` compared with the
+destination's tree, run with GIT_OBJECT_DIRECTORY in a temporary folder so the report writes
+nothing to the repo's objects. A conflict, or a different tree, is not yet an answer: the
+branch's cumulative patch-id (`git diff <merge-base> HEAD | git patch-id`) is compared with
+each commit the destination gained, which finds a squash the tree merge could not merge
+cleanly. A branch whose tree adds nothing reads landed too.
+
+Verdicts, in the order they are decided:
+
+  LANE    the main checkout, a bare, locked, detached or prunable worktree, or a branch
+          another Run recorded as its base. Never offered for removal.
+  KEEP    a running or paused Run owns the worktree: wait, or resume a paused one.
+  DEAD    the worktree is clean and its content is in a destination: the command removes it.
+          A failed Run is abandoned first, and unpushed commits need --force, which the row
+          has earned with its content proof.
+  REVIEW  anything else: live content in no destination, or uncommitted work. Removal is a
+          person's call, so the row offers no command.
+
+Ignored files are printed under their row and never counted as work: every Factory repo
+carries build output, and counting it would make every worktree live forever.
+
+A running or paused Run holds its worktree whatever the content says. A failed Run is not
+dead on its own either, because Archon treats it as resumable: the row names
+`archon workflow abandon` before anything else, and only content that is in a destination
+lets the removal follow.
+
+The report is mechanical, makes no model call and exits 0 whatever it finds, including
+folders that are gone or a repo with no Archon.
+"""
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+
+RUN_LIMIT = "5000"
+LIVE = ("running", "paused")
+
+
+def git(folder, *args, input_text=None):
+    """One git command in a folder; a missing folder or git answers with a failed result."""
+    try:
+        return subprocess.run(
+            ["git", "-C", folder, *args],
+            capture_output=True,
+            text=True,
+            input=input_text,
+        )
+    except OSError:
+        return None
+
+
+def output(result):
+    return result.stdout if result is not None and result.returncode == 0 else ""
+
+
+def entries_of(folder):
+    """The worktrees git lists, main checkout first, with the facts its porcelain prints."""
+    result = git(folder, "worktree", "list", "--porcelain")
+    if result is None or result.returncode != 0:
+        return None
+    entries = []
+    current = None
+    for line in result.stdout.splitlines():
+        if line.startswith("worktree "):
+            current = {"path": line[len("worktree "):], "branch": None, "detached": False,
+                       "locked": False, "bare": False, "prunable": False}
+            entries.append(current)
+        elif current is not None:
+            if line.startswith("branch refs/heads/"):
+                current["branch"] = line[len("branch refs/heads/"):]
+            elif line == "detached":
+                current["detached"] = True
+            elif line.startswith("locked"):
+                current["locked"] = True
+            elif line == "bare":
+                current["bare"] = True
+            elif line.startswith("prunable"):
+                current["prunable"] = True
+    return entries
+
+
+def archon_runs():
+    """The Runs Archon knows, from `archon workflow runs --all --json`, or none."""
+    archon = shutil.which("archon")
+    if archon is None:
+        fallback = os.path.expanduser("~/.local/bin/archon")
+        archon = fallback if os.access(fallback, os.X_OK) else None
+    if archon is None:
+        return []
+    try:
+        result = subprocess.run(
+            [archon, "workflow", "runs", "--all", "--json", "--limit", RUN_LIMIT],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        runs = json.loads(result.stdout).get("runs", [])
+        return sorted(runs, key=lambda run: run.get("started_at") or "", reverse=True)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return []
+
+
+def real(path):
+    return os.path.realpath(path) if path else path
+
+
+def destinations_of(runs):
+    """The bases the Runs recorded, in the order they were made, without repeats."""
+    found = []
+    for run in runs:
+        dispatch = (run.get("metadata") or {}).get("dispatch") or {}
+        base = dispatch.get("base_branch")
+        if base and base not in found:
+            found.append(base)
+    return found
+
+
+def resolve(folder, name):
+    """The ref a base can be read as: the branch itself, then the same name on origin."""
+    for ref in (name, f"origin/{name}", f"refs/remotes/origin/{name}"):
+        result = git(folder, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
+        if output(result).strip():
+            return ref
+    return None
+
+
+def default_destination(folder, branch):
+    """A worktree with no Run: its branch's upstream, then origin's HEAD."""
+    if branch:
+        upstream = output(git(folder, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")).strip()
+        # A branch pushed under its own name tracks itself, and testing it against itself
+        # would call every pushed branch landed: that is not a destination.
+        if upstream and upstream.split("/", 1)[-1] != branch:
+            return upstream.split("/", 1)[-1], upstream
+    head = output(git(folder, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")).strip()
+    if head:
+        return head.split("/", 1)[-1], head
+    return None, None
+
+
+def patch_id(text):
+    """git's stable patch-id for one diff, or None for an empty one."""
+    if not text.strip():
+        return None
+    result = subprocess.run(["git", "patch-id", "--stable"], input=text, capture_output=True, text=True)
+    fields = output(result).split()
+    return fields[0] if fields else None
+
+
+def merged_tree(folder, ref):
+    """The tree merging the ref with HEAD, written to a temporary object folder: None when
+    git could not answer. A conflict still names the tree it would have written."""
+    scratch = tempfile.mkdtemp(prefix="factory-worktrees-")
+    try:
+        objects = output(git(folder, "rev-parse", "--path-format=absolute", "--git-path", "objects")).strip()
+        if not objects:
+            return None
+        environment = dict(os.environ, GIT_OBJECT_DIRECTORY=scratch, GIT_ALTERNATE_OBJECT_DIRECTORIES=objects)
+        try:
+            result = subprocess.run(
+                ["git", "-C", folder, "merge-tree", "--write-tree", ref, "HEAD"],
+                capture_output=True, text=True, env=environment,
+            )
+        except OSError:
+            return None
+        lines = result.stdout.splitlines()
+        return lines[0].strip() if lines else None
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def content_of(folder, ref):
+    """`landed` when the branch adds nothing to the destination's tree."""
+    wanted = output(git(folder, "rev-parse", "--verify", "--quiet", f"{ref}^{{tree}}")).strip()
+    if not wanted:
+        return "unknown"
+    merged = merged_tree(folder, ref)
+    if merged == wanted:
+        return "landed"
+    base = output(git(folder, "merge-base", ref, "HEAD")).strip()
+    if not base:
+        return "unlanded"
+    mine = patch_id(output(git(folder, "diff", base, "HEAD")))
+    if mine is None:
+        return "landed"
+    for commit in output(git(folder, "rev-list", f"{base}..{ref}")).split():
+        if patch_id(output(git(folder, "show", commit))) == mine:
+            return "landed"
+    return "unlanded"
+
+
+def status_counts(folder):
+    """The uncommitted entries and the ignored paths, from git's strict porcelain status,
+    which never refreshes the worktree's index on the report's behalf."""
+    common = ["--no-optional-locks", "status", "--porcelain=v1", "-z", "--untracked-files=all",
+              "--ignore-submodules=none"]
+    result = git(folder, *common, "--ignored=matching")
+    if result is None or result.returncode != 0:
+        return None, None, []
+    records = [record for record in result.stdout.split("\0") if record]
+    ignored = [record[3:] for record in records if record.startswith("!! ")]
+    dirty = [record for record in records if not record.startswith("!! ")]
+    return len(dirty), len(ignored), ignored
+
+
+def unpushed_count(folder):
+    """Commits on the branch its upstream does not have, or on no remote at all."""
+    if output(git(folder, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")).strip():
+        result = git(folder, "rev-list", "--count", "@{upstream}..HEAD")
+    else:
+        result = git(folder, "rev-list", "--count", "HEAD", "--not", "--remotes")
+    text = output(result).strip()
+    return int(text) if text.isdigit() else None
+
+
+def row_for(live_runs, lane, entry, index):
+    """One worktree's row: its verdict and the command a person would run next."""
+    branch = entry["branch"]
+    path = entry["path"]
+    runs = live_runs.get(real(path), [])
+    chosen = next((run for run in runs if run.get("status") in LIVE), None) or (runs[0] if runs else None)
+    failed = next((run for run in runs if run.get("status") == "failed"), None)
+    dirty, ignored, ignored_files = status_counts(path)
+    row = {"path": path, "branch": branch, "verdict": "REVIEW", "destinations": [],
+           "run": {"id": chosen["id"], "status": chosen.get("status")} if chosen else None,
+           "dirty": dirty, "ignored": ignored, "ignored_files": ignored_files,
+           "unpushed": unpushed_count(path), "content": "unknown", "command": ""}
+
+    # A lane is where Runs land, so it has no destination of its own and no content to
+    # judge: it is decided before any Run or content test.
+    if index == 0 or entry["bare"] or entry["locked"] or entry["detached"] or entry["prunable"] or (
+        branch and branch in lane
+    ):
+        row["verdict"] = "LANE"
+        return row
+
+    bases = destinations_of(runs)
+    refs = []
+    if bases:
+        for base in bases:
+            ref = resolve(path, base)
+            if ref:
+                refs.append((base, ref))
+    else:
+        base, ref = default_destination(path, branch)
+        if ref:
+            bases = [base]
+            refs = [(base, ref)]
+    row["destinations"] = bases
+
+    verdicts = [content_of(path, ref) for _, ref in refs]
+    if "landed" in verdicts:
+        row["content"] = "landed"
+    elif verdicts and all(verdict == "unlanded" for verdict in verdicts):
+        row["content"] = "unlanded"
+
+    # A live Run vetoes the verdict whatever the content says: the worktree is in use.
+    if chosen is not None and chosen.get("status") in LIVE:
+        row["verdict"] = "KEEP"
+        row["command"] = (
+            f"wait: Run {chosen['id']} is {chosen.get('status')}"
+            if chosen.get("status") == "running"
+            else f"archon workflow resume {chosen['id']}"
+        )
+        return row
+
+    failed_id = failed["id"] if failed is not None else None
+    if row["content"] == "landed" and dirty == 0 and branch:
+        row["verdict"] = "DEAD"
+        removal = f"archon complete {'--force ' if row['unpushed'] else ''}{branch}"
+        row["command"] = f"archon workflow abandon {failed_id} && {removal}" if failed_id else removal
+    elif failed_id:
+        row["command"] = f"archon workflow abandon {failed_id}"
+    return row
+
+
+def text_row(row):
+    """One row as a person reads it: the command last, so its spaces are never confused for
+    a column."""
+    def shown(value):
+        return "-" if value is None else str(value)
+
+    run = f"{row['run']['id'][:8]}/{row['run']['status']}" if row["run"] else "-"
+    return (
+        f"{row['verdict']:<7} {(row['branch'] or '(detached)'):<44} "
+        f"{','.join(row['destinations']) or '-':<22} run={run:<22} "
+        f"dirty={shown(row['dirty']):<4} ignored={shown(row['ignored']):<4} "
+        f"unpushed={shown(row['unpushed']):<4} content={row['content']:<9} {row['command']}"
+    ).rstrip()
+
+
+def main(argv):
+    if any(argument in ("-h", "--help") for argument in argv):
+        print(__doc__.strip())
+        return 0
+    as_json = "--json" in argv
+    folder = os.getcwd()
+    entries = entries_of(folder)
+    if entries is None:
+        print(f"worktrees: not a git repo: {folder}", file=sys.stderr)
+        return 0
+
+    runs = archon_runs()
+    by_path = {}
+    for run in runs:
+        by_path.setdefault(real(run.get("working_path")), []).append(run)
+    paths = {real(entry["path"]) for entry in entries}
+    lane = {base for path in paths for base in destinations_of(by_path.get(path, []))}
+
+    rows = [row_for(by_path, lane, entry, index) for index, entry in enumerate(entries)]
+    if as_json:
+        print(json.dumps(rows, indent=2))
+        return 0
+    for row in rows:
+        print(text_row(row))
+        if row["ignored_files"]:
+            print(f"        ignored: {', '.join(row['ignored_files'])}")
+    return 0
+
+
+if __name__ == "__main__":
+    # A report does not fail: a repo in an odd state still gets its rows, and a person reads
+    # whatever the report could not answer from the error beside them.
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except Exception as error:
+        print(f"worktrees: {error}", file=sys.stderr)
+        sys.exit(0)

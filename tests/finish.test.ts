@@ -9,7 +9,7 @@
  * notes, and the environment a Run gives its last node. Nothing here looks inside bin/finish.
  */
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -21,6 +21,8 @@ const finish = join(repoRoot, "bin", "finish");
 
 type Harness = {
 	artifacts: string;
+	/** Makes the folder bin/finish runs in a git worktree on this branch, as a Run's is. */
+	branch: (name: string) => void;
 	note: (name: string, text?: string) => void;
 	run: (workflow: string, extraEnv?: Record<string, string>) => { status: number | null; stdout: string; stderr: string };
 	notice: (pane: string) => string;
@@ -35,6 +37,14 @@ function makeHarness(): Harness {
 	mkdirSync(artifacts, { recursive: true });
 	const noticesDir = join(home, ".local", "share", "factory", "notices");
 
+	const branch = (name: string) => {
+		execFileSync("git", ["init", "-q", "-b", name, dir]);
+		execFileSync("git", ["-C", dir, "config", "user.email", "test@example.com"]);
+		execFileSync("git", ["-C", dir, "config", "user.name", "Test"]);
+		writeFileSync(join(dir, "file.txt"), "one\n");
+		execFileSync("git", ["-C", dir, "add", "file.txt"]);
+		execFileSync("git", ["-C", dir, "commit", "-qm", "first"]);
+	};
 	const note = (name: string, text = "") => writeFileSync(join(artifacts, name), text);
 	const run = (workflow: string, extraEnv: Record<string, string> = {}) =>
 		spawnSync(finish, [workflow], {
@@ -51,7 +61,7 @@ function makeHarness(): Harness {
 		});
 	const notice = (pane: string) => readFileSync(join(noticesDir, `${pane}.md`), "utf8");
 
-	return { artifacts, note, run, notice };
+	return { artifacts, branch, note, run, notice };
 }
 
 /** The one Notice line a Run left, without the date bin/tell-pm adds. */
@@ -293,5 +303,53 @@ test("a research Run with no findings ends without them", () => {
 	assert.equal(
 		noticeText(h),
 		"Research Run run-123 ended without findings; archon workflow get run-123 names the node that failed",
+	);
+});
+
+// A Run leaves its worktree behind, and nothing else removes it, so the Notice carries the
+// one command that does, naming the branch the Run's worktree is on (fac-2jm).
+test("a landed build's Notice names the branch whose worktree the Project Manager removes", () => {
+	const h = makeHarness();
+	h.branch("factory-build-1795000000020");
+	h.note("landing", "merged pull request https://github.com/example/factory/pull/7 into main\n");
+
+	const result = h.run("factory-build");
+
+	assert.equal(result.status, 0, result.stderr);
+	assert.equal(
+		noticeText(h),
+		"Run run-123 (factory-build) for Bead fac-1 merged pull request https://github.com/example/factory/pull/7 into main. " +
+			"When you no longer need it, remove its worktree: archon complete factory-build-1795000000020.",
+	);
+});
+
+test("a withheld Run's Notice says to adopt or drop its work before removing the worktree", () => {
+	const h = makeHarness();
+	h.branch("factory-build-1795000000021");
+	h.note("withheld", "the standards review\n");
+
+	const result = h.run("factory-build");
+
+	assert.equal(result.status, 0, result.stderr);
+	assert.equal(
+		noticeText(h),
+		"Run run-123 (factory-build) for Bead fac-1 ended at the standards review, which withheld approval; " +
+			"the findings are on Bead fac-1. When you no longer need it, adopt or drop the work on its branch first, " +
+			"then remove its worktree: archon complete factory-build-1795000000021.",
+	);
+});
+
+test("a research Run's Notice also names the branch whose worktree is removed", () => {
+	const h = makeHarness();
+	h.branch("factory-research-1795000000022");
+	h.note("findings.md", "# The answer\n\nYes.\n");
+
+	const result = h.run("factory-research");
+
+	assert.equal(result.status, 0, result.stderr);
+	assert.equal(
+		noticeText(h),
+		`Research Run run-123 answered; the answer opens ${join(h.artifacts, "findings.md")}. ` +
+			"When you no longer need it, remove its worktree: archon complete factory-research-1795000000022.",
 	);
 });
