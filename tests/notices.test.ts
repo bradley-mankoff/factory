@@ -76,7 +76,10 @@ const readRequests = (log: string): Request[] =>
 /** A pi session in RPC mode with the Notices extension and the test provider, and nothing
  * else loaded: no skills, prompt templates, context files or MCP. `log` and `replyHold`
  * default to the machine's, and a test that runs two sessions gives each its own. */
-function startPi(machine: Machine, options: { deadChangeNotification?: boolean; log?: string; replyHold?: string } = {}) {
+function startPi(
+	machine: Machine,
+	options: { deadChangeNotification?: boolean; log?: string; replyHold?: string; replyFail?: string } = {},
+) {
 	const env: NodeJS.ProcessEnv = {
 		...process.env,
 		HOME: machine.home,
@@ -88,6 +91,7 @@ function startPi(machine: Machine, options: { deadChangeNotification?: boolean; 
 		REPLY_TEST_LOG: options.log ?? machine.log,
 		DEAD_CHANGE_LOG: machine.deadWatchLog,
 		REPLY_TEST_HOLD: options.replyHold ?? machine.replyHold,
+		REPLY_TEST_FAIL: options.replyFail ?? "",
 	};
 	// The broken change notification loads only in the session a test asks for it in.
 	delete env.NODE_OPTIONS;
@@ -281,22 +285,57 @@ test("a Notice that arrives while a turn is running waits for that turn to end",
 	}
 });
 
+test("Notices already in the file when the Factory first takes a pane are not delivered", async () => {
+	// An install finds a pane's file holding Notices from Runs handled long ago. The status
+	// file has just been made, so its absence is no sign that those are pending: the first
+	// session records them as acted on rather than working through them again (fac-618).
+	const machine = makeMachine();
+	const old = "2026-11-18 09:00 Run 50ae54e5 (factory-build) for Bead fac-12 ended merged.";
+	const alsoOld = "2026-11-18 10:00 Run 61bf65f6 (factory-build) for Bead fac-13 ended failed.";
+	writeNotice(machine, old);
+	writeNotice(machine, alsoOld);
+	const pi = startPi(machine);
+	try {
+		await pi.ready();
+		await sleep(QUIET_MS);
+		assert.equal(readRequests(machine.log).length, 0, "no Notice already in the file was delivered");
+
+		// A Notice written once the pane is taken arrives, so the session is reading the file
+		// and the quiet above is the seed rather than a reader that never ran.
+		const fresh = "2026-11-19 10:00 Run 72c07607 (factory-build) for Bead fac-14 ended merged.";
+		writeNotice(machine, fresh);
+		const [request] = await waitForRequests(machine.log, 1);
+		assert.ok(conversation(request).includes(fresh), `the Notice written after the start arrives: ${conversation(request)}`);
+		await sleep(QUIET_MS);
+		assert.equal(readRequests(machine.log).length, 1, `only the new Notice was delivered: ${JSON.stringify(readRequests(machine.log))}`);
+	} finally {
+		await pi.stop();
+	}
+});
+
 test("a Notice written while no session was open is delivered when the session starts", async () => {
 	// The Project Manager's pane can be closed when a Run ends, and the Notice is the Run's
 	// ending: the session pulls what is still pending on its way up rather than leaving the
 	// Run to the status check.
 	const machine = makeMachine();
+	// The pane's status file is made by the session that takes the pane; the Notice below
+	// belongs to the pane after that, so it is pending rather than one of the file's old ones.
+	const first = startPi(machine, { log: logFile(machine, "first") });
+	await first.ready();
+	await first.stop();
+
 	const line = "2026-11-19 09:00 Run 72c07607 (factory-build) for Bead fac-3 ended merged.";
 	writeNotice(machine, line);
-	const pi = startPi(machine);
+	const nextLog = logFile(machine, "next");
+	const next = startPi(machine, { log: nextLog });
 	try {
-		await pi.ready();
+		await next.ready();
 
-		const [request] = await waitForRequests(machine.log, 1);
+		const [request] = await waitForRequests(nextLog, 1);
 
 		assert.ok(conversation(request).includes(line), `the session was sent the pending Notice: ${conversation(request)}`);
 	} finally {
-		await pi.stop();
+		await next.stop();
 	}
 });
 
@@ -340,9 +379,9 @@ test("a Notice a session was killed before acting on is delivered again to the n
 	const line = "2026-11-19 10:05 Run 61bf65f6 (factory-build) for Bead fac-7 ended merged.";
 	// The reply waits for this file to go, so the Notice's turn is still running when it dies.
 	fs.writeFileSync(machine.replyHold, "");
-	writeNotice(machine, line);
 	const first = startPi(machine, { log: firstLog });
 	await first.ready();
+	writeNotice(machine, line);
 	await waitForRequests(firstLog, 1);
 	await first.crash();
 	fs.rmSync(machine.replyHold);
@@ -391,16 +430,17 @@ test("two sessions under one pane name deliver each Notice once", async () => {
 	}
 });
 
-test("the same Notice written twice reaches the Project Manager once", async () => {
-	// A Run whose last node runs twice writes the same Notice again; it is one event, named by
-	// the hash of its line, and the Project Manager records the Run once.
+test("the same Notice line written twice reaches the Project Manager once", async () => {
+	// Two identical lines are one event, named by the hash of the text. A retry that lands in a
+	// later minute writes a new date into the line and so a second event; its Bead's record is
+	// what keeps the Project Manager from acting on one ending twice (fac-c94).
 	const machine = makeMachine();
 	const line = "2026-11-19 10:20 Run 83d18718 (factory-build) for Bead fac-9 ended merged.";
-	writeNotice(machine, line);
-	writeNotice(machine, line);
 	const pi = startPi(machine);
 	try {
 		await pi.ready();
+		writeNotice(machine, line);
+		writeNotice(machine, line);
 
 		const [request] = await waitForRequests(machine.log, 1);
 		assert.ok(conversation(request).includes(line), `the Notice arrives: ${conversation(request)}`);
@@ -419,9 +459,9 @@ test("a Notice whose turn the Human ended early is delivered again to the next s
 	const line = "2026-11-19 10:25 Run 72c07607 (factory-build) for Bead fac-10 ended failed.";
 	// The reply is held, so the Notice's turn is still running when the Human ends it.
 	fs.writeFileSync(machine.replyHold, "");
-	writeNotice(machine, line);
 	const first = startPi(machine, { log: firstLog });
 	await first.ready();
+	writeNotice(machine, line);
 	await waitForRequests(firstLog, 1);
 	await first.request({ type: "abort" });
 	await first.idle();
@@ -436,6 +476,35 @@ test("a Notice whose turn the Human ended early is delivered again to the next s
 		const [request] = await waitForRequests(nextLog, 1);
 
 		assert.ok(conversation(request).includes(line), `the Notice whose turn was cut short arrives again: ${conversation(request)}`);
+	} finally {
+		await next.stop();
+	}
+});
+
+test("a Notice whose turn ends in a provider error is delivered again to the next session", async () => {
+	// The provider refuses the request the Notice started, so the Project Manager did nothing
+	// with the Notice: the next session pulls it rather than leaving the Run unrecorded.
+	const machine = makeMachine();
+	const firstLog = logFile(machine, "first");
+	const line = "2026-11-19 10:28 Run 50ae54e5 (factory-build) for Bead fac-15 ended merged.";
+	const replyFail = path.join(machine.dir, "fail-replies");
+	fs.writeFileSync(replyFail, "");
+	const first = startPi(machine, { log: firstLog, replyFail });
+	await first.ready();
+	writeNotice(machine, line);
+	await waitForRequests(firstLog, 1);
+	await first.idle();
+	await first.stop();
+	fs.rmSync(replyFail);
+
+	const nextLog = logFile(machine, "next");
+	const next = startPi(machine, { log: nextLog });
+	try {
+		await next.ready();
+
+		const [request] = await waitForRequests(nextLog, 1);
+
+		assert.ok(conversation(request).includes(line), `the Notice the failed turn never acted on arrives again: ${conversation(request)}`);
 	} finally {
 		await next.stop();
 	}

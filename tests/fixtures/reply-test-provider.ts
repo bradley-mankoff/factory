@@ -11,6 +11,9 @@
  * before a turn it wants to hold, so the turn is still running while the test reads what
  * else happens. A turn the session aborts, as the Human's Esc does, ends at once with an
  * aborted reply, so a held reply never outlives the abort.
+ *
+ * REPLY_TEST_FAIL: a file that makes each reply an error the session does not retry, the way
+ * a provider that rejects the request ends a turn without the model answering anything.
  */
 import { appendFileSync, existsSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -25,6 +28,7 @@ import {
 const api = "reply-test";
 const log = process.env.REPLY_TEST_LOG ?? "/dev/null";
 const hold = process.env.REPLY_TEST_HOLD;
+const fail = process.env.REPLY_TEST_FAIL;
 
 /** Waits for the hold file to go, so a turn stays open while a test watches it; false when
  * the session aborted the request instead. */
@@ -79,6 +83,17 @@ export default function replyTestProvider(pi: ExtensionAPI): void {
 		void (async () => {
 			if (!(await released(options?.signal))) {
 				stream.push({ type: "error", reason: "aborted", error: { ...reply, stopReason: "aborted" } });
+				return;
+			}
+			if (fail && existsSync(fail)) {
+				// A message pi does not retry, so the turn ends in the error and the session settles.
+				const error = {
+					...reply,
+					content: [],
+					stopReason: "error" as const,
+					errorMessage: "invalid request: the reply test provider was told to fail",
+				};
+				stream.push({ type: "error", reason: "error", error });
 				return;
 			}
 			stream.push({ type: "start", partial: reply });
