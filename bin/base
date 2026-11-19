@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+"""The branch this Run lands on, which is not always the base Archon resolved for it (fac-02k).
+
+Archon resolves $BASE_BRANCH for a Run from what that Run was dispatched with: a `--base`
+override, repo config, the project's default branch, or git auto-detection. `--adopt`
+refuses `--base`, so an adopting Run has no override and resolves the project's default
+branch instead of the branch the Run it continues was cut from. That is how a second pass
+came to aim at main and have bin/land refuse it as protected, after the whole Run was
+spent (`fac-02k`).
+
+An adopting Run's own dispatch is therefore not a record of where its work belongs. The
+Run that the chain started from is: an adopting Run was started from a branch, and a
+chain of second passes only ever continues it. So this prints, for an adopting Run, the
+base that the first Run of the chain recorded, read from Archon's own record of each Run
+with `archon workflow get <run id> --json`; the adopting Run's artifacts folder names the
+Run it adopted, in `$ADOPTED_RUN_DIR`, and each record names the Run it adopted in turn.
+
+    bin/base                        the branch this Run lands on
+
+It prints $BASE_BRANCH for a Run that adopts nothing, so every other Run is unaffected.
+It exits with a reason when an adopting Run's chain names no base, rather than printing
+the project's default branch: bin/land's `--base` is then how a person lands by hand.
+"""
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+ADOPTION_DEPTH = 100
+
+
+def fail(message):
+    sys.exit(f"base: {message}")
+
+
+def archon_command():
+    """The Archon CLI, looked up the way bin/land looks up gh: PATH, then where a Mac keeps it."""
+    found = shutil.which("archon")
+    if found:
+        return found
+    home = os.environ.get("HOME", "")
+    folders = [
+        os.path.join(home, ".local", "bin"),
+        os.path.join(os.environ.get("ARCHON_HOME", ""), "bin") if os.environ.get("ARCHON_HOME") else "",
+        os.path.join(home, ".local", "share", "factory", "archon", "bin"),
+    ]
+    for folder in folders:
+        if not folder:
+            continue
+        candidate = os.path.join(folder, "archon")
+        if os.access(candidate, os.X_OK):
+            return candidate
+    fail("cannot find the archon command, so it cannot read the adopted Run's base")
+
+
+def run_record(run):
+    """One Run's record, as `archon workflow get` prints it; its dispatch holds the base."""
+    result = subprocess.run(
+        [archon_command(), "workflow", "get", run, "--json"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip().splitlines()
+        because = f": {detail[-1]}" if detail else ""
+        fail(f"could not read the adopted Run {run} from Archon{because}")
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        fail(f"Archon's record of the adopted Run {run} is not JSON, so its base cannot be read")
+
+
+def dispatch_base(record):
+    dispatch = (record.get("metadata") or {}).get("dispatch") or {}
+    return (dispatch.get("base_branch") or "").strip()
+
+
+def main():
+    branch = (os.environ.get("BASE_BRANCH") or "").strip()
+    adopted = os.environ.get("ADOPTED_RUN_DIR") or ""
+    if not adopted:
+        if not branch:
+            fail("Archon gave this Run no $BASE_BRANCH, so there is no branch to land on")
+        print(branch)
+        return
+
+    run = os.path.basename(adopted.rstrip("/"))
+    if not run:
+        fail(f"$ADOPTED_RUN_DIR ({adopted}) names no Run, so its base cannot be read")
+    # A chain of second passes all continue the branch the first Run was started from. Each
+    # adopting Run recorded the project's default instead, so walk to the Run that adopted
+    # nothing and take its base.
+    seen = set()
+    while True:
+        if run in seen or len(seen) >= ADOPTION_DEPTH:
+            fail(f"the adopted Runs form a loop at {run}, so its base cannot be read")
+        seen.add(run)
+        record = run_record(run)
+        parent = (record.get("adopted_from_run_id") or "").strip()
+        if not parent:
+            base = dispatch_base(record)
+            if not base:
+                fail(
+                    f"the base of the adopted Run {run} cannot be read: {run} recorded no "
+                    "base branch, and there is no earlier Run to take one from. Land by hand "
+                    "with bin/land --base <branch>."
+                )
+            print(base)
+            return
+        run = parent
+
+
+if __name__ == "__main__":
+    main()

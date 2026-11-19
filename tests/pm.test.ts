@@ -77,6 +77,7 @@ function makeHarness(options: { shippedSettings?: boolean; profile?: string; wor
 	printf 'env.LIBRARY=%s\\n' "\${LIBRARY-<unset>}"
 	printf 'env.FACTORY_PM_AGENT=%s\\n' "\${FACTORY_PM_AGENT-<unset>}"
 	printf 'env.WORKSPACE=%s\\n' "\${WORKSPACE-<unset>}"
+	printf 'env.FACTORY_PM_BRANCH=%s\\n' "\${FACTORY_PM_BRANCH-<unset>}"
 	printf 'env.FACTORY_DEMOS=%s\\n' "\${FACTORY_DEMOS-<unset>}"
 	printf 'env.FACTORY_CHECK=%s\\n' "\${FACTORY_CHECK-<unset>}"
 	printf 'env.PI_NOTICES_FILE=%s\\n' "\${PI_NOTICES_FILE-<unset>}"
@@ -344,6 +345,25 @@ test("with the worktree shape, start leads the worktree, names its pane pm-<work
 	assert.deepEqual(archonCalls(h.archonLog), [
 		`${fs.realpathSync(h.repo)}|workflow run factory-register --no-worktree --base-branch main register`,
 	]);
+});
+
+test("with the worktree shape, start names the branch the Project Manager leads, so the wrapper starts its Runs from it", () => {
+	// The archon wrapper adds --base to a fresh Run under the worktree shape (fac-02k);
+	// the branch is the pane's own worktree branch, captured at start so a later cd in the
+	// pane cannot change it.
+	const h = makeHarness({ worktree: true });
+	const result = h.run(path.join(repoRoot, "project-manager", "start"), { cwd: h.worktree });
+
+	assert.equal(result.status, 0, result.stderr);
+	assert.equal(h.readLaunch(result.capture).env.FACTORY_PM_BRANCH, "build-1");
+});
+
+test("with the project shape, start names no Project Manager branch, so the wrapper leaves a Run on the repo's default", () => {
+	const h = makeHarness();
+	const result = h.run(path.join(repoRoot, "project-manager", "start"));
+
+	assert.equal(result.status, 0, result.stderr);
+	assert.equal(h.readLaunch(result.capture).env.FACTORY_PM_BRANCH, "<unset>");
 });
 
 test("with the worktree shape, start links the main checkout's .archon/.env into a worktree that has none, and reads it", () => {

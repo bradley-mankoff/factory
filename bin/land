@@ -16,7 +16,8 @@
 #
 #   --hold        stop before the base branch moves, for a Workflow that puts a Human gate
 #                 in between: open the pull request, or build and check the squash.
-#   --base        the branch to land on; $BASE_BRANCH by default, which Archon sets.
+#   --base        the branch to land on; by default the branch an adopting Run's chain chose,
+#                 from bin/base, and otherwise $BASE_BRANCH, which Archon sets.
 #
 # The gh the pull-request landing runs is looked up on PATH and then in the folders a Mac
 # installs tools in, so a landing from a Run whose shell has launchd's bare PATH still finds
@@ -40,7 +41,7 @@ profile=$HOME/.config/factory/profile
 protected=${PROTECTED_TARGETS:-}
 
 hold=
-base=${BASE_BRANCH:-}
+base=
 while [ $# -gt 0 ]; do
 	case $1 in
 	--hold) hold=1 ;;
@@ -49,10 +50,6 @@ while [ $# -gt 0 ]; do
 	esac
 	shift
 done
-[ -n "$base" ] || {
-	echo "land: no base branch: set BASE_BRANCH or pass --base <branch>" >&2
-	exit 2
-}
 
 # note <file> <one line>: leaves a note in the Run's artifacts for the Workflow's last
 # node, which cannot read a failed node's output back. `landing` is how the landing ended;
@@ -65,6 +62,17 @@ refuse() {
 	note landing "refused to land: $*"
 	exit 1
 }
+
+# The branch to land on. bin/base carries an adopting Run's base forward from the Run its
+# chain started from, because Archon refuses --base on --adopt and so records the project's
+# default for the adopting Run (fac-02k). A run that adopts nothing lands on $BASE_BRANCH.
+if [ -z "$base" ]; then
+	if ! base=$("$here/base" 2>&1); then
+		refuse "${base#base: }"
+	fi
+fi
+[ -n "$base" ] || refuse "no base branch: set BASE_BRANCH or pass --base <branch>"
+
 # origin_repo: the repo behind origin as owner/name, so a gh call can say which repo it means.
 # gh resolves a repo from its own default, which in a fork with an upstream remote can be
 # upstream. Empty when origin is not a github.com address: there is no owner/name then, and

@@ -288,7 +288,10 @@ landing does not run.
 Lands the Run's commits the way the Mac's Profile says: a pull request into the base branch and its
 squash merge, or the commits squashed onto the base branch, checked again and pushed. It refuses a
 protected target before any git command moves a branch, and is the pull request, the merge and the
-push in one node.
+push in one node. The base is `--base`, or, when the Run adopts an earlier one, the base the chain
+of adopted Runs started from, read with `bin/base`, and otherwise `$BASE_BRANCH`: Archon refuses
+`--base` with `--adopt`, so an adopting Run's own `$BASE_BRANCH` is the project's default branch
+(fac-02k).
 
 ```yaml
   - id: land
