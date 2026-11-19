@@ -2,9 +2,10 @@
 # Leaves a Run's ending, its Notice, where its Project Manager will read it: one dated
 # line appended to ~/.local/share/factory/notices/<pane>.md. It types nothing into any
 # pane, so a half-typed draft in the Project Manager's text box is never touched
-# (fac-qpv.2.1). project-manager/notices.ts delivers each new line into the Project
-# Manager's conversation as a message of its own, reading this file instead of watching it,
-# because a watch can go silent with nothing to show for it (fac-8xl).
+# (fac-qpv.2.1). project-manager/notices.ts delivers each Notice not yet acted on into the
+# Project Manager's conversation as a message of its own, reading this file instead of
+# watching it, because a watch can go silent with nothing to show for it (fac-8xl), and it
+# keeps each Notice's status beside this file (fac-618).
 #
 #   tell-pm "<pane>" "<line>"
 #
