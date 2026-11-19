@@ -35,7 +35,9 @@ No example marker is written here or anywhere else this repo ships (fac-3xv). Th
 reads a marker from anything in a session's context, a file the session opens included,
 and keeps the node's start tree beside the marker's artifacts folder: a doc's placeholder
 marker, with `...` for that folder, wrote a folder named `...` into the checkout the
-session worked in. A marker therefore appears only in a Run's prompt. The Run gives this
+session worked in. A marker therefore appears only in a Run's prompt, which is why a
+session never runs this by hand: whatever it prints is in that session's context, and the
+package takes the marker for the session's own, check command and all. The Run gives this
 node an absolute artifacts folder, so a call with none prints no marker, and a call with a
 relative one fails this node rather than let an agent run unchecked outside its Run.
 
@@ -92,33 +94,42 @@ def checked_flows_files(workflow, flows):
     return files
 
 
+def flow_markers(workflow, flows, artifacts, check):
+    """The marker line for each checked node, once the Run's artifacts folder is absolute.
+
+    The package keeps a node's start tree beside the marker's artifacts folder, so a marker
+    outside a Run would write where no Run is: a call with no folder prints no marker and
+    returns none. A folder that is not absolute is the bug this guards (fac-3xv), so it fails
+    this node, naming the value it was given.
+    """
+    files = checked_flows_files(workflow, flows)
+    if not artifacts:
+        print(
+            f"node-prompts: no marker for {workflow}: ARTIFACTS_DIR is empty, so this is not a Run's prompt",
+            file=sys.stderr,
+        )
+        return {}
+    if not os.path.isabs(artifacts):
+        sys.exit(
+            f"node-prompts: ARTIFACTS_DIR is {artifacts}, not an absolute path, and a marker naming it"
+            "\nnode-prompts: would write outside the Run, which names its artifacts folder absolutely"
+        )
+    markers = {}
+    for path in files:
+        marker = {"node": path.name, "flows": str(flows), "artifacts": artifacts}
+        if check:
+            marker["check"] = check
+        markers[marker_key(path.name)] = "FLOWS " + json.dumps(marker)
+    return markers
+
+
 if len(sys.argv) > 1:
     workflow = pathlib.Path(sys.argv[1]).resolve()
     flows = workflow / "flows"
     artifacts = os.environ.get("ARTIFACTS_DIR", "")
     check = os.environ.get("FACTORY_CHECK", "")
     if flows.is_dir():
-        files = checked_flows_files(workflow, flows)
-        if artifacts == "":
-            print(
-                f"node-prompts: no marker for {workflow}: ARTIFACTS_DIR is empty, so this is not a Run's prompt",
-                file=sys.stderr,
-            )
-        elif not os.path.isabs(artifacts):
-            sys.exit(
-                f"node-prompts: ARTIFACTS_DIR is {artifacts}, not an absolute path; a Run names its\n"
-                "artifacts folder absolutely, and a marker naming this one would write outside the Run"
-            )
-        else:
-            for path in files:
-                marker = {
-                    "node": path.name,
-                    "flows": str(flows),
-                    "artifacts": artifacts,
-                }
-                if check:
-                    marker["check"] = check
-                prompts[marker_key(path.name)] = "FLOWS " + json.dumps(marker)
+        prompts.update(flow_markers(workflow, flows, artifacts, check))
 
 # An adopting Run continues an earlier Run: its work agent gets the second-pass paragraph,
 # which sends it to the review that withheld approval. Without --adopt ADOPTED_RUN_DIR is

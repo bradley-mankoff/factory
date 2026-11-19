@@ -82,25 +82,23 @@ const makeWorkflow = (yaml: string, flowsFiles: Record<string, string>) => {
 	return { dir, workflow };
 };
 
-const runNodePrompts = (workflow: string) =>
+/** The script's answer for a Workflow, with a Run's artifacts folder unless the test says otherwise. */
+const runNodePrompts = (workflow: string, env: NodeJS.ProcessEnv = {}) =>
 	spawnSync(join(root, "bin", "node-prompts"), [workflow], {
 		encoding: "utf8",
-		env: { ...process.env, ARTIFACTS_DIR: join(workflow, "artifacts") },
+		env: { ...process.env, ARTIFACTS_DIR: join(workflow, "artifacts"), ...env },
 	});
 
-/** The markers the script printed: a call with none carries no marker, as no session outside a Run does. */
+/** The marker prompt keys the script printed, which a session outside a Run gets none of. */
 const markersOf = (prompts: Record<string, string>) => Object.keys(prompts).filter((key) => key.startsWith("marker_"));
 
-test("a call outside a Run prints no marker, so the package leaves the session alone", () => {
+test("a call outside a Run prints no marker and says why, so the package leaves the session alone", () => {
 	// A Run names its artifacts folder in the environment, always as an absolute path. Without
 	// one this is not a Run's prompt, and a marker would keep a start tree in a folder outside
 	// any Run, or run a node's checks against nothing (fac-3xv).
 	const folder = makeWorkflow("nodes:\n  - id: work\n  - id: spec\n", { work: "changed-files\n", spec: "check-passes\n" });
 	try {
-		const result = spawnSync(join(root, "bin", "node-prompts"), [folder.workflow], {
-			encoding: "utf8",
-			env: { ...process.env, ARTIFACTS_DIR: "", ARGUMENTS: "pm-factory · fac-3xv" },
-		});
+		const result = runNodePrompts(folder.workflow, { ARTIFACTS_DIR: "" });
 		assert.equal(result.status, 0, result.stderr);
 		const prompts = JSON.parse(result.stdout) as Record<string, string>;
 		assert.deepEqual(markersOf(prompts), [], "no node outside a Run carries a marker");
@@ -115,10 +113,7 @@ test("a relative artifacts folder fails the prompts node, naming it, rather than
 	// artifacts folder and kept a start tree in a folder named `...` (fac-3xv).
 	const folder = makeWorkflow("nodes:\n  - id: work\n", { work: "changed-files\n" });
 	try {
-		const result = spawnSync(join(root, "bin", "node-prompts"), [folder.workflow], {
-			encoding: "utf8",
-			env: { ...process.env, ARTIFACTS_DIR: "...", ARGUMENTS: "pm-factory · fac-3xv" },
-		});
+		const result = runNodePrompts(folder.workflow, { ARTIFACTS_DIR: "..." });
 		assert.notEqual(result.status, 0, "the node fails rather than print a marker naming a folder outside the Run");
 		assert.match(result.stderr, /ARTIFACTS_DIR is \.\.\./, "the node names the folder it was given");
 	} finally {
@@ -257,8 +252,7 @@ test("every core Workflow's marker names the node Archon runs", () => {
 		const result = runNodePrompts(join(root, "workflows", "factory", name));
 		assert.equal(result.status, 0, `${name}: ${result.stderr}`);
 		const prompts = JSON.parse(result.stdout) as Record<string, string>;
-		const markers = Object.keys(prompts).filter((key) => key.startsWith("marker_"));
-		assert.deepEqual(markers.sort(), nodes.map(markerKey).sort(), `${name}'s markers`);
+		assert.deepEqual(markersOf(prompts).sort(), nodes.map(markerKey).sort(), `${name}'s markers`);
 		for (const node of nodes) {
 			assert.equal(marker(prompts, node).node, node, `${name}'s marker names the node Archon runs`);
 		}
