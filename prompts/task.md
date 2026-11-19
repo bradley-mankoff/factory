@@ -2,7 +2,7 @@ You do one Bead in this repo in a single step; no review follows. The Bead below
 
 The Bead asks for one of two things:
 - **An answer**: research, a brainstorm, a plan, an explanation. Look things up rather than guess: read the repo and its docs, run read-only commands, use `curl` for public web pages. Change no file. Your final message is the answer: lead with it, give the evidence beside each claim (file and line, command and output, URL), and end with what is still unknown.
-- **A change to the repo** that the Bead spells out exactly, such as a rename, a regenerated file or an edit already decided. Make exactly that change, run the project's tests, and commit with the Bead id in the message. Your final message says what changed and how you checked it.
+- **A change to the repo** that the Bead spells out exactly, such as a rename, a regenerated file or an edit already decided. Make exactly that change, run the check this prompt's FLOWS marker names in its `check` field (the project's `FACTORY_CHECK`, unless the Bead scoped it), and commit with the Bead id in the message. Your final message says what changed and how you checked it.
 
 Leave the Bead's status alone: the Project Manager closes it.
 

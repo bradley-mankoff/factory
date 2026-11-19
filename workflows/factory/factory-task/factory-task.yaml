@@ -5,14 +5,21 @@ description: >-
   then the landing the Mac's Profile chooses: a pull request and its squash merge, or the
   commits squashed onto the base branch, checked again and pushed; then the Project
   Manager's pane is told how the Run ended. Start it with "<pane> · <bead id>". Needs
-  FACTORY_CHECK in the project's .archon/.env.
+  FACTORY_CHECK in the project's .archon/.env; a Bead whose honest check is narrower takes
+  --input check_command='<command>' instead.
 provider: pi
+# A Bead whose honest check is narrower than the project's (one test file, say) passes it
+# with --input check_command='<command>'; the checks and the landing then use it.
+inputs:
+  check_command:
+    default: ""
+    description: The check for this Run in place of the project's FACTORY_CHECK.
 nodes:
   - id: bead
     bash: '"$HOME/.local/share/factory/bin/bead" "$ARGUMENTS"'
 
   - id: prompts
-    bash: '"$HOME/.local/share/factory/bin/node-prompts" "${LIBRARY:-$ARCHON_HOME/workflows}/factory/factory-task"'
+    bash: 'FACTORY_CHECK="${INPUTS_CHECK_COMMAND:-$FACTORY_CHECK}" "$HOME/.local/share/factory/bin/node-prompts" "${LIBRARY:-$ARCHON_HOME/workflows}/factory/factory-task"'
 
   - id: task
     depends_on: [bead, prompts]
@@ -29,6 +36,7 @@ nodes:
   - id: checks
     depends_on: [task]
     bash: |
+      FACTORY_CHECK="${INPUTS_CHECK_COMMAND:-$FACTORY_CHECK}"
       if [ -z "$(git log --oneline "$BASE_BRANCH..HEAD")" ]; then
         touch "$ARTIFACTS_DIR/no-commits"; echo "CHECKS SKIPPED: the Run made no commits"
       else
@@ -41,7 +49,7 @@ nodes:
     depends_on: [checks]
     bash: |
       [ -e "$ARTIFACTS_DIR/no-commits" ] && exit 0
-      "$HOME/.local/share/factory/bin/land"
+      FACTORY_CHECK="${INPUTS_CHECK_COMMAND:-$FACTORY_CHECK}" "$HOME/.local/share/factory/bin/land"
 
   # bin/finish reads how the Run ended from the notes in the Run's artifacts, never from
   # $land.output: Archon refuses to splice a failed node's output, and a failed landing is
