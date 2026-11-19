@@ -311,7 +311,7 @@ test("a running Run keeps its worktree KEEP and the row says to wait for it", ()
 	assert.equal(row.run?.status, "running");
 });
 
-test("a paused Run keeps its worktree KEEP and the row names resume", () => {
+test("a paused Run keeps its worktree KEEP and the row says to wait for the Human's answer", () => {
 	const mac = makeMac();
 	const wt = mac.worktree("factory-build-1795000000009");
 	mac.runs([{ id: "run-9", status: "paused", path: wt, base: "main" }]);
@@ -320,7 +320,11 @@ test("a paused Run keeps its worktree KEEP and the row names resume", () => {
 
 	assert.ok(row);
 	assert.equal(row.verdict, "KEEP");
-	assert.equal(row.command, "archon workflow resume run-9");
+	assert.equal(
+		row.command,
+		"wait: Run run-9 is paused at a Human gate or attention wait; the Human answers it",
+		"a paused Run waits on the Human's answer, so the row never names a resume",
+	);
 });
 
 test("a failed Run's dead worktree names the abandon before the complete", () => {

@@ -26,7 +26,8 @@ Verdicts, in the order they are decided:
 
   LANE    the main checkout, a bare, locked, detached or prunable worktree, or a branch
           another Run recorded as its base. Never offered for removal.
-  KEEP    a running or paused Run owns the worktree: wait, or resume a paused one.
+  KEEP    a running or paused Run owns the worktree: wait, because a paused Run is waiting on
+          the Human's answer at a gate or attention wait, never on a resume.
   DEAD    the worktree is clean and its content is in a destination: the command removes it.
           A failed Run is abandoned first, and unpushed commits need --force, which the row
           has earned with its content proof.
@@ -273,14 +274,18 @@ def row_for(live_runs, lane, entry, index):
     elif verdicts and all(verdict == "unlanded" for verdict in verdicts):
         row["content"] = "unlanded"
 
-    # A live Run vetoes the verdict whatever the content says: the worktree is in use.
+    # A live Run vetoes the verdict whatever the content says: the worktree is in use. A
+    # paused Run waits at a Human gate or attention wait, which the Human answers with
+    # approve, reject, respond or answer; resume is never a Project Manager's to run.
     if chosen is not None and chosen.get("status") in LIVE:
         row["verdict"] = "KEEP"
-        row["command"] = (
-            f"wait: Run {chosen['id']} is {chosen.get('status')}"
-            if chosen.get("status") == "running"
-            else f"archon workflow resume {chosen['id']}"
-        )
+        if chosen.get("status") == "running":
+            row["command"] = f"wait: Run {chosen['id']} is running"
+        else:
+            row["command"] = (
+                f"wait: Run {chosen['id']} is paused at a Human gate or attention wait; "
+                "the Human answers it"
+            )
         return row
 
     failed_id = failed["id"] if failed is not None else None
