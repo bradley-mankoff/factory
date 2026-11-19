@@ -137,6 +137,56 @@ test("a rejected gated Run whose Human gave no reason still says it was rejected
 	);
 });
 
+test("a build whose spec review withheld approval says so and points at the findings on the Bead", () => {
+	// A withheld review ends the Run before the landing, so no `landing` or `held` note is
+	// there. Its own node writes `withheld`, naming the review, and its findings go on the
+	// Bead as a comment. The Notice has to tell a review stop apart from a broken Run.
+	const h = makeHarness();
+	h.note("withheld", "the spec review\n");
+
+	const result = h.run("factory-build");
+
+	assert.equal(result.status, 0, result.stderr);
+	assert.equal(
+		noticeText(h),
+		"Run run-123 (factory-build) for Bead fac-1 ended at the spec review, which withheld approval; the findings are on Bead fac-1.",
+	);
+});
+
+test("a standards review's withholding names that review too, in either build", () => {
+	for (const workflow of ["factory-build", "factory-build-gated"]) {
+		const h = makeHarness();
+		h.note("withheld", "the standards review\n");
+
+		const result = h.run(workflow);
+
+		assert.equal(result.status, 0, result.stderr);
+		assert.equal(
+			noticeText(h),
+			`Run run-123 (${workflow}) for Bead fac-1 ended at the standards review, which withheld approval; the findings are on Bead fac-1.`,
+		);
+	}
+});
+
+test("both build Workflows' withheld nodes leave the note bin/finish reads, naming the review", () => {
+	// The note is the interface: bin/finish can report a review stop only when the node that
+	// ended the Run leaves `withheld`, and the Notice names whichever review the note names.
+	// A node that stops writing it reports the stop as a broken Run (fac-8yb).
+	const reviews: Record<string, string> = {
+		"spec-withheld": "the spec review",
+		"standards-withheld": "the standards review",
+	};
+	for (const workflow of ["factory-build", "factory-build-gated"]) {
+		const yaml = readFileSync(join(repoRoot, "workflows", "factory", workflow, `${workflow}.yaml`), "utf8");
+		for (const [id, review] of Object.entries(reviews)) {
+			const node = yaml.split(/\n(?=  - id: )/).find((block) => block.startsWith(`  - id: ${id}\n`));
+			assert.ok(node, `${workflow} has a ${id} node`);
+			assert.match(node, /\$ARTIFACTS_DIR\/withheld/, `${workflow}'s ${id} leaves the withheld note bin/finish reads`);
+			assert.match(node, new RegExp(`"${review}"`), `${workflow}'s ${id} names ${review}`);
+		}
+	}
+});
+
 test("a task that changed nothing says its answer is the task node's output", () => {
 	const h = makeHarness();
 	// The task Workflow's checks node leaves this marker instead of running the check when

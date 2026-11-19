@@ -108,7 +108,10 @@ nodes:
       printf '%s\n' "$out" | tail -40
       exit $status
 
-  # A withheld review's findings go on the Bead, so the Project Manager can decide.
+  # A withheld review's findings go on the Bead, so the Project Manager can decide, and the
+  # note `withheld` names the review for bin/finish, which reports a review's stop as a
+  # withheld review rather than a node that failed (fac-8yb). The note is written only after
+  # the comment lands, since the Notice points at those findings on the Bead.
   # The feedback is quoted into a heredoc so its backticks and dollar signs stay text.
   - id: spec-withheld
     depends_on: [spec]
@@ -118,7 +121,8 @@ nodes:
       Spec review withheld approval in Run $WORKFLOW_ID; the commits stay on its branch:
       $spec.output.feedback
       FEEDBACK
-      )"
+      )" || exit $?
+      printf '%s\n' "the spec review" >"$ARTIFACTS_DIR/withheld"
 
   - id: standards-withheld
     depends_on: [standards]
@@ -128,7 +132,8 @@ nodes:
       Standards review withheld approval in Run $WORKFLOW_ID; the commits stay on its branch:
       $standards.output.feedback
       FEEDBACK
-      )"
+      )" || exit $?
+      printf '%s\n' "the standards review" >"$ARTIFACTS_DIR/withheld"
 
   # The landing's first half, held so the Human decides before the base branch moves:
   # bin/land opens the pull request, or squashes the commits and checks the squashed tree,
