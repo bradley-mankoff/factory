@@ -1,9 +1,10 @@
 /**
  * bin/finish is how a Run's last node reports how the Run ended (GLOSSARY.md, `Notice`).
  * It reads the notes the Run leaves in its artifacts folder — bin/land's `landing` and
- * `held`, the gated Workflow's `rejected` with the Human's reason, pi-flows'
- * `flows-failed.txt`, a task's `no-commits` and research's `findings.md` — composes the one
- * Notice line and leaves it with bin/tell-pm. The seam is the command:
+ * `held`, the gated Workflow's `rejected` with the Human's reason, a withheld review's
+ * `withheld` naming the review, pi-flows' `flows-failed.txt`, a task's `no-commits` and
+ * research's `findings.md` — composes the one Notice line and leaves it with bin/tell-pm.
+ * The seam is the command:
  * a temporary home that receives the Notice file, a temporary artifacts folder holding the
  * notes, and the environment a Run gives its last node. Nothing here looks inside bin/finish.
  */
@@ -58,6 +59,20 @@ function noticeText(h: Harness, pane = "pm-factory"): string {
 	const lines = h.notice(pane).split("\n").filter(Boolean);
 	assert.equal(lines.length, 1, "a Run leaves one Notice line");
 	return lines[0].replace(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2} /, "");
+}
+
+/**
+ * The `withheld` note one of a build's withheld nodes leaves bin/finish: the review that
+ * withheld approval. Archon fills in the review's feedback before the shell runs, so the
+ * note the node writes holds the review's name and nothing else.
+ */
+function withheldNote(workflow: string, id: string): string {
+	const yaml = readFileSync(join(repoRoot, "workflows", "factory", workflow, `${workflow}.yaml`), "utf8");
+	const node = yaml.split(/\n(?=  - id: )/).find((block) => block.startsWith(`  - id: ${id}\n`));
+	assert.ok(node, `${workflow} has a ${id} node`);
+	const written = node.match(/"([^"]+)" >"\$ARTIFACTS_DIR\/withheld"/);
+	assert.ok(written, `${workflow}'s ${id} leaves the withheld note bin/finish reads`);
+	return written[1];
 }
 
 test("a landed build Run's Notice names the Run, the Workflow, the Bead and the landing", () => {
@@ -153,38 +168,49 @@ test("a build whose spec review withheld approval says so and points at the find
 	);
 });
 
-test("a standards review's withholding names that review too, in either build", () => {
-	for (const workflow of ["factory-build", "factory-build-gated"]) {
-		const h = makeHarness();
-		h.note("withheld", "the standards review\n");
+test("a standards review's withholding in factory-build names that review", () => {
+	const h = makeHarness();
+	h.note("withheld", "the standards review\n");
 
-		const result = h.run(workflow);
+	const result = h.run("factory-build");
 
-		assert.equal(result.status, 0, result.stderr);
-		assert.equal(
-			noticeText(h),
-			`Run run-123 (${workflow}) for Bead fac-1 ended at the standards review, which withheld approval; the findings are on Bead fac-1.`,
-		);
-	}
+	assert.equal(result.status, 0, result.stderr);
+	assert.equal(
+		noticeText(h),
+		"Run run-123 (factory-build) for Bead fac-1 ended at the standards review, which withheld approval; the findings are on Bead fac-1.",
+	);
 });
 
-test("both build Workflows' withheld nodes leave the note bin/finish reads, naming the review", () => {
-	// The note is the interface: bin/finish can report a review stop only when the node that
-	// ended the Run leaves `withheld`, and the Notice names whichever review the note names.
-	// A node that stops writing it reports the stop as a broken Run (fac-8yb).
-	const reviews: Record<string, string> = {
-		"spec-withheld": "the spec review",
-		"standards-withheld": "the standards review",
-	};
-	for (const workflow of ["factory-build", "factory-build-gated"]) {
-		const yaml = readFileSync(join(repoRoot, "workflows", "factory", workflow, `${workflow}.yaml`), "utf8");
-		for (const [id, review] of Object.entries(reviews)) {
-			const node = yaml.split(/\n(?=  - id: )/).find((block) => block.startsWith(`  - id: ${id}\n`));
-			assert.ok(node, `${workflow} has a ${id} node`);
-			assert.match(node, /\$ARTIFACTS_DIR\/withheld/, `${workflow}'s ${id} leaves the withheld note bin/finish reads`);
-			assert.match(node, new RegExp(`"${review}"`), `${workflow}'s ${id} names ${review}`);
-		}
-	}
+test("a standards review's withholding in the gated build names that review", () => {
+	const h = makeHarness();
+	h.note("withheld", "the standards review\n");
+
+	const result = h.run("factory-build-gated");
+
+	assert.equal(result.status, 0, result.stderr);
+	assert.equal(
+		noticeText(h),
+		"Run run-123 (factory-build-gated) for Bead fac-1 ended at the standards review, which withheld approval; the findings are on Bead fac-1.",
+	);
+});
+
+// The note is the interface: bin/finish can report a review stop only when the node that
+// ended the Run leaves `withheld`, and the Notice names whichever review the note names.
+// A node that stops writing it reports the stop as a broken Run (fac-8yb).
+test("factory-build's spec-withheld node leaves bin/finish the spec review's name", () => {
+	assert.equal(withheldNote("factory-build", "spec-withheld"), "the spec review");
+});
+
+test("factory-build's standards-withheld node leaves bin/finish the standards review's name", () => {
+	assert.equal(withheldNote("factory-build", "standards-withheld"), "the standards review");
+});
+
+test("the gated build's spec-withheld node leaves bin/finish the spec review's name", () => {
+	assert.equal(withheldNote("factory-build-gated", "spec-withheld"), "the spec review");
+});
+
+test("the gated build's standards-withheld node leaves bin/finish the standards review's name", () => {
+	assert.equal(withheldNote("factory-build-gated", "standards-withheld"), "the standards review");
 });
 
 test("a task that changed nothing says its answer is the task node's output", () => {

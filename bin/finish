@@ -67,6 +67,7 @@ if [ "$workflow" = factory-research ]; then
 	fi
 	notice="Research Run $run $how"
 else
+	bead=$("$here/bead" --id "$message")
 	if [ -e "$artifacts/no-commits" ]; then
 		how="finished without changing files; its answer is the task node's output in archon workflow get $run"
 	elif [ -e "$artifacts/rejected" ]; then
@@ -80,7 +81,7 @@ else
 		# findings on the Bead before it writes this note. A review stop is not a broken
 		# Run, so the Notice names the review and where its findings are rather than
 		# sending the Project Manager to look for a node that failed (fac-8yb).
-		how="ended at $withheld, which withheld approval; the findings are on Bead $("$here/bead" --id "$message")"
+		how="ended at $withheld, which withheld approval; the findings are on Bead $bead"
 	elif [ -n "$landing" ]; then
 		how=$landing
 		# A landed build's Run closes its own Bead, or leaves it open for the steps the
@@ -94,8 +95,8 @@ else
 	# A reason is the Human's own words and may close its own sentence, so the Notice adds
 	# no full stop after one; every other ending is a phrase, which it closes.
 	case $how in
-	*[.!?]) notice="Run $run ($workflow) for Bead $("$here/bead" --id "$message") $how" ;;
-	*) notice="Run $run ($workflow) for Bead $("$here/bead" --id "$message") $how." ;;
+	*[.!?]) notice="Run $run ($workflow) for Bead $bead $how" ;;
+	*) notice="Run $run ($workflow) for Bead $bead $how." ;;
 	esac
 fi
 
