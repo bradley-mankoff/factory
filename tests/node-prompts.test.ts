@@ -86,6 +86,44 @@ const runNodePrompts = (workflow: string) =>
 		env: { ...process.env, ARTIFACTS_DIR: join(workflow, "artifacts") },
 	});
 
+/** The markers the script printed: a call with none carries no marker, as no session outside a Run does. */
+const markersOf = (prompts: Record<string, string>) => Object.keys(prompts).filter((key) => key.startsWith("marker_"));
+
+test("a call outside a Run prints no marker, so the package leaves the session alone", () => {
+	// A Run names its artifacts folder in the environment, always as an absolute path. Without
+	// one this is not a Run's prompt, and a marker would keep a start tree in a folder outside
+	// any Run, or run a node's checks against nothing (fac-3xv).
+	const folder = makeWorkflow("nodes:\n  - id: work\n  - id: spec\n", { work: "changed-files\n", spec: "check-passes\n" });
+	try {
+		const result = spawnSync(join(root, "bin", "node-prompts"), [folder.workflow], {
+			encoding: "utf8",
+			env: { ...process.env, ARTIFACTS_DIR: "", ARGUMENTS: "pm-factory · fac-3xv" },
+		});
+		assert.equal(result.status, 0, result.stderr);
+		const prompts = JSON.parse(result.stdout) as Record<string, string>;
+		assert.deepEqual(markersOf(prompts), [], "no node outside a Run carries a marker");
+		assert.match(result.stderr, /no marker/, "the node says why it printed none");
+	} finally {
+		rmSync(folder.dir, { recursive: true, force: true });
+	}
+});
+
+test("a relative artifacts folder fails the prompts node, naming it, rather than print a marker naming a folder outside the Run", () => {
+	// The bug's own input: a session that read a placeholder marker took `...` for the Run's
+	// artifacts folder and kept a start tree in a folder named `...` (fac-3xv).
+	const folder = makeWorkflow("nodes:\n  - id: work\n", { work: "changed-files\n" });
+	try {
+		const result = spawnSync(join(root, "bin", "node-prompts"), [folder.workflow], {
+			encoding: "utf8",
+			env: { ...process.env, ARTIFACTS_DIR: "...", ARGUMENTS: "pm-factory · fac-3xv" },
+		});
+		assert.notEqual(result.status, 0, "the node fails rather than print a marker naming a folder outside the Run");
+		assert.match(result.stderr, /ARTIFACTS_DIR is \.\.\./, "the node names the folder it was given");
+	} finally {
+		rmSync(folder.dir, { recursive: true, force: true });
+	}
+});
+
 test("bin/node-prompts fails, naming the flows file, when a flows file names no node", () => {
 	const folder = makeWorkflow("nodes:\n  - id: look-a\n", { looks: "changed-files\n" });
 	try {

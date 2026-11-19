@@ -21,9 +21,8 @@ Archon's own command files could hold them too, but a command file cannot see
 With a Workflow folder, it also prints one `marker_<node>` for each flows file in the
 Workflow's `flows/` folder, the key spelled with the file's dashes as underscores. A
 marker is the one line the pi-flows package reads from a node's prompt to find the node's
-checks and the project's check command:
-
-    FLOWS {"node":"work","bead":"fac-qpv.3.1","flows":"...","artifacts":"...","check":"..."}
+checks and the project's check command: the word FLOWS, a space, then a JSON object whose
+keys are `node`, `bead`, `flows`, `artifacts` and the optional `check`.
 
 The node is named by the flows file, the Bead by the end of $ARGUMENTS, the folders
 from the environment the Run gives this node, and the check command from the project's
@@ -32,6 +31,14 @@ command leaves it out. The Bead is not optional: the installed pi-flows parser r
 marker without it, so it stays until pi-flows Bead pi-flows-y9u makes it optional
 (fac-wtw). A node without a flows file has no checks, so it gets no marker and the
 package leaves its sessions alone.
+
+No example marker is written here or anywhere else this repo ships (fac-3xv). The package
+reads a marker from anything in a session's context, a file the session opens included,
+and keeps the node's start tree beside the marker's artifacts folder: a doc's placeholder
+marker, with `...` for that folder, wrote a folder named `...` into the checkout the
+session worked in. A marker therefore appears only in a Run's prompt. The Run gives this
+node an absolute artifacts folder, so a call with none prints no marker, and a call with a
+relative one fails this node rather than let an agent run unchecked outside its Run.
 
 The id of a checked node, its flows file and its prompt key are compared here rather than
 kept in step by hand: it reads the node ids from the Workflow YAML beside `flows/`, and
@@ -103,17 +110,28 @@ if len(sys.argv) > 1:
     artifacts = os.environ.get("ARTIFACTS_DIR", "")
     check = os.environ.get("FACTORY_CHECK", "")
     if flows.is_dir():
-        for path in checked_flows_files(workflow, flows):
-            key = marker_key(path.name)
-            marker = {
-                "node": path.name,
-                "bead": bead,
-                "flows": str(flows),
-                "artifacts": artifacts,
-            }
-            if check:
-                marker["check"] = check
-            prompts[key] = "FLOWS " + json.dumps(marker)
+        files = checked_flows_files(workflow, flows)
+        if artifacts == "":
+            print(
+                f"node-prompts: no marker for {workflow}: ARTIFACTS_DIR is empty, so this is not a Run's prompt",
+                file=sys.stderr,
+            )
+        elif not os.path.isabs(artifacts):
+            sys.exit(
+                f"node-prompts: ARTIFACTS_DIR is {artifacts}, not an absolute path; a Run names its\n"
+                "artifacts folder absolutely, and a marker naming this one would write outside the Run"
+            )
+        else:
+            for path in files:
+                marker = {
+                    "node": path.name,
+                    "bead": bead,
+                    "flows": str(flows),
+                    "artifacts": artifacts,
+                }
+                if check:
+                    marker["check"] = check
+                prompts[marker_key(path.name)] = "FLOWS " + json.dumps(marker)
 
 # An adopting Run continues an earlier Run: its work agent gets the second-pass paragraph,
 # which sends it to the review that withheld approval. Without --adopt ADOPTED_RUN_DIR is
