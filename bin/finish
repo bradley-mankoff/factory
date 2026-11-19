@@ -51,6 +51,15 @@ note() {
 	if [ -s "$artifacts/$1" ]; then cat "$artifacts/$1"; fi
 }
 
+# closed <sentence>: the sentence with its full stop, unless it already ends in one. A Human's
+# own words may close their own sentence, and a research Run's answer ends by naming a file.
+closed() {
+	case $1 in
+	*[.!?]) printf '%s' "$1" ;;
+	*) printf '%s.' "$1" ;;
+	esac
+}
+
 landing=$(note landing)
 held=$(note held)
 rejected=$(note rejected)
@@ -98,24 +107,15 @@ else
 	else
 		how="ended without a landing; $failed_node"
 	fi
-	# A reason is the Human's own words and may close its own sentence, so the Notice adds
-	# no full stop after one; every other ending is a phrase, which it closes.
-	case $how in
-	*[.!?]) notice="Run $run ($workflow) for Bead $bead $how" ;;
-	*) notice="Run $run ($workflow) for Bead $bead $how." ;;
-	esac
+	notice=$(closed "Run $run ($workflow) for Bead $bead $how")
 fi
 
 # The removal line names the Run's branch, read where bin/finish runs: Archon runs a node in
 # the Run's own worktree. A folder that is not a git repo, as a test's is, gets no line.
 branch=$(git branch --show-current 2>/dev/null) || branch=
 if [ -n "$branch" ]; then
-	# The removal line is a sentence of its own, and a research Run's notice ends without a
-	# full stop, because the sentence before it named a file.
-	case $notice in
-	*[.!?]) ;;
-	*) notice="$notice." ;;
-	esac
+	# The removal line is a sentence of its own.
+	notice=$(closed "$notice")
 	if [ -n "$withheld" ]; then
 		notice="$notice When you no longer need it, adopt or drop the work on its branch first, then remove its worktree: archon complete $branch."
 	else

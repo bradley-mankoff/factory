@@ -82,8 +82,9 @@ def entries_of(folder):
     current = None
     for line in result.stdout.splitlines():
         if line.startswith("worktree "):
-            current = {"path": line[len("worktree "):], "branch": None, "detached": False,
-                       "locked": False, "bare": False, "prunable": False}
+            # git lists the main checkout first, so the first worktree is the one Runs land in.
+            current = {"path": line[len("worktree "):], "main": not entries, "branch": None,
+                       "detached": False, "locked": False, "bare": False, "prunable": False}
             entries.append(current)
         elif current is not None:
             if line.startswith("branch refs/heads/"):
@@ -137,7 +138,7 @@ def destinations_of(runs):
 
 def resolve(folder, name):
     """The ref a base can be read as: the branch itself, then the same name on origin."""
-    for ref in (name, f"origin/{name}", f"refs/remotes/origin/{name}"):
+    for ref in (name, f"origin/{name}"):
         result = git(folder, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
         if output(result).strip():
             return ref
@@ -158,12 +159,11 @@ def default_destination(folder, branch):
     return None, None
 
 
-def patch_id(text):
+def patch_id(folder, text):
     """git's stable patch-id for one diff, or None for an empty one."""
     if not text.strip():
         return None
-    result = subprocess.run(["git", "patch-id", "--stable"], input=text, capture_output=True, text=True)
-    fields = output(result).split()
+    fields = output(git(folder, "patch-id", "--stable", input_text=text)).split()
     return fields[0] if fields else None
 
 
@@ -189,8 +189,9 @@ def merged_tree(folder, ref):
         shutil.rmtree(scratch, ignore_errors=True)
 
 
-def content_of(folder, ref):
-    """`landed` when the branch adds nothing to the destination's tree."""
+def content_verdict(folder, ref):
+    """`landed` when the branch adds nothing to the destination's tree, `unlanded` when its
+    work is not there, and `unknown` when the destination cannot be read."""
     wanted = output(git(folder, "rev-parse", "--verify", "--quiet", f"{ref}^{{tree}}")).strip()
     if not wanted:
         return "unknown"
@@ -200,11 +201,11 @@ def content_of(folder, ref):
     base = output(git(folder, "merge-base", ref, "HEAD")).strip()
     if not base:
         return "unlanded"
-    mine = patch_id(output(git(folder, "diff", base, "HEAD")))
+    mine = patch_id(folder, output(git(folder, "diff", base, "HEAD")))
     if mine is None:
         return "landed"
     for commit in output(git(folder, "rev-list", f"{base}..{ref}")).split():
-        if patch_id(output(git(folder, "show", commit))) == mine:
+        if patch_id(folder, output(git(folder, "show", commit))) == mine:
             return "landed"
     return "unlanded"
 
@@ -233,12 +234,15 @@ def unpushed_count(folder):
     return int(text) if text.isdigit() else None
 
 
-def row_for(live_runs, lane, entry, index):
+def row_for(runs_by_path, lane_branches, entry):
     """One worktree's row: its verdict and the command a person would run next."""
     branch = entry["branch"]
     path = entry["path"]
-    runs = live_runs.get(real(path), [])
-    chosen = next((run for run in runs if run.get("status") in LIVE), None) or (runs[0] if runs else None)
+    runs = runs_by_path.get(real(path), [])
+    live = next((run for run in runs if run.get("status") in LIVE), None)
+    # The row names the Run that matters: the live one that holds the worktree, or the
+    # newest of the rest.
+    chosen = live or (runs[0] if runs else None)
     failed = next((run for run in runs if run.get("status") == "failed"), None)
     dirty, ignored, ignored_files = status_counts(path)
     row = {"path": path, "branch": branch, "verdict": "REVIEW", "destinations": [],
@@ -248,8 +252,8 @@ def row_for(live_runs, lane, entry, index):
 
     # A lane is where Runs land, so it has no destination of its own and no content to
     # judge: it is decided before any Run or content test.
-    if index == 0 or entry["bare"] or entry["locked"] or entry["detached"] or entry["prunable"] or (
-        branch and branch in lane
+    if entry["main"] or entry["bare"] or entry["locked"] or entry["detached"] or entry["prunable"] or (
+        branch and branch in lane_branches
     ):
         row["verdict"] = "LANE"
         return row
@@ -268,7 +272,7 @@ def row_for(live_runs, lane, entry, index):
             refs = [(base, ref)]
     row["destinations"] = bases
 
-    verdicts = [content_of(path, ref) for _, ref in refs]
+    verdicts = [content_verdict(path, ref) for _, ref in refs]
     if "landed" in verdicts:
         row["content"] = "landed"
     elif verdicts and all(verdict == "unlanded" for verdict in verdicts):
@@ -277,13 +281,13 @@ def row_for(live_runs, lane, entry, index):
     # A live Run vetoes the verdict whatever the content says: the worktree is in use. A
     # paused Run waits at a Human gate or attention wait, which the Human answers with
     # approve, reject, respond or answer; resume is never a Project Manager's to run.
-    if chosen is not None and chosen.get("status") in LIVE:
+    if live is not None:
         row["verdict"] = "KEEP"
-        if chosen.get("status") == "running":
-            row["command"] = f"wait: Run {chosen['id']} is running"
+        if live.get("status") == "running":
+            row["command"] = f"wait: Run {live['id']} is running"
         else:
             row["command"] = (
-                f"wait: Run {chosen['id']} is paused at a Human gate or attention wait; "
+                f"wait: Run {live['id']} is paused at a Human gate or attention wait; "
                 "the Human answers it"
             )
         return row
@@ -324,14 +328,13 @@ def main(argv):
         print(f"worktrees: not a git repo: {folder}", file=sys.stderr)
         return 0
 
-    runs = archon_runs()
-    by_path = {}
-    for run in runs:
-        by_path.setdefault(real(run.get("working_path")), []).append(run)
+    runs_by_path = {}
+    for run in archon_runs():
+        runs_by_path.setdefault(real(run.get("working_path")), []).append(run)
     paths = {real(entry["path"]) for entry in entries}
-    lane = {base for path in paths for base in destinations_of(by_path.get(path, []))}
+    lane_branches = {base for path in paths for base in destinations_of(runs_by_path.get(path, []))}
 
-    rows = [row_for(by_path, lane, entry, index) for index, entry in enumerate(entries)]
+    rows = [row_for(runs_by_path, lane_branches, entry) for entry in entries]
     if as_json:
         print(json.dumps(rows, indent=2))
         return 0

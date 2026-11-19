@@ -38,7 +38,6 @@ type Row = {
 type Mac = {
 	dir: string;
 	main: string;
-	remote: string;
 	git: (args: string[], cwd?: string) => string;
 	/** Adds a linked worktree on a new branch cut from main, and returns its folder. */
 	worktree: (branch: string) => string;
@@ -48,6 +47,8 @@ type Mac = {
 	report: (options?: { cwd?: string; json?: boolean }) => { status: number; stdout: string; stderr: string };
 	/** The rows of a --json report, run in the main checkout unless a folder is named. */
 	rows: (cwd?: string) => Row[];
+	/** The one row for a worktree in the main checkout's report. */
+	row: (folder: string) => Row;
 };
 
 /** One scratch Mac: a repo with main pushed to a bare remote, and a stand-in Archon. */
@@ -58,7 +59,6 @@ function makeMac(): Mac {
 	const remote = join(dir, "remote.git");
 	const main = join(dir, "repo");
 	const fixture = join(dir, "runs.json");
-	const log = join(dir, "archon.log");
 	mkdirSync(home, { recursive: true });
 	mkdirSync(bin, { recursive: true });
 
@@ -76,11 +76,10 @@ function makeMac(): Mac {
 	git(["push", "-qu", "origin", "main"]);
 	git(["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
 
-	// Archon at the edge: it records each call and prints the Runs the test made up.
+	// Archon at the edge: it prints the Runs the test made up.
 	writeFileSync(
 		join(bin, "archon"),
 		`#!/bin/sh
-printf '%s\\n' "$*" >> "$ARCHON_LOG"
 cat "$ARCHON_FIXTURE"
 `,
 	);
@@ -115,7 +114,6 @@ cat "$ARCHON_FIXTURE"
 				HOME: home,
 				PATH: `${bin}:${process.env.PATH ?? ""}`,
 				ARCHON_FIXTURE: fixture,
-				ARCHON_LOG: log,
 			},
 		});
 
@@ -125,7 +123,13 @@ cat "$ARCHON_FIXTURE"
 		return JSON.parse(result.stdout) as Row[];
 	};
 
-	return { dir, main, remote, git, worktree, runs, report, rows };
+	const row = (folder: string) => {
+		const found = rows().find((each) => each.path === realpathSync(folder));
+		assert.ok(found, `the report has a row for ${folder}`);
+		return found;
+	};
+
+	return { dir, main, git, worktree, runs, report, rows, row };
 }
 
 /** Squashes a worktree branch into `target` in the main checkout, then pushes it, the way
@@ -155,9 +159,7 @@ test("a worktree whose branch was squash-landed into its recorded base reads DEA
 	squashInto(mac, "lane", "factory-build-1795000000001");
 	mac.runs([{ id: "run-1", status: "completed", path: wt, base: "lane" }]);
 
-	const row = mac.rows().find((each) => each.path === realpathSync(wt));
-
-	assert.ok(row, "the report has a row for the Run's worktree");
+	const row = mac.row(wt);
 	assert.equal(row.verdict, "DEAD");
 	assert.deepEqual(row.destinations, ["lane"], "the destination is the Run's recorded base");
 	assert.equal(row.content, "landed");
@@ -173,9 +175,7 @@ test("a clean branch whose content is in no destination reads REVIEW and offers 
 	mac.git(["push", "-q", "-u", "origin", "factory-build-1795000000002"], wt);
 	mac.runs([{ id: "run-2", status: "completed", path: wt, base: "main" }]);
 
-	const row = mac.rows().find((each) => each.path === realpathSync(wt));
-
-	assert.ok(row);
+	const row = mac.row(wt);
 	assert.equal(row.verdict, "REVIEW", "the work is in no destination, so only a person can remove it");
 	assert.equal(row.content, "unlanded");
 	assert.equal(row.command, "", "the report never offers a removal for live content");
@@ -192,9 +192,7 @@ test("a clean branch with uncommitted work reads REVIEW and is never offered a r
 	writeFileSync(join(wt, "notes.txt"), "handle this\n");
 	mac.runs([{ id: "run-3", status: "completed", path: wt, base: "main" }]);
 
-	const row = mac.rows().find((each) => each.path === realpathSync(wt));
-
-	assert.ok(row);
+	const row = mac.row(wt);
 	assert.equal(row.verdict, "REVIEW", "uncommitted work is live whatever the branch holds");
 	assert.equal(row.dirty, 1);
 	assert.equal(row.command, "", "a dirty worktree is never passed a complete or a forcing command");
@@ -214,9 +212,7 @@ test("ignored files are printed under their row and never counted as work", () =
 	writeFileSync(join(wt, ".env"), "TOKEN=local\n");
 	mac.runs([{ id: "run-4", status: "completed", path: wt, base: "main" }]);
 
-	const row = mac.rows().find((each) => each.path === realpathSync(wt));
-
-	assert.ok(row);
+	const row = mac.row(wt);
 	assert.equal(row.dirty, 0, "an ignored file is not uncommitted work");
 	assert.equal(row.ignored, 1);
 	assert.deepEqual(row.ignored_files, [".env"]);
@@ -229,9 +225,7 @@ test("ignored files are printed under their row and never counted as work", () =
 test("the main checkout reads LANE", () => {
 	const mac = makeMac();
 
-	const row = mac.rows().find((each) => each.path === realpathSync(mac.main));
-
-	assert.ok(row);
+	const row = mac.row(mac.main);
 	assert.equal(row.verdict, "LANE");
 	assert.equal(row.command, "");
 });
@@ -241,9 +235,7 @@ test("a locked worktree reads LANE", () => {
 	const wt = mac.worktree("factory-build-1795000000005");
 	mac.git(["worktree", "lock", wt]);
 
-	const row = mac.rows().find((each) => each.path === realpathSync(wt));
-
-	assert.ok(row);
+	const row = mac.row(wt);
 	assert.equal(row.verdict, "LANE");
 });
 
@@ -252,9 +244,7 @@ test("a detached worktree reads LANE", () => {
 	const wt = join(mac.dir, "detached");
 	mac.git(["worktree", "add", "-q", "--detach", wt, "main"]);
 
-	const row = mac.rows().find((each) => each.path === realpathSync(wt));
-
-	assert.ok(row);
+	const row = mac.row(wt);
 	assert.equal(row.verdict, "LANE");
 	assert.equal(row.branch, null);
 });
@@ -288,9 +278,7 @@ test("a branch that another Run recorded as its base reads LANE, so a Project Ma
 	const runWorktree = mac.worktree("factory-build-1795000000007");
 	mac.runs([{ id: "run-7", status: "completed", path: runWorktree, base: "lane" }]);
 
-	const row = mac.rows().find((each) => each.path === realpathSync(lane));
-
-	assert.ok(row);
+	const row = mac.row(lane);
 	assert.equal(row.verdict, "LANE", "its branch is where other Runs land, so it is a lane");
 });
 
@@ -303,9 +291,7 @@ test("a running Run keeps its worktree KEEP and the row says to wait for it", ()
 	squashInto(mac, "main", "factory-build-1795000000008");
 	mac.runs([{ id: "run-8", status: "running", path: wt, base: "main" }]);
 
-	const row = mac.rows().find((each) => each.path === realpathSync(wt));
-
-	assert.ok(row);
+	const row = mac.row(wt);
 	assert.equal(row.verdict, "KEEP", "a live Run vetoes the content test");
 	assert.equal(row.command, "wait: Run run-8 is running");
 	assert.equal(row.run?.status, "running");
@@ -316,9 +302,7 @@ test("a paused Run keeps its worktree KEEP and the row says to wait for the Huma
 	const wt = mac.worktree("factory-build-1795000000009");
 	mac.runs([{ id: "run-9", status: "paused", path: wt, base: "main" }]);
 
-	const row = mac.rows().find((each) => each.path === realpathSync(wt));
-
-	assert.ok(row);
+	const row = mac.row(wt);
 	assert.equal(row.verdict, "KEEP");
 	assert.equal(
 		row.command,
@@ -336,9 +320,7 @@ test("a failed Run's dead worktree names the abandon before the complete", () =>
 	squashInto(mac, "main", "factory-build-1795000000010");
 	mac.runs([{ id: "run-10", status: "failed", path: wt, base: "main" }]);
 
-	const row = mac.rows().find((each) => each.path === realpathSync(wt));
-
-	assert.ok(row);
+	const row = mac.row(wt);
 	assert.equal(row.verdict, "DEAD", "the work landed, so the environment is dead once the Run is released");
 	assert.equal(row.command, "archon workflow abandon run-10 && archon complete factory-build-1795000000010");
 });
@@ -351,9 +333,7 @@ test("a failed Run whose work is in no destination names the abandon and offers 
 	mac.git(["push", "-q", "-u", "origin", "factory-build-1795000000011"], wt);
 	mac.runs([{ id: "run-11", status: "failed", path: wt, base: "main" }]);
 
-	const row = mac.rows().find((each) => each.path === realpathSync(wt));
-
-	assert.ok(row);
+	const row = mac.row(wt);
 	assert.equal(row.verdict, "REVIEW");
 	assert.equal(row.content, "unlanded");
 	assert.equal(row.command, "archon workflow abandon run-11", "the Run is released, the work is left for a person");
@@ -372,9 +352,7 @@ test("a squash the destination moved past still reads landed through the patch-i
 	mac.git(["push", "-q", "origin", "main"]);
 	mac.runs([{ id: "run-12", status: "completed", path: wt, base: "main" }]);
 
-	const row = mac.rows().find((each) => each.path === realpathSync(wt));
-
-	assert.ok(row);
+	const row = mac.row(wt);
 	assert.equal(row.content, "landed", "the patch-id proves the squash the tree merge could not");
 	assert.equal(row.verdict, "DEAD");
 });
@@ -387,9 +365,7 @@ test("unpushed commits add the force the content proof has earned", () => {
 	squashInto(mac, "main", "factory-build-1795000000013");
 	mac.runs([{ id: "run-13", status: "completed", path: wt, base: "main" }]);
 
-	const row = mac.rows().find((each) => each.path === realpathSync(wt));
-
-	assert.ok(row);
+	const row = mac.row(wt);
 	assert.equal(row.unpushed, 1);
 	assert.equal(row.content, "landed");
 	assert.equal(row.command, "archon complete --force factory-build-1795000000013");
@@ -409,15 +385,24 @@ test("a worktree named by Runs with two bases is dead when its work is in either
 		{ id: "run-14b", status: "completed", path: wt, base: "lane" },
 	]);
 
-	const row = mac.rows().find((each) => each.path === realpathSync(wt));
-
-	assert.ok(row);
+	const row = mac.row(wt);
 	assert.deepEqual(row.destinations, ["main", "lane"], "every recorded base is named");
 	assert.equal(row.content, "landed");
 	assert.equal(row.verdict, "DEAD");
 });
 
-test("the text report prints one row per worktree and the same rows as --json", () => {
+test("the text report prints one row per worktree", () => {
+	const mac = makeMac();
+	mac.worktree("factory-build-1795000000015");
+
+	const text = mac.report();
+
+	assert.equal(text.status, 0, text.stderr);
+	const lines = text.stdout.split("\n").filter((line) => line && !line.startsWith(" "));
+	assert.equal(lines.length, 2, "the main checkout and the Run's worktree, one row each");
+});
+
+test("a dead worktree's text row reads DEAD and ends with the command that removes it", () => {
 	const mac = makeMac();
 	const wt = mac.worktree("factory-build-1795000000015");
 	writeFileSync(join(wt, "file.txt"), "one\nlanded\n");
@@ -426,20 +411,14 @@ test("the text report prints one row per worktree and the same rows as --json", 
 	squashInto(mac, "main", "factory-build-1795000000015");
 	mac.runs([{ id: "run-15", status: "completed", path: wt, base: "main" }]);
 
-	const text = mac.report();
-	const rows = mac.rows();
-
-	assert.equal(text.status, 0, text.stderr);
-	assert.equal(rows.length, 2, "the main checkout and the Run's worktree");
-	const lines = text.stdout.split("\n").filter((line) => line && !line.startsWith(" "));
-	assert.equal(lines.length, rows.length, "one text row per worktree");
+	const lines = mac.report().stdout.split("\n").filter((line) => line && !line.startsWith(" "));
 	const dead = lines.find((line) => line.includes("factory-build-1795000000015"));
-	assert.ok(dead);
-	assert.match(dead, /^DEAD /);
-	assert.ok(dead.endsWith("archon complete factory-build-1795000000015"), `the row ends with the exact command: ${dead}`);
-	assert.deepEqual(
-		rows.map((row) => row.verdict),
-		["LANE", "DEAD"],
+
+	assert.ok(dead, `the report has a row for the worktree: ${lines.join("\n")}`);
+	assert.match(dead, /^DEAD /, "the row starts with its verdict");
+	assert.ok(
+		dead.endsWith("archon complete factory-build-1795000000015"),
+		`the row ends with the exact command: ${dead}`,
 	);
 });
 
@@ -481,9 +460,7 @@ test("a worktree with no Run is tested against origin's HEAD, never against its 
 	mac.git(["push", "-q", "-u", "origin", "factory-build-1795000000017"], wt);
 	mac.runs([]);
 
-	const row = mac.rows().find((each) => each.path === realpathSync(wt));
-
-	assert.ok(row);
+	const row = mac.row(wt);
 	assert.deepEqual(row.destinations, ["main"], "the repo's default branch is the fallback");
 	assert.equal(row.content, "unlanded");
 	assert.equal(row.verdict, "REVIEW", "a pushed branch is not landed just because it has an upstream");
