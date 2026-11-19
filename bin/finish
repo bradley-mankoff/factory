@@ -15,6 +15,9 @@
 #                    presence wins over `landing` and `held`, the notes bin/land wrote
 #                    before the gate, which no landing follows.
 #   no-commits       a task's checks node: the Run changed no files.
+#   withheld         a build's spec-withheld or standards-withheld node: the review that
+#                    withheld approval, such as "the spec review". The node writes it only
+#                    after its findings are commented on the Bead.
 #   bead-state       bin/close-bead: what became of the Bead, either "closed the Bead"
 #                    or "left the Bead open for its after-landing steps" (fac-enj).
 #   flows-failed.txt pi-flows: the checks a node finished with still failing.
@@ -45,6 +48,7 @@ note() {
 landing=$(note landing)
 held=$(note held)
 rejected=$(note rejected)
+withheld=$(note withheld)
 bead_state=$(note bead-state)
 failures=$(note flows-failed.txt)
 # Where a Project Manager reads why a Run ended as it did. The gated Workflow also ends on
@@ -63,6 +67,7 @@ if [ "$workflow" = factory-research ]; then
 	fi
 	notice="Research Run $run $how"
 else
+	bead=$("$here/bead" --id "$message")
 	if [ -e "$artifacts/no-commits" ]; then
 		how="finished without changing files; its answer is the task node's output in archon workflow get $run"
 	elif [ -e "$artifacts/rejected" ]; then
@@ -71,6 +76,12 @@ else
 		# and would report a landing that never happened. A Human may reject without words.
 		how="was rejected at the gate and did not land"
 		[ -z "$rejected" ] || how="$how: $rejected"
+	elif [ -n "$withheld" ]; then
+		# A withheld review ends the Run before the landing, and its node comments the
+		# findings on the Bead before it writes this note. A review stop is not a broken
+		# Run, so the Notice names the review and where its findings are rather than
+		# sending the Project Manager to look for a node that failed (fac-8yb).
+		how="ended at $withheld, which withheld approval; the findings are on Bead $bead"
 	elif [ -n "$landing" ]; then
 		how=$landing
 		# A landed build's Run closes its own Bead, or leaves it open for the steps the
@@ -84,8 +95,8 @@ else
 	# A reason is the Human's own words and may close its own sentence, so the Notice adds
 	# no full stop after one; every other ending is a phrase, which it closes.
 	case $how in
-	*[.!?]) notice="Run $run ($workflow) for Bead $("$here/bead" --id "$message") $how" ;;
-	*) notice="Run $run ($workflow) for Bead $("$here/bead" --id "$message") $how." ;;
+	*[.!?]) notice="Run $run ($workflow) for Bead $bead $how" ;;
+	*) notice="Run $run ($workflow) for Bead $bead $how." ;;
 	esac
 fi
 

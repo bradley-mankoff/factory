@@ -259,7 +259,8 @@ files, and fails the node, and so stops the landing, when they fail.
 ### The withheld review (`spec-withheld`, `standards-withheld`)
 
 A withheld review's findings go on the Bead as a comment, so the Project Manager can decide, and the
-landing does not run.
+landing does not run. Once the comment lands, the node writes a `withheld` note naming the review, and
+`bin/finish` turns it into a Notice about a review stop rather than a node that failed.
 
 ```yaml
   - id: spec-withheld
@@ -270,7 +271,8 @@ landing does not run.
       Spec review withheld approval in Run $WORKFLOW_ID; the commits stay on its branch:
       $spec.output.feedback
       FEEDBACK
-      )"
+      )" || exit $?
+      printf '%s\n' "the spec review" >"$ARTIFACTS_DIR/withheld"
 
   - id: standards-withheld
     depends_on: [standards]
@@ -280,7 +282,8 @@ landing does not run.
       Standards review withheld approval in Run $WORKFLOW_ID; the commits stay on its branch:
       $standards.output.feedback
       FEEDBACK
-      )"
+      )" || exit $?
+      printf '%s\n' "the standards review" >"$ARTIFACTS_DIR/withheld"
 ```
 
 ### The landing (`land`)
