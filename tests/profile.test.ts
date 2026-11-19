@@ -329,6 +329,26 @@ test("project setup writes the Profile's commit identity into the project's .env
 	}
 });
 
+test("project setup gives the project's repo the maintainer Beads role, so a fork reads its own Beads", () => {
+	// `bd init` in a repo that has an `upstream` remote (a fork) leaves beads.role=contributor,
+	// and bd then reads the empty contributor planning store instead of the repo's own .beads,
+	// so `bd ready` shows no work (fac-3zx). The role bd reads is the repo's local git config.
+	const mac = makeMac({ profile: squashProfile });
+	try {
+		const repo = projectRepo(mac);
+		execFileSync("git", ["-C", repo, "remote", "add", "origin", "git@github.com:bradley-mankoff/thing.git"]);
+		execFileSync("git", ["-C", repo, "remote", "add", "upstream", "git@github.com:ndokutovich/thing.git"]);
+		execFileSync("git", ["-C", repo, "config", "beads.role", "contributor"]);
+
+		const result = mac.install();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		assert.equal(gitConfig(repo, "beads.role"), "maintainer", "the fork's repo carries the role bd reads to plan from its own Beads");
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
 test("a Profile that names no commit identity leaves the project's repo as it is", () => {
 	const mac = makeMac({ profile: squashProfile });
 	try {

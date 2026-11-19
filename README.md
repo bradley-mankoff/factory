@@ -32,7 +32,7 @@ It installs the versions of Archon (with its pi provider), pi and pi-claude-brid
 scripts/install.sh <path to the project's repo> "<its check command>"
 ```
 
-The repo needs git, a GitHub remote and Beads (`bd init`). This writes its uncommitted `.archon/.env` (the Factory's pi folder, the Project Manager's pane name, FactoryClaw's Telegram chat, the check command and the identity its Runs commit as), trusts the repo in the Factory's pi folder, and adds it to `~/.config/factory/projects` and to FactoryClaw's list of projects. The check command is needed the first time only.
+The repo needs git, a GitHub remote and Beads (`bd init --role maintainer`: `bd` infers `contributor` in a fork, then reads the empty contributor planning store instead of the repo's own Beads). Setup writes the role into the repo's git config as well, so install repairs a fork whose Beads came from `bd init` without the flag, the next time it sets that project up (fac-3zx). This writes its uncommitted `.archon/.env` (the Factory's pi folder, the Project Manager's pane name, FactoryClaw's Telegram chat, the check command and the identity its Runs commit as), trusts the repo in the Factory's pi folder, and adds it to `~/.config/factory/projects` and to FactoryClaw's list of projects. The check command is needed the first time only.
 
 Then send FactoryClaw an Idea for the project, or tell it to get the project to work; "stop <project>" stops its Project Manager. FactoryClaw opens the project's pane if it is closed, and finds one you opened yourself with `pm`; watch the panes in your own herdr windows, which attach to the same server.
 

@@ -6,7 +6,7 @@ license: MIT. Adapted from Matt Pocock's to-spec skill, copyright 2026 Matt Poco
 
 Run this skill once grilling has made an Idea clear. Turn what the conversation already settled, and what you know of the code, into a Spec, and store the Spec as the description of the Epic the grilling opened. Do not interview the Human again: write down what you already know.
 
-The Human is the person who owns the project. An Idea is a few plain sentences from the Human about what the project should do; a Spec is its written version. An Epic is a parent Bead in the project's Beads (`bd`), holding one Spec and the Beads made from it. If `bd` finds no Beads database in the repo, ask the Human before running `bd init`. For everything in the project's own domain, use the words of the project's `GLOSSARY.md` (older projects call it `CONTEXT.md`), if it has one.
+The Human is the person who owns the project. An Idea is a few plain sentences from the Human about what the project should do; a Spec is its written version. An Epic is a parent Bead in the project's Beads (`bd`), holding one Spec and the Beads made from it. If `bd` finds no Beads database in the repo, ask the Human before running `bd init --role maintainer`: `bd` infers `contributor` in a repo that has an `upstream` remote (a fork), and `bd ready` would read the empty contributor planning store instead of the project's own Beads (fac-3zx). For everything in the project's own domain, use the words of the project's `GLOSSARY.md` (older projects call it `CONTEXT.md`), if it has one.
 
 ## Process
 
