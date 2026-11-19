@@ -158,8 +158,10 @@ nodes:
 
       $bead.output
 
-  # all_done, and the video read from its file rather than $demo.output: a failed demo
-  # still lets the Human judge from what the landing holds.
+  # all_done, so a failed demo still reaches this node, which reads the video from its file
+  # rather than $demo.output. With a video the Human judges from it; with none there is
+  # nothing to judge, so this node leaves the demo-failed note bin/finish reads and fails,
+  # and the taste wait is skipped (fac-fse).
   - id: ask-human
     depends_on: [demo]
     trigger_rule: all_done
@@ -174,7 +176,10 @@ nodes:
       # screen that shows text can play; without it the message names the file for
       # FactoryClaw to attach (fac-3mz.7).
       link=$("$HOME/.local/share/factory/bin/demos-link" "$WORKFLOW_ID" "$FACTORY_DEMOS")
-      if [ -n "$link" ]; then video="Watch the demo video at $link and do not open a link to the change."; elif [ -s "$demo" ]; then video="Relay it through FactoryClaw with the demo video $demo and without a link to the change."; else video="There is no video: the demo node found the change broken or failed (archon workflow get $WORKFLOW_ID says which). If the change is broken, reject the Run and rework the Bead without asking the Human; otherwise record one with the record-demo skill, or relay the change instead."; fi
+      if [ -n "$link" ]; then video="Watch the demo video at $link and do not open a link to the change."; elif [ -s "$demo" ]; then video="Relay it through FactoryClaw with the demo video $demo and without a link to the change."; else
+        printf '%s\n' "the demo node failed to record a video" >"$ARTIFACTS_DIR/demo-failed"
+        exit 1
+      fi
       "$HOME/.local/share/factory/bin/tell-pm" "${ARGUMENTS%% · *}" "Run $WORKFLOW_ID (factory-build-gated) for Bead $("$HOME/.local/share/factory/bin/bead" --id "$ARGUMENTS") waits for the Human's taste-and-fit check of $held. $video Then answer with factory answer $WORKFLOW_ID approve, or factory answer $WORKFLOW_ID reject '<the Human's words>'."
 
   # Archon substitutes nothing in a wait's attention text: `archon workflow attention --json`
@@ -219,6 +224,6 @@ nodes:
   # node's output or the gate's: Archon refuses to splice a failed node's output, so such a
   # reference stops this node exactly when the Project Manager most needs telling.
   - id: tell-project-manager
-    depends_on: [land, close-bead, rejected, work-finished, spec-withheld, standards-withheld]
+    depends_on: [land, close-bead, rejected, work-finished, spec-withheld, standards-withheld, ask-human]
     trigger_rule: all_done
     bash: '"$HOME/.local/share/factory/bin/finish" factory-build-gated'

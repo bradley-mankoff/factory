@@ -126,6 +126,24 @@ test("a held landing in the gated Workflow's Notice names what the gate decides"
 	);
 });
 
+test("a gated Run whose demo left no video says the demo failed and the Human gate did not open", () => {
+	// bin/land --hold leaves `held` and `landing` before the gate, and ask-human writes
+	// `demo-failed` and fails instead of asking the Human. The Notice must report the failed
+	// demo, not the landing the gate never decided.
+	const h = makeHarness();
+	h.note("held", "the pull request https://github.com/example/factory/pull/7 into main\n");
+	h.note("landing", "opened the pull request https://github.com/example/factory/pull/7 into main, which the gate decides\n");
+	h.note("demo-failed", "the demo node failed to record a video\n");
+
+	const result = h.run("factory-build-gated");
+
+	assert.equal(result.status, 0, result.stderr);
+	assert.equal(
+		noticeText(h),
+		"Run run-123 (factory-build-gated) for Bead fac-1 ended because the demo node failed to record a video, so the Human gate did not open; archon workflow get run-123 names the demo's failure.",
+	);
+});
+
 test("a rejected gated Run's Notice says the gate rejected it, names the Human's reason and says it did not land", () => {
 	// A reject skips the land node, so the `landing` and `held` notes bin/land --hold left
 	// before the gate are still there. The gate's own answer is the `rejected` note, and it
