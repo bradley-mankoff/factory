@@ -339,6 +339,9 @@
   install.sh  — Builds the app into ~/Applications/ArchonBar.app, signed ad hoc, writes the login job com.bradley-mankoff.archon-bar, and removes the old RunBar.app and com.bradley-mankoff.runbar job; the Factory's install builds and writes neither
   .beads/  [runtime]
   .archon/.env  [secret]
+~/Developer/personal_code/opencode_go_newsletter  — The repo the October reorganisation's newsletter item named (fac-7rg.3): a tracker that scrapes plan prices and per-model Go/Go Plus limits from https://opencode.ai/console/go, snapshots them daily and emails the diff; money's daily letter runs it with --no-email, and money is not a Factory project, so the tracker is the one; pane pm-opencode_go_newsletter; Beads prefix ogn; check python3 scripts/eval_go_prices.py (since 2026-11-19)
+  .beads/  [runtime]
+  .archon/.env  [secret]
 
 ## Related
 > Outside the Factory, but it leans on them.
