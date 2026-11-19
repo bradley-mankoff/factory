@@ -440,3 +440,32 @@ test("a Notice whose turn the Human ended early is delivered again to the next s
 		await next.stop();
 	}
 });
+
+test("the session that was holding back takes the pane when the session holding it goes", async () => {
+	// A second session leaves the Notices to the one holding the pane's lock, and it must not
+	// stay deaf for good: when the holder stops, the waiting session takes the pane over.
+	const machine = makeMachine();
+	const logs = [logFile(machine, "one"), logFile(machine, "two")];
+	const sessions = [startPi(machine, { log: logs[0] }), startPi(machine, { log: logs[1] })];
+	// The reply is held, so the Notice stays delivered and unacted on while the holder stops.
+	fs.writeFileSync(machine.replyHold, "");
+	try {
+		await sessions[0].ready();
+		await sessions[1].ready();
+		const line = "2026-11-19 10:30 Run 83d18718 (factory-build) for Bead fac-11 ended merged.";
+		writeNotice(machine, line);
+
+		await waitForRequestsIn(logs, 1);
+		const holder = logs.findIndex((log) => readRequests(log).length > 0);
+		await sessions[holder].stop();
+		fs.rmSync(machine.replyHold, { force: true });
+
+		const [, second] = await waitForRequestsIn(logs, 2);
+
+		assert.ok(conversation(second).includes(line), `the waiting session took the Notice over: ${conversation(second)}`);
+	} finally {
+		fs.rmSync(machine.replyHold, { force: true });
+		await sessions[0].stop();
+		await sessions[1].stop();
+	}
+});
