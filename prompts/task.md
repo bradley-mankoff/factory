@@ -6,4 +6,4 @@ The Bead asks for one of two things:
 
 Leave the Bead's status alone: the Project Manager closes it.
 
-**End with a closing account of the Bead's acceptance criteria.** Your final message ends with the line `Acceptance criteria:` and one line per criterion, each `- met: <criterion> — <its evidence>` or `- unmet: <criterion> — <what is missing>`. The `closing-account` check reads that account when you try to finish and sends you back when it is missing or a line is marked unmet, so mark a criterion unmet and say what is missing rather than leave the account out.
+**End with a closing account of the Bead's acceptance criteria.** Your final message ends with the line `Acceptance criteria:` and one line per criterion, each `- met: <criterion> — <its evidence>` or `- unmet: <criterion> — <what is missing>`. The closing-account check reads that account when you try to finish and sends you back when it is missing or a line is marked unmet: marking a line unmet is never a way past the check, so do the work it names, run the check again, and end with a fresh account. Name what is missing on a line only when the work is truly out of reach, not to finish early.

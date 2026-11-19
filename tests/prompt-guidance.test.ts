@@ -1,8 +1,11 @@
 /**
- * The work node and the two reviews carry the module and test design guidance in Factory
- * words (fac-6a7.2). The seam is what a Run's node prompt says: bin/node-prompts' output for
- * the build Workflow, and the guide files under prompts/guides/ that output sends an agent to
- * read on a named condition.
+ * The work node, the task node and the two reviews carry the guidance a Run gives its agents
+ * in Factory words: the module and test design rules (fac-6a7.2), the work node's rule that
+ * its agent does the Bead in its own session and treats a failed tool call as information
+ * (fac-h73), and the closing-account rule both checked nodes state, since the same
+ * closing-account check reads each node's final message (fac-h73). The seam is what a Run's
+ * node prompt says: bin/node-prompts' output for a Workflow, and the guide files under
+ * prompts/guides/ that output sends an agent to read on a named condition.
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -13,9 +16,9 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-/** The prompts a build Run's AI nodes read, as bin/node-prompts prints them. */
-const buildPrompts = (): Record<string, string> => {
-	const result = spawnSync(join(root, "bin", "node-prompts"), [join(root, "workflows", "factory", "build")], {
+/** The prompts a Workflow's AI nodes read, as bin/node-prompts prints them. */
+const workflowPrompts = (workflow: string): Record<string, string> => {
+	const result = spawnSync(join(root, "bin", "node-prompts"), [join(root, "workflows", "factory", workflow)], {
 		encoding: "utf8",
 	});
 	assert.equal(result.status, 0, result.stderr);
@@ -41,97 +44,135 @@ const guide = (path: string): string => readFileSync(join(root, "prompts", "guid
 const moduleGuide = "~/.local/share/factory/prompts/guides/module-design.md";
 const testGuide = "~/.local/share/factory/prompts/guides/test-design.md";
 
-/** The build prompts and the two guides, read once: every test below checks the same text. */
-const prompts = buildPrompts();
+/** The build Workflow's prompts, the task Workflow's prompts and the two guides, read once: every test below checks the same text. */
+const buildPrompts = workflowPrompts("factory-build");
+const taskPrompts = workflowPrompts("factory-task");
 const moduleDesign = guide(moduleGuide);
 const testDesign = guide(testGuide);
 
+/** A prompt's closing-account paragraph, the line the closing-account check sends an agent back to fix. */
+const closingAccount = (prompt: string): string => lineMatching(prompt, /^\*\*End with a closing account/);
+
+/** A checked node's closing account sends its agent back to do the work an unmet line names, not to finish with it unmet. */
+const assertClosingAccountSendsBack = (prompt: string): void => {
+	const paragraph = closingAccount(prompt);
+	assert.match(paragraph, /marking a line unmet is never a way past the check/);
+	assert.match(paragraph, /do the work it names, run the check again, and end with a fresh account/);
+};
+
+test("the work prompt keeps the work in the work agent's own session, even with a subagent tool loaded", () => {
+	const line = lineMatching(buildPrompts.work, /never delegate the work/);
+	assert.match(line, /Do the Bead's work in this session/);
+	assert.match(line, /even when a `subagent` tool is loaded/);
+	assert.match(line, /checks read your worktree and your own final message/);
+	assert.match(line, /work another agent does is work the Run cannot see/);
+});
+
+test("the work prompt treats a failed tool call as information, not a reason to stop", () => {
+	const line = lineMatching(buildPrompts.work, /failed tool call/);
+	assert.match(line, /information, not a reason to stop/);
+	assert.match(line, /read the error, choose another way/);
+	assert.match(line, /keep going until the work is done/);
+});
+
+test("the work prompt's closing account sends the agent back to do an unmet line's work rather than to stop", () => {
+	assertClosingAccountSendsBack(buildPrompts.work);
+});
+
+test("the task prompt's closing account sends the agent back to do an unmet line's work rather than to stop", () => {
+	assertClosingAccountSendsBack(taskPrompts.task);
+});
+
+test("the work and task prompts carry the closing-account rule word for word, so its two copies cannot drift", () => {
+	assert.equal(closingAccount(taskPrompts.task), closingAccount(buildPrompts.work));
+});
+
 test("the work prompt sends the agent to the module guide when a module, an interface or a seam changes", () => {
-	const line = lineMatching(prompts.work, moduleGuide);
+	const line = lineMatching(buildPrompts.work, moduleGuide);
 	assert.match(line, /when the change adds a module, changes an interface or moves a seam/);
 });
 
 test("the work prompt sends the agent to the test guide when a test must reach something that is not plain computation", () => {
-	const line = lineMatching(prompts.work, testGuide);
+	const line = lineMatching(buildPrompts.work, testGuide);
 	assert.match(line, /when a test must reach something that is not plain computation/);
 	assert.match(line, /database/);
 	assert.match(line, /clock/);
 });
 
 test("the work prompt says which seam to take when neither the Bead nor its Epic names one", () => {
-	const line = lineMatching(prompts.work, /highest existing seam/);
+	const line = lineMatching(buildPrompts.work, /highest existing seam/);
 	assert.match(line, /commit message/);
 	assert.match(line, /catches and misses/);
 });
 
 test("the work prompt treats a hard test as the wrong module shape, and says which way to reshape it", () => {
-	const line = lineMatching(prompts.work, /wrong shape/);
+	const line = lineMatching(buildPrompts.work, /wrong shape/);
 	assert.match(line, /pass the dependency in/);
 	assert.match(line, /return the result/);
 });
 
 test("the work prompt asks for one thing checked per test", () => {
-	assert.match(prompts.work, /one thing checked per test/);
+	assert.match(buildPrompts.work, /one thing checked per test/);
 });
 
 test("the work prompt's test-name example names a caller of the project's domain, not a person", () => {
-	const line = lineMatching(prompts.work, /reads like a specification/);
+	const line = lineMatching(buildPrompts.work, /reads like a specification/);
 	assert.match(line, /a caller can check out with a valid cart/);
 	assert.doesNotMatch(line, /\ba user\b/i);
 });
 
 test("the work prompt gives depth a sentence", () => {
-	const line = lineMatching(prompts.work, /depth/i);
+	const line = lineMatching(buildPrompts.work, /depth/i);
 	assert.match(line, /a lot of behaviour behind a small interface/);
 	assert.match(line, /shallow/);
 });
 
 test("the work prompt gives the deletion test a sentence", () => {
-	const line = lineMatching(prompts.work, /imagine deleting the module/i);
+	const line = lineMatching(buildPrompts.work, /imagine deleting the module/i);
 	assert.match(line, /pass-through/);
 	assert.match(line, /earns its keep/);
 });
 
 test("the work prompt lets a new internal seam in only with a second adapter, and no external seam the Spec did not name", () => {
-	const line = lineMatching(prompts.work, /internal seam/);
+	const line = lineMatching(buildPrompts.work, /internal seam/);
 	assert.match(line, /second adapter/);
 	assert.match(line, /external seam/);
 	assert.match(line, /Spec did not name/);
 });
 
 test("the work prompt lets the agent replace the tests at a seam the Bead moved", () => {
-	assert.match(prompts.work, /moves a seam, replace the tests at it/);
+	assert.match(buildPrompts.work, /moves a seam, replace the tests at it/);
 });
 
 test("the work prompt asks the commit message to name the interface built and the alternative's cost", () => {
-	const line = lineMatching(prompts.work, /alternative would have cost/);
+	const line = lineMatching(buildPrompts.work, /alternative would have cost/);
 	assert.match(line, /commit message/);
 	assert.match(line, /which interface you built/);
 });
 
 test("the work prompt makes a refactor its Bead asks for part of the work loop", () => {
-	const line = lineMatching(prompts.work, /refactoring the Bead asks for/i);
+	const line = lineMatching(buildPrompts.work, /refactoring the Bead asks for/i);
 	assert.match(line, /is this loop's work/);
 });
 
 test("the work prompt leaves refactoring its Bead does not ask for to the review", () => {
-	const line = lineMatching(prompts.work, /refactoring it does not ask for/i);
+	const line = lineMatching(buildPrompts.work, /refactoring it does not ask for/i);
 	assert.match(line, /belongs to the review/);
 });
 
 test("the standards review sends the agent to the module guide when a module, an interface or a seam changes", () => {
-	const line = lineMatching(prompts.review_standards, moduleGuide);
+	const line = lineMatching(buildPrompts.review_standards, moduleGuide);
 	assert.match(line, /when the diff adds a module, changes an interface or moves a seam/);
 	assert.match(line, /four judgements/);
 });
 
 test("the standards review sends the agent to the test guide when the diff adds or changes tests", () => {
-	const line = lineMatching(prompts.review_standards, testGuide);
+	const line = lineMatching(buildPrompts.review_standards, testGuide);
 	assert.match(line, /when the diff adds or changes tests/);
 });
 
 test("the standards review names the four design judgements", () => {
-	const text = prompts.review_standards;
+	const text = buildPrompts.review_standards;
 	assert.match(text, /shallow module/i);
 	assert.match(text, /interface grown to match its implementation/i);
 	assert.match(text, /pass-through/i);
@@ -139,12 +180,12 @@ test("the standards review names the four design judgements", () => {
 });
 
 test("the standards review gives a module that only passes calls on one finding, not two", () => {
-	const findings = linesMatching(prompts.review_standards, /middle man|only passes calls on/i);
+	const findings = linesMatching(buildPrompts.review_standards, /middle man|only passes calls on/i);
 	assert.equal(findings.length, 1, findings.join("\n"));
 });
 
 test("the standards review judges the tests as code, after the spec review judged whether they reach the seam", () => {
-	const line = lineMatching(prompts.review_standards, /judge the tests as code/i);
+	const line = lineMatching(buildPrompts.review_standards, /judge the tests as code/i);
 	assert.match(line, /spec review judged/);
 	assert.match(line, /fail without the change/);
 	assert.match(line, /one thing checked per test/);
@@ -153,41 +194,41 @@ test("the standards review judges the tests as code, after the spec review judge
 });
 
 test("the standards review says a name with no honest version leaves the design murky", () => {
-	const line = lineMatching(prompts.review_standards, /no honest name/);
+	const line = lineMatching(buildPrompts.review_standards, /no honest name/);
 	assert.match(line, /murky/);
 });
 
 test("the standards review may not remove or reshape the seam and interface the spec review approved", () => {
-	const line = lineMatching(prompts.review_standards, /may not remove or reshape/i);
+	const line = lineMatching(buildPrompts.review_standards, /may not remove or reshape/i);
 	assert.match(line, /spec review owns the seam and the interface the Spec named/);
 });
 
 test("the standards review withholds when the only fix would reshape the seam the spec review approved", () => {
-	const line = lineMatching(prompts.review_standards, /^Withhold approval only/);
+	const line = lineMatching(buildPrompts.review_standards, /^Withhold approval only/);
 	assert.match(line, /remove or reshape the seam the spec review approved/);
 });
 
 test("the spec review sends the agent to the module guide for vocabulary only when a module, an interface or a seam changes", () => {
-	const line = lineMatching(prompts.review_spec, moduleGuide);
+	const line = lineMatching(buildPrompts.review_spec, moduleGuide);
 	assert.match(line, /when the diff adds a module, changes an interface or moves a seam/);
 	assert.match(line, /vocabulary only/);
 });
 
 test("the spec review falls back to the Bead's acceptance criteria when the Epic holds no Spec or there is no parent", () => {
-	const line = lineMatching(prompts.review_spec, /holds no Spec/);
+	const line = lineMatching(buildPrompts.review_spec, /holds no Spec/);
 	assert.match(line, /no parent/);
 	assert.match(line, /acceptance criteria/);
 	assert.match(line, /not a reason to withhold/);
 });
 
 test("the spec review judges a seam the change moved or added that the Spec did not decide", () => {
-	const line = lineMatching(prompts.review_spec, /moved or added a seam/);
+	const line = lineMatching(buildPrompts.review_spec, /moved or added a seam/);
 	assert.match(line, /the seam the Bead or its Spec names/);
 	assert.match(line, /Implementation Decisions/);
 });
 
 test("the spec review owns the seam and the interface the Spec named", () => {
-	const line = lineMatching(prompts.review_spec, /owns? the seam and the interface the Spec named/);
+	const line = lineMatching(buildPrompts.review_spec, /owns? the seam and the interface the Spec named/);
 	assert.match(line, /standards review/);
 	assert.match(line, /may not remove or reshape/);
 });
