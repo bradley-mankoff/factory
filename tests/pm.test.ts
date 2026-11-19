@@ -105,6 +105,11 @@ exit 0
 	// A Run of this repo carries FACTORY_CHECK in its own environment; a test that reads
 	// a .env must see the file's value, never one inherited from the Run.
 	delete baseEnv.FACTORY_CHECK;
+	// A Project Manager's shell under the worktree shape names its workspace shape and the
+	// branch it leads, and a Run's shell inherits them; start names both itself, so a test
+	// reads what start named and never one inherited from the Run that runs it (fac-02k).
+	delete baseEnv.WORKSPACE;
+	delete baseEnv.FACTORY_PM_BRANCH;
 	let count = 0;
 
 	function childEnv(extraEnv: Record<string, string> = {}): NodeJS.ProcessEnv {

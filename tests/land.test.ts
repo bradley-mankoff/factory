@@ -55,9 +55,9 @@ const makeMac = (options: {
 	// The base Archon resolved for this Run, when it is not the one the worktree was cut
 	// from: an adopting Run gets the project's default, because --adopt refuses --base.
 	baseBranch?: string;
-	// An adopting Run: its artifacts folder, the base its own dispatch recorded, and, when
-	// it continues a chain, the Run the chain started from and that Run's base.
-	adopted?: { run: string; base: string; from?: string; fromBase?: string };
+	// An adopting Run: its artifacts folder and the base its own dispatch recorded, and, when
+	// it continues a chain, the Run it adopted with that Run's base.
+	adopted?: { run: string; base: string; adoptedFrom?: { run: string; base: string } };
 }): Mac => {
 	const dir = mkdtempSync(join(tmpdir(), "factory-land-"));
 	const home = join(dir, "home");
@@ -81,14 +81,15 @@ const makeMac = (options: {
 	if (options.adopted) {
 		// Archon's own record of a Run: its dispatch base and the Run it adopted. The command
 		// that reads it is `archon workflow get <id> --json`, the interface the Factory has.
-		const runRecord = (id: string, base: string, from?: string) =>
-			JSON.stringify({ id, adopted_from_run_id: from ?? null, metadata: { dispatch: { base_branch: base } } });
-		const answers = [
-			`${options.adopted.run}) printf '%s\\n' '${runRecord(options.adopted.run, options.adopted.base, options.adopted.from)}' ;;`,
-			...(options.adopted.from
-				? [`${options.adopted.from}) printf '%s\\n' '${runRecord(options.adopted.from, options.adopted.fromBase ?? "")}' ;;`]
-				: []),
-		].join("\n");
+		const adopted = options.adopted;
+		type RunRecord = { run: string; base: string; adoptedFrom: string | null };
+		const records: RunRecord[] = [
+			{ run: adopted.run, base: adopted.base, adoptedFrom: adopted.adoptedFrom?.run ?? null },
+			...(adopted.adoptedFrom ? [{ run: adopted.adoptedFrom.run, base: adopted.adoptedFrom.base, adoptedFrom: null }] : []),
+		];
+		const runRecord = ({ run, base, adoptedFrom }: RunRecord) =>
+			JSON.stringify({ id: run, adopted_from_run_id: adoptedFrom, metadata: { dispatch: { base_branch: base } } });
+		const answers = records.map((record) => `${record.run}) printf '%s\\n' '${runRecord(record)}' ;;`).join("\n");
 		writeFileSync(
 			join(bin, "archon"),
 			`#!/bin/sh
@@ -221,6 +222,10 @@ exit 0
 		GH_HEAD: ghHead,
 		REMOTE: remote,
 	};
+	// A Run that adopts another names the earlier Run's artifacts folder in ADOPTED_RUN_DIR, and
+	// a Run's shell carries the folder of the Run that started it. This Mac's Run is the one the
+	// test shaped, which adopts nothing unless it says so (fac-02k).
+	if (!adoptedDir) delete env.ADOPTED_RUN_DIR;
 	const land = (args: string[] = []) => spawnSync(join(root, "bin", "land"), args, { cwd: run, encoding: "utf8", env });
 
 	return { dir, home, run, remote, artifacts, ghLog, land };
@@ -557,7 +562,7 @@ test("an adopting Run lands on the base its chain chose, not the project's defau
 		repo: "myrepo",
 		base: "pm/branch",
 		baseBranch: "main",
-		adopted: { run: "adopting-run", base: "main", from: "origin-run", fromBase: "pm/branch" },
+		adopted: { run: "adopting-run", base: "main", adoptedFrom: { run: "origin-run", base: "pm/branch" } },
 	});
 	try {
 		const before = { main: ref(mac, "main"), develop: ref(mac, "develop"), branch: ref(mac, "pm/branch") };

@@ -27,8 +27,6 @@ import shutil
 import subprocess
 import sys
 
-ADOPTION_DEPTH = 100
-
 
 def fail(message):
     sys.exit(f"base: {message}")
@@ -40,14 +38,14 @@ def archon_command():
     if found:
         return found
     home = os.environ.get("HOME", "")
-    folders = [
-        os.path.join(home, ".local", "bin"),
-        os.path.join(os.environ.get("ARCHON_HOME", ""), "bin") if os.environ.get("ARCHON_HOME") else "",
-        os.path.join(home, ".local", "share", "factory", "archon", "bin"),
-    ]
+    archon_home = os.environ.get("ARCHON_HOME", "")
+    # install's link in ~/.local/bin, the Archon home the Profile names when the calling shell
+    # exported it, then the example Profile's home.
+    folders = [os.path.join(home, ".local", "bin")]
+    if archon_home:
+        folders.append(os.path.join(archon_home, "bin"))
+    folders.append(os.path.join(home, ".local", "share", "factory", "archon", "bin"))
     for folder in folders:
-        if not folder:
-            continue
         candidate = os.path.join(folder, "archon")
         if os.access(candidate, os.X_OK):
             return candidate
@@ -81,7 +79,10 @@ def main():
     adopted = os.environ.get("ADOPTED_RUN_DIR") or ""
     if not adopted:
         if not branch:
-            fail("Archon gave this Run no $BASE_BRANCH, so there is no branch to land on")
+            fail(
+                "Archon gave this Run no $BASE_BRANCH, so there is no branch to land on: "
+                "set $BASE_BRANCH or pass bin/land --base <branch>"
+            )
         print(branch)
         return
 
@@ -93,7 +94,7 @@ def main():
     # nothing and take its base.
     seen = set()
     while True:
-        if run in seen or len(seen) >= ADOPTION_DEPTH:
+        if run in seen:
             fail(f"the adopted Runs form a loop at {run}, so its base cannot be read")
         seen.add(run)
         record = run_record(run)

@@ -71,7 +71,7 @@ if [ -z "$base" ]; then
 		refuse "${base#base: }"
 	fi
 fi
-[ -n "$base" ] || refuse "no base branch: set BASE_BRANCH or pass --base <branch>"
+[ -n "$base" ] || refuse "--base needs a branch"
 
 # origin_repo: the repo behind origin as owner/name, so a gh call can say which repo it means.
 # gh resolves a repo from its own default, which in a fork with an upstream remote can be

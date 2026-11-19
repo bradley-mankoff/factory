@@ -111,7 +111,7 @@ if [ "\${WORKSPACE:-}" = worktree ] && [ "\${1:-}" = workflow ] && [ "\${2:-}" =
 		branch=\${FACTORY_PM_BRANCH:-}
 		[ -n "\$branch" ] || branch=\$(git branch --show-current 2>/dev/null || true)
 		[ -n "\$branch" ] || {
-			echo "archon: WORKSPACE=worktree but no FACTORY_PM_BRANCH and no branch here, so this Run has no branch to land on" >&2
+			echo "archon: WORKSPACE=worktree but no FACTORY_PM_BRANCH and no branch here, so this Run has no branch to land on: pass --base <branch>" >&2
 			exit 2
 		}
 		name=\$3
