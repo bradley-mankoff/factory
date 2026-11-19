@@ -1,10 +1,11 @@
 /**
- * The work node and the two reviews carry the guidance a Run gives its agents in Factory
- * words: the module and test design rules (fac-6a7.2), and the work node's rule that its
- * agent does the Bead in its own session and treats a failed tool call as information
- * (fac-h73). The seam is what a Run's node prompt says: bin/node-prompts' output for the
- * build Workflow, and the guide files under prompts/guides/ that output sends an agent to
- * read on a named condition.
+ * The work node, the task node and the two reviews carry the guidance a Run gives its agents
+ * in Factory words: the module and test design rules (fac-6a7.2), the work node's rule that
+ * its agent does the Bead in its own session and treats a failed tool call as information
+ * (fac-h73), and the closing-account rule both checked nodes state, since the same
+ * closing-account check reads each node's final message (fac-h73). The seam is what a Run's
+ * node prompt says: bin/node-prompts' output for a Workflow, and the guide files under
+ * prompts/guides/ that output sends an agent to read on a named condition.
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -15,14 +16,17 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-/** The prompts a build Run's AI nodes read, as bin/node-prompts prints them. */
-const buildPrompts = (): Record<string, string> => {
-	const result = spawnSync(join(root, "bin", "node-prompts"), [join(root, "workflows", "factory", "build")], {
+/** The prompts a Workflow's AI nodes read, as bin/node-prompts prints them. */
+const workflowPrompts = (workflow: string): Record<string, string> => {
+	const result = spawnSync(join(root, "bin", "node-prompts"), [join(root, "workflows", "factory", workflow)], {
 		encoding: "utf8",
 	});
 	assert.equal(result.status, 0, result.stderr);
 	return JSON.parse(result.stdout) as Record<string, string>;
 };
+
+/** The prompts a build Run's AI nodes read. */
+const buildPrompts = (): Record<string, string> => workflowPrompts("build");
 
 /** Every line of a prompt that matches, so a rule is checked where its agent reads it. */
 const linesMatching = (text: string, pattern: RegExp | string): string[] => {
@@ -43,10 +47,14 @@ const guide = (path: string): string => readFileSync(join(root, "prompts", "guid
 const moduleGuide = "~/.local/share/factory/prompts/guides/module-design.md";
 const testGuide = "~/.local/share/factory/prompts/guides/test-design.md";
 
-/** The build prompts and the two guides, read once: every test below checks the same text. */
+/** The build prompts, the task prompt and the two guides, read once: every test below checks the same text. */
 const prompts = buildPrompts();
+const taskPrompts = workflowPrompts("factory-task");
 const moduleDesign = guide(moduleGuide);
 const testDesign = guide(testGuide);
+
+/** A prompt's closing-account paragraph, the line the closing-account check sends an agent back to fix. */
+const closingAccount = (prompt: string): string => lineMatching(prompt, /^\*\*End with a closing account/);
 
 test("the work prompt keeps the work in the work agent's own session, even with a subagent tool loaded", () => {
 	const line = lineMatching(prompts.work, /never delegate the work/);
@@ -67,6 +75,17 @@ test("the work prompt's closing account sends the agent back to do an unmet line
 	const line = lineMatching(prompts.work, /closing-account check/);
 	assert.match(line, /marking a line unmet is never a way past the check/);
 	assert.match(line, /do the work it names, run the check again, and end with a fresh account/);
+});
+
+test("the task prompt's closing account sends the agent back to do an unmet line's work rather than to stop", () => {
+	const line = lineMatching(taskPrompts.task, /closing-account check/);
+	assert.match(line, /marking a line unmet is never a way past the check/);
+	assert.match(line, /do the work it names, run the check again, and end with a fresh account/);
+});
+
+test("the work and task prompts state the closing-account rule the same way, so its two copies cannot drift", () => {
+	const rule = (paragraph: string) => paragraph.replace(/^(\*\*End with a closing account of )(.+?)(\.\*\*)/, "$1<the criteria>$3");
+	assert.equal(rule(closingAccount(taskPrompts.task)), rule(closingAccount(prompts.work)));
 });
 
 test("the work prompt sends the agent to the module guide when a module, an interface or a seam changes", () => {
