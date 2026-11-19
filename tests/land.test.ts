@@ -3,7 +3,9 @@
  * `Profile`; fac-qpv.6.4). The seam is the command: a real git repo with the Run in a
  * worktree and origin a bare remote beside it, made-up files, a Profile file for the Mac, a
  * check command, and a stand-in `gh` at the GitHub edge that writes down how it was called;
- * a fork's upstream remote stands beside origin's address the way GitHub has it.
+ * a fork's upstream remote stands beside origin's address the way GitHub has it. An adopting
+ * Run's Mac also has a stand-in Archon, which answers `workflow get` with the dispatch base
+ * each Run in the chain recorded, the way Archon records it (fac-02k).
  * Nothing here looks inside bin/land.
  */
 import assert from "node:assert/strict";
@@ -50,6 +52,12 @@ const makeMac = (options: {
 	// The bare PATH launchd hands a job, which holds no Homebrew folder: what the archon-bar
 	// process had when its Runs failed to land (fac-a0h).
 	barePath?: boolean;
+	// The base Archon resolved for this Run, when it is not the one the worktree was cut
+	// from: an adopting Run gets the project's default, because --adopt refuses --base.
+	baseBranch?: string;
+	// An adopting Run: its artifacts folder and the base its own dispatch recorded, and, when
+	// it continues a chain, the Run it adopted with that Run's base.
+	adopted?: { run: string; base: string; adoptedFrom?: { run: string; base: string } };
 }): Mac => {
 	const dir = mkdtempSync(join(tmpdir(), "factory-land-"));
 	const home = join(dir, "home");
@@ -58,6 +66,8 @@ const makeMac = (options: {
 	const main = join(dir, options.repo);
 	const run = join(dir, `${options.repo}-run`);
 	const artifacts = join(dir, "artifacts");
+	const adoptedDir = options.adopted ? join(dir, "adopted", options.adopted.run) : undefined;
+	const archonLog = join(dir, "archon.log");
 	const ghLog = join(dir, "gh.log");
 	const ghOpen = join(dir, "gh-open");
 	const ghHead = join(dir, "gh-head");
@@ -67,6 +77,32 @@ const makeMac = (options: {
 	mkdirSync(bin, { recursive: true });
 	mkdirSync(ghFolder, { recursive: true });
 	mkdirSync(artifacts, { recursive: true });
+	if (adoptedDir) mkdirSync(adoptedDir, { recursive: true });
+	if (options.adopted) {
+		// Archon's own record of a Run: its dispatch base and the Run it adopted. The command
+		// that reads it is `archon workflow get <id> --json`, the interface the Factory has.
+		const adopted = options.adopted;
+		type RunRecord = { run: string; base: string; adoptedFrom: string | null };
+		const records: RunRecord[] = [
+			{ run: adopted.run, base: adopted.base, adoptedFrom: adopted.adoptedFrom?.run ?? null },
+			...(adopted.adoptedFrom ? [{ run: adopted.adoptedFrom.run, base: adopted.adoptedFrom.base, adoptedFrom: null }] : []),
+		];
+		const runRecord = ({ run, base, adoptedFrom }: RunRecord) =>
+			JSON.stringify({ id: run, adopted_from_run_id: adoptedFrom, metadata: { dispatch: { base_branch: base } } });
+		const answers = records.map((record) => `${record.run}) printf '%s\\n' '${runRecord(record)}' ;;`).join("\n");
+		writeFileSync(
+			join(bin, "archon"),
+			`#!/bin/sh
+printf '%s\\n' "$*" >> "$ARCHON_LOG"
+[ "$1 $2" = "workflow get" ] || exit 2
+case $3 in
+${answers}
+*) echo "no workflow run $3" >&2; exit 1 ;;
+esac
+`,
+			{ mode: 0o755 },
+		);
+	}
 
 	// GitHub, at the edge: it records each command, opens a pull request with a made-up
 	// address, answers `view` for the branch that pull request has and for the pull request's
@@ -173,11 +209,12 @@ exit 0
 		...process.env,
 		HOME: home,
 		PATH: options.barePath ? "/usr/bin:/bin:/usr/sbin:/sbin" : `${bin}:${process.env.PATH}`,
-		BASE_BRANCH: options.base,
+		BASE_BRANCH: options.baseBranch ?? options.base,
 		// The check the Run's worktree already ran, run again on what lands. It passes only on
 		// the squashed commit: the Run made two commits there, the squash is one over the base.
 		FACTORY_CHECK: options.check ?? 'test "$(git rev-list --count HEAD)" = 2',
 		ARTIFACTS_DIR: artifacts,
+		...(adoptedDir ? { ADOPTED_RUN_DIR: adoptedDir, ARCHON_LOG: archonLog } : {}),
 		WORKFLOW_ID: "run-123",
 		ARGUMENTS: "pm-repo · fac-1",
 		GH_LOG: ghLog,
@@ -185,6 +222,10 @@ exit 0
 		GH_HEAD: ghHead,
 		REMOTE: remote,
 	};
+	// A Run that adopts another names the earlier Run's artifacts folder in ADOPTED_RUN_DIR, and
+	// a Run's shell carries the folder of the Run that started it. This Mac's Run is the one the
+	// test shaped, which adopts nothing unless it says so (fac-02k).
+	if (!adoptedDir) delete env.ADOPTED_RUN_DIR;
 	const land = (args: string[] = []) => spawnSync(join(root, "bin", "land"), args, { cwd: run, encoding: "utf8", env });
 
 	return { dir, home, run, remote, artifacts, ghLog, land };
@@ -506,6 +547,58 @@ test("under the pull-request landing an adopting Run's new commits reach the pul
 		const landed = mac.land();
 		assert.equal(landed.status, 0, landed.stderr || landed.stdout);
 		assert.equal(fileAt(mac, "main", "squash.txt"), "landed by the adopting Run\n", "main gets the adopting Run's pass");
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("an adopting Run lands on the base its chain chose, not the project's default branch", () => {
+	// Archon refuses --base on an adopting Run, so it records the project's default (main
+	// here) for that Run's own dispatch; the Run it adopts, and the Run the chain started
+	// from, still name the Project Manager's branch. The landing must reach that branch
+	// (fac-02k).
+	const mac = makeMac({
+		profile: squashProfile,
+		repo: "myrepo",
+		base: "pm/branch",
+		baseBranch: "main",
+		adopted: { run: "adopting-run", base: "main", adoptedFrom: { run: "origin-run", base: "pm/branch" } },
+	});
+	try {
+		const before = { main: ref(mac, "main"), develop: ref(mac, "develop"), branch: ref(mac, "pm/branch") };
+
+		const result = mac.land();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		assert.equal(fileAt(mac, "pm/branch", "squash.txt"), "landed by the Run, refined\n", "the Run's work reached the branch its chain chose");
+		assert.equal(ref(mac, "main"), before.main, "main never moves");
+		assert.equal(ref(mac, "develop"), before.develop, "develop never moves");
+		assert.equal(landingNote(mac), "squashed onto pm/branch and pushed it\n");
+	} finally {
+		rmSync(mac.dir, { recursive: true, force: true });
+	}
+});
+
+test("an adopting Run whose chain names no base is refused, naming the adopted Run, instead of landing on the default branch", () => {
+	// The Profile protects no branch, so a landing on the default branch would go through;
+	// the refusal has to come from the missing base itself, not the Profile.
+	const profile = ["LANDING=squash", 'PROTECTED_TARGETS="myrepo"', "ARCHON_HOME=$HOME/factory-local/.archon"].join("\n") + "\n";
+	const mac = makeMac({
+		profile,
+		repo: "myrepo",
+		base: "pm/branch",
+		baseBranch: "main",
+		adopted: { run: "adopting-run", base: "" },
+	});
+	try {
+		const before = { main: ref(mac, "main"), branch: ref(mac, "pm/branch") };
+
+		const result = mac.land();
+		assert.notEqual(result.status, 0, "the landing is refused");
+		assert.match(result.stderr, /adopting-run/, "the refusal names the Run it adopted");
+
+		assert.deepEqual({ main: ref(mac, "main"), branch: ref(mac, "pm/branch") }, before, "no branch moves");
+		assert.match(landingNote(mac), /^refused to land: .*adopting-run/);
 	} finally {
 		rmSync(mac.dir, { recursive: true, force: true });
 	}

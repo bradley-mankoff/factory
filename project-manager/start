@@ -77,6 +77,14 @@ read_profile
 # name into the project's .archon/.env and FactoryClaw's TOOLS.md.
 pane=$("$factory/bin/pm-pane" "$PWD")
 
+# The branch a Project Manager leads under the worktree shape, which the archon wrapper
+# adds to each Run as --base (fac-02k). It is taken once, here, so a later cd in the pane
+# cannot change which branch the Runs start from and land on.
+if [ "$WORKSPACE" = worktree ]; then
+	FACTORY_PM_BRANCH=$(git branch --show-current)
+	export FACTORY_PM_BRANCH
+fi
+
 export LIBRARY ARCHON_HOME WORKSPACE
 export PI_SKIP_VERSION_CHECK=1
 unset PI_CODING_AGENT_DIR

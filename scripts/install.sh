@@ -94,6 +94,31 @@ export ARCHON_HOME="\${ARCHON_HOME:-$ARCHON_HOME}"
 export LIBRARY="\${LIBRARY:-$LIBRARY}"
 export DEFAULT_AI_ASSISTANT="\${DEFAULT_AI_ASSISTANT:-pi}"
 export ARCHON_TELEMETRY_DISABLED=1 DO_NOT_TRACK=1 PI_SKIP_VERSION_CHECK=1
+# A Project Manager's shell names the workspace shape and the branch it leads. Under the
+# worktree shape every Run it starts must start from and land on that branch, but Archon
+# cuts a fresh Run from the project's default branch unless --base says otherwise, and
+# refuses --base on an adopting Run (fac-02k). So a fresh Run gets --base with the
+# Project Manager's branch, exported by start as FACTORY_PM_BRANCH; an adopting Run, a
+# lane or base the caller chose, and every other shell pass through unchanged.
+if [ "\${WORKSPACE:-}" = worktree ] && [ "\${1:-}" = workflow ] && [ "\${2:-}" = run ] && [ "\$#" -ge 3 ]; then
+	chosen=
+	for arg in "\$@"; do
+		case \$arg in
+		--base | --base=* | --adopt | --adopt=* | --resume | --branch | --branch=* | -b | -b=* | --from | --from=* | --from-branch | --from-branch=* | --no-worktree | --folder | --container) chosen=1 ;;
+		esac
+	done
+	if [ -z "\$chosen" ]; then
+		branch=\${FACTORY_PM_BRANCH:-}
+		[ -n "\$branch" ] || branch=\$(git branch --show-current 2>/dev/null || true)
+		[ -n "\$branch" ] || {
+			echo "archon: WORKSPACE=worktree but no FACTORY_PM_BRANCH and no branch here, so this Run has no branch to land on: pass --base <branch>" >&2
+			exit 2
+		}
+		name=\$3
+		shift 3
+		set -- workflow run "\$name" --base "\$branch" "\$@"
+	fi
+fi
 exec "$ARCHON_HOME/bin/archon" "\$@"
 WRAPPER
 	chmod +x "$archon_wrapper"

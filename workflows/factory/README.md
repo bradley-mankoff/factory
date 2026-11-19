@@ -59,11 +59,12 @@ same landing. A Run started without `--adopt` gets the work prompt exactly as be
 
 Two things to know. `--adopt` cannot be combined with `--base`, `--branch`, `--from`,
 `--no-worktree` or `--resume`, because adoption resolves its own lane from the earlier
-Run, so a Project Manager that leads a worktree drops its usual `--base` for this Run. And
-the work node's `changed-files` check still needs a change to the tree, so a second pass
-that fixes anything makes a new commit; one whose findings all prove wrong changes nothing,
-so its Run ends at work-finished with the agent's reasons on the Bead for the Project
-Manager to judge.
+Run, so a Project Manager that leads a worktree drops its usual `--base` for this Run;
+`bin/land` still lands it on the branch the chain of adopted Runs started from, which it
+reads with `bin/base` (fac-02k). And the work node's `changed-files` check still needs a
+change to the tree, so a second pass that fixes anything makes a new commit; one whose
+findings all prove wrong changes nothing, so its Run ends at work-finished with the
+agent's reasons on the Bead for the Project Manager to judge.
 
 ## Checks
 
