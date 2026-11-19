@@ -30,6 +30,7 @@ The one glossary of the Factory. Other files in this repo use these words as def
 - **Notice**: a Run's one-line report to its Project Manager of how it ended, delivered into the Project Manager's conversation as a message of its own, never through the text box (fac-qpv.2).
 - **Flow**: the checks that say when the agent in one AI node may finish. A Workflow carries its nodes' Flows in its `flows/` folder, the one place they live; a node that needs different checks gets a forked Workflow (fac-qpv.3).
 - **Landing**: how a Run's commits reach its base branch, which the Mac's Profile chooses: a pull request into the base branch and its squash merge, or the commits squashed onto the base branch, checked again and that branch pushed. `bin/land` does it in one place and refuses a protected target first (fac-qpv.6.4).
+- **Worktree verdict**: what the read-only worktree report, `bin/worktrees`, says a Run's worktree has become: `KEEP` when a running or paused Run is using it, `REVIEW` when its content is in no destination or it has uncommitted work, `LANE` when it is a place Runs land and is never offered for removal, and `DEAD` when it is clean and its content is in the base its Run recorded, with the exact `archon complete` command that removes it (fac-2jm).
 
 ## Words this Factory does not use
 

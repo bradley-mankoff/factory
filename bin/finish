@@ -23,6 +23,12 @@
 #   flows-failed.txt pi-flows: the checks a node finished with still failing.
 #   findings.md      a research Run's combine node: the answer.
 #
+# The Run leaves its worktree behind, and nothing else removes it, so the Notice ends with
+# the one command that does, naming the branch the worktree is on, which is the branch bin/finish
+# reads in the folder it runs in. A withheld Run's work is on that branch, so its line says to
+# adopt or drop the work first; bin/land does not land a withheld Run, and archon complete
+# refuses to remove a branch whose work is still only there.
+#
 # A research Run is the one ending without a Bead: it names the findings file its answer
 # opens. Every other Workflow gets the build shape, and factory-build-gated's fallback also
 # names the gate's answer.
@@ -43,6 +49,15 @@ pane=${message%% · *}
 # substitution strips the trailing newline, so a note reads as the one line bin/land writes.
 note() {
 	if [ -s "$artifacts/$1" ]; then cat "$artifacts/$1"; fi
+}
+
+# closed <sentence>: the sentence with its full stop, unless it already ends in one. A Human's
+# own words may close their own sentence, and a research Run's answer ends by naming a file.
+closed() {
+	case $1 in
+	*[.!?]) printf '%s' "$1" ;;
+	*) printf '%s.' "$1" ;;
+	esac
 }
 
 landing=$(note landing)
@@ -92,12 +107,20 @@ else
 	else
 		how="ended without a landing; $failed_node"
 	fi
-	# A reason is the Human's own words and may close its own sentence, so the Notice adds
-	# no full stop after one; every other ending is a phrase, which it closes.
-	case $how in
-	*[.!?]) notice="Run $run ($workflow) for Bead $bead $how" ;;
-	*) notice="Run $run ($workflow) for Bead $bead $how." ;;
-	esac
+	notice=$(closed "Run $run ($workflow) for Bead $bead $how")
+fi
+
+# The removal line names the Run's branch, read where bin/finish runs: Archon runs a node in
+# the Run's own worktree. A folder that is not a git repo, as a test's is, gets no line.
+branch=$(git branch --show-current 2>/dev/null) || branch=
+if [ -n "$branch" ]; then
+	# The removal line is a sentence of its own.
+	notice=$(closed "$notice")
+	if [ -n "$withheld" ]; then
+		notice="$notice When you no longer need it, adopt or drop the work on its branch first, then remove its worktree: archon complete $branch."
+	else
+		notice="$notice When you no longer need it, remove its worktree: archon complete $branch."
+	fi
 fi
 
 # The failed checks stay out of the Notice, which is one line, and go in the Run's log

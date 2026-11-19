@@ -219,3 +219,19 @@ test("/status-check sends a check that lists the project's answered Asks not yet
 		await pi.stop();
 	}
 });
+
+test("/status-check sends a check that runs the worktree report", async () => {
+	const machine = makeMachine();
+	const pi = startPi(machine);
+	try {
+		await pi.request({ type: "prompt", message: "/status-check" });
+		const [request] = await waitForRequests(machine.log, 1);
+		const sent = conversation(request).split("\n");
+		const line = sent.find((each) => each.includes("worktree report"));
+		assert.ok(line, `the check names the worktree report: ${sent.join("\n")}`);
+		assert.match(line, /~\/\.local\/share\/factory\/bin\/worktrees/, "the check names the command that runs it");
+		assert.match(line, /DEAD rows for cleanup/, "the check says which rows to offer");
+	} finally {
+		await pi.stop();
+	}
+});
