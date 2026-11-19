@@ -67,6 +67,29 @@ test("install copies the one example Profile when none exists and never overwrit
 	}
 });
 
+test("install copies the example Chains when a Mac has none and never overwrites the Chains it has", () => {
+	const mac = makeMac();
+	try {
+		const first = mac.install();
+		assert.equal(first.status, 0, first.stderr || first.stdout);
+		const chains = join(mac.home, ".config", "factory", "chains.json");
+		assert.equal(
+			readFileSync(chains, "utf8"),
+			readFileSync(join(root, "config", "chains.json"), "utf8"),
+			"install ships the example Chains",
+		);
+
+		// A Mac's Chains name accounts that exist on that Mac, so the copy is the Mac's own.
+		const mine = `${JSON.stringify({ work: [{ model: "test/local-model", thinking: "max" }] }, null, 2)}\n`;
+		writeFileSync(chains, mine);
+		const second = mac.install();
+		assert.equal(second.status, 0, second.stderr || second.stdout);
+		assert.equal(readFileSync(chains, "utf8"), mine, "a second install leaves this Mac's Chains as they are");
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
 test("install skips a listed project whose folder is gone and still sets up the ones after it", () => {
 	// The squash Profile, because the stand-in Mac cannot answer FactoryClaw's project setup;
 	// the loop that skips the folder is the same under either Profile.
