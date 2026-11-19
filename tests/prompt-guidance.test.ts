@@ -1,7 +1,9 @@
 /**
- * The work node and the two reviews carry the module and test design guidance in Factory
- * words (fac-6a7.2). The seam is what a Run's node prompt says: bin/node-prompts' output for
- * the build Workflow, and the guide files under prompts/guides/ that output sends an agent to
+ * The work node and the two reviews carry the guidance a Run gives its agents in Factory
+ * words: the module and test design rules (fac-6a7.2), and the work node's rule that its
+ * agent does the Bead in its own session and treats a failed tool call as information
+ * (fac-h73). The seam is what a Run's node prompt says: bin/node-prompts' output for the
+ * build Workflow, and the guide files under prompts/guides/ that output sends an agent to
  * read on a named condition.
  */
 import assert from "node:assert/strict";
@@ -46,9 +48,9 @@ const prompts = buildPrompts();
 const moduleDesign = guide(moduleGuide);
 const testDesign = guide(testGuide);
 
-test("the work prompt keeps the work in the work agent's own session, with no other agent to hand it to", () => {
-	const line = lineMatching(prompts.work, /no other agent/);
-	assert.match(line, /never delegate the work/);
+test("the work prompt keeps the work in the work agent's own session, even with a subagent tool loaded", () => {
+	const line = lineMatching(prompts.work, /never delegate the work/);
+	assert.match(line, /Do the Bead's work in this session/);
 	assert.match(line, /even when a `subagent` tool is loaded/);
 	assert.match(line, /checks read your worktree and your own final message/);
 	assert.match(line, /work another agent does is work the Run cannot see/);
