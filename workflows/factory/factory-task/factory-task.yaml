@@ -9,7 +9,7 @@ description: >-
   --input check_command='<command>' instead.
 provider: pi
 # A Bead whose honest check is narrower than the project's (one test file, say) passes it
-# with --input check_command='<command>'; the checks and the landing then use it.
+# with --input check_command='<command>'; every check and the landing then use it.
 inputs:
   check_command:
     default: ""

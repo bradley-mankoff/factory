@@ -4,8 +4,8 @@
  * `FACTORY_CHECK` (fac-1tw). The seam is the Run's shell nodes as the Workflow file writes
  * them: the test reads each node's `bash:` out of the real YAML, passes the Run the inputs
  * that YAML's `inputs:` block declares, the way Archon does, and runs the node in a real
- * repository with the real bin/land. No test reads node-prompts' marker alone: a Workflow
- * that drops the input fails this file even when node-prompts' marker test passes.
+ * repository with the real bin/land. The marker is not enough on its own: a Workflow that
+ * drops the input fails this file even when node-prompts' marker test passes.
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -34,8 +34,10 @@ const nodeBash = (workflow: string, id: string): string => {
 	const scalar = lines[bash].slice("    bash:".length).trim();
 	if (scalar !== "|") return scalar.replace(/^'/, "").replace(/'$/, "");
 	const body: string[] = [];
+	// A block's blank lines are empty rather than indented, so only a line with text at or
+	// left of the Workflow's own level ends it.
 	for (const line of lines.slice(bash + 1)) {
-		if (!line.startsWith("      ")) break;
+		if (line.trim() !== "" && !line.startsWith("      ")) break;
 		body.push(line.slice(6));
 	}
 	return body.join("\n");
@@ -68,14 +70,16 @@ const scopedCheckEnv = (workflow: string, command: string): Record<string, strin
 	return { INPUTS_CHECK_COMMAND: command };
 };
 
+/** The check a Run's Flows marker names for one node, as that node's agent reads it. */
+const markerCheck = (prompts: Record<string, string>, node: string): string | undefined =>
+	(JSON.parse(prompts[`marker_${node}`].slice("FLOWS ".length)) as { check?: string }).check;
+
 /** A check command that writes down that it ran, so a test tells the scoped check from the ambient one. */
 const checkCommand = (word: string, log: string) => `printf '%s' ${word} >> '${log}'`;
 
 const git = (repo: string, args: string[]) => execFileSync("git", ["-C", repo, ...args], { encoding: "utf8" });
 
 type Run = {
-	dir: string;
-	repo: string;
 	checkLog: string;
 	/** Run one shell node of a core Workflow the way Archon does: its own bash, in the Run's repo. */
 	node: (workflow: string, id: string, env: Record<string, string>) => { status: number | null; stdout: string; stderr: string };
@@ -101,6 +105,9 @@ const makeRun = (): Run => {
 	mkdirSync(join(home, ".local", "share", "factory"), { recursive: true });
 	mkdirSync(artifacts);
 	symlinkSync(join(root, "bin"), join(home, ".local", "share", "factory", "bin"));
+	// The squash landing refuses a repo its Profile does not name and protects the branches
+	// named after that repo's colon, so "calc" with no colon lets the landing run and holds
+	// no branch of it.
 	writeFileSync(join(home, ".config", "factory", "profile"), 'LANDING=squash\nPROTECTED_TARGETS="calc"\n');
 	git(dir, ["init", "-q", "-b", "main", repo]);
 	git(repo, ["config", "user.email", "run@example.com"]);
@@ -116,8 +123,6 @@ const makeRun = (): Run => {
 	git(repo, ["add", "two.txt"]);
 	git(repo, ["commit", "-q", "-m", "two"]);
 	return {
-		dir,
-		repo,
 		checkLog,
 		node: (workflow, id, given) => {
 			const env: NodeJS.ProcessEnv = {
@@ -145,20 +150,25 @@ const checkNodes: Record<string, string[]> = {
 	"factory-build-gated": ["checks", "recheck"],
 };
 
-test("every core Workflow's check nodes run the command --input check_command gives it, not FACTORY_CHECK", () => {
-	for (const [workflow, nodes] of Object.entries(checkNodes)) {
-		for (const node of nodes) {
-			const run = makeRun();
-			try {
-				const ambient = checkCommand("ambient", run.checkLog);
-				const result = run.node(workflow, node, { FACTORY_CHECK: ambient, ...scopedCheckEnv(workflow, checkCommand("scoped", run.checkLog)) });
-				assert.equal(result.status, 0, `${workflow}'s ${node}: ${result.stderr}`);
-				assert.equal(run.ran(), "scoped", `${workflow}'s ${node} ran the scoped check instead of FACTORY_CHECK`);
-			} finally {
-				run.remove();
-			}
-		}
+/**
+ * One check site of one core Workflow, run for a Run given both an ambient check and the
+ * scoped input: the scoped command must be the one that ran. Nothing looks inside the node
+ * or bin/land: each check command writes its word to the Run's log.
+ */
+const assertScopedCheckRuns = (workflow: string, node: string) => {
+	const run = makeRun();
+	try {
+		const ambient = checkCommand("ambient", run.checkLog);
+		const result = run.node(workflow, node, { FACTORY_CHECK: ambient, ...scopedCheckEnv(workflow, checkCommand("scoped", run.checkLog)) });
+		assert.equal(result.status, 0, `${workflow}'s ${node}: ${result.stderr}`);
+		assert.equal(run.ran(), "scoped", `${workflow}'s ${node} ran the scoped check, not FACTORY_CHECK`);
+	} finally {
+		run.remove();
 	}
+};
+
+test("every core Workflow's check nodes run the command --input check_command gives it, not FACTORY_CHECK", () => {
+	for (const [workflow, nodes] of Object.entries(checkNodes)) for (const node of nodes) assertScopedCheckRuns(workflow, node);
 });
 
 /** The checked node whose prompt carries the marker a Workflow's flows file feeds. */
@@ -171,8 +181,7 @@ test("every core Workflow's prompts node names the command --input check_command
 			const result = run.node(workflow, "prompts", { FACTORY_CHECK: "printf ambient", ...scopedCheckEnv(workflow, "printf scoped") });
 			assert.equal(result.status, 0, `${workflow}'s prompts node: ${result.stderr}`);
 			const prompts = JSON.parse(result.stdout) as Record<string, string>;
-			const marker = JSON.parse(prompts[`marker_${node}`].slice("FLOWS ".length)) as { check?: string };
-			assert.equal(marker.check, "printf scoped", `${workflow}'s marker names the scoped check`);
+			assert.equal(markerCheck(prompts, node), "printf scoped", `${workflow}'s marker names the scoped check`);
 		} finally {
 			run.remove();
 		}
@@ -187,19 +196,7 @@ const landingNodes: Record<string, string[]> = {
 };
 
 test("every core Workflow's landing checks the command --input check_command gives it, not FACTORY_CHECK", () => {
-	for (const [workflow, nodes] of Object.entries(landingNodes)) {
-		for (const node of nodes) {
-			const run = makeRun();
-			try {
-				const ambient = checkCommand("ambient", run.checkLog);
-				const result = run.node(workflow, node, { FACTORY_CHECK: ambient, ...scopedCheckEnv(workflow, checkCommand("scoped", run.checkLog)) });
-				assert.equal(result.status, 0, `${workflow}'s ${node}: ${result.stderr}`);
-				assert.equal(run.ran(), "scoped", `${workflow}'s ${node} landed with the scoped check instead of FACTORY_CHECK`);
-			} finally {
-				run.remove();
-			}
-		}
-	}
+	for (const [workflow, nodes] of Object.entries(landingNodes)) for (const node of nodes) assertScopedCheckRuns(workflow, node);
 });
 
 test("a factory-task Run with no check_command input uses the ambient FACTORY_CHECK at every check site", () => {
@@ -208,8 +205,7 @@ test("a factory-task Run with no check_command input uses the ambient FACTORY_CH
 		const result = run.node("factory-task", "prompts", { FACTORY_CHECK: "printf ambient", INPUTS_CHECK_COMMAND: "" });
 		assert.equal(result.status, 0, result.stderr);
 		const prompts = JSON.parse(result.stdout) as Record<string, string>;
-		const marker = JSON.parse(prompts.marker_task.slice("FLOWS ".length)) as { check?: string };
-		assert.equal(marker.check, "printf ambient", "the marker names the ambient check when no input scopes it");
+		assert.equal(markerCheck(prompts, "task"), "printf ambient", "the marker names the ambient check when no input scopes it");
 	} finally {
 		run.remove();
 	}
