@@ -1,6 +1,8 @@
 /**
  * bin/node-prompts puts a Flows marker in each checked node's prompt (fac-qpv.3.1). The
  * marker is the line the pi-flows package reads when an agent tries to finish (fac-qpv.8.1).
+ * Its fields are the node, the folders and the optional check: nothing ever read the Bead the
+ * marker once carried, and the package's parser no longer knows it (fac-s4s).
  * The seam is the script's output for a Workflow folder; nothing here looks inside it.
  */
 import assert from "node:assert/strict";
@@ -20,7 +22,7 @@ const markerKey = (node: string) => `marker_${node.replace(/-/g, "_")}`;
 const marker = (prompts: Record<string, string>, node: string) =>
 	JSON.parse(prompts[markerKey(node)].slice("FLOWS ".length)) as Record<string, string>;
 
-test("bin/node-prompts puts a marker naming the node, Bead, folders and check in each checked node's prompt", () => {
+test("bin/node-prompts puts a marker naming the node, folders and check in each checked node's prompt, and no Bead", () => {
 	const dir = mkdtempSync(join(tmpdir(), "factory-node-prompts-"));
 	try {
 		const workflow = join(dir, "workflows", "factory", "build");
@@ -48,16 +50,16 @@ test("bin/node-prompts puts a marker naming the node, Bead, folders and check in
 				marker_spec: marker(prompts, "spec"),
 			},
 			{
+				// The Run's message names a Bead, and the marker still carries none: the parser
+				// dropped the field, and a marker is shorter for it (fac-s4s).
 				marker_work: {
 					node: "work",
-					bead: "fac-qpv.3.1",
 					flows: realpathSync(flows),
 					artifacts,
 					check: "python3 -m unittest",
 				},
 				marker_spec: {
 					node: "spec",
-					bead: "fac-qpv.3.1",
 					flows: realpathSync(flows),
 					artifacts,
 					check: "python3 -m unittest",
@@ -80,11 +82,44 @@ const makeWorkflow = (yaml: string, flowsFiles: Record<string, string>) => {
 	return { dir, workflow };
 };
 
-const runNodePrompts = (workflow: string) =>
+/** The script's answer for a Workflow, with a Run's artifacts folder unless the test says otherwise. */
+const runNodePrompts = (workflow: string, env: NodeJS.ProcessEnv = {}) =>
 	spawnSync(join(root, "bin", "node-prompts"), [workflow], {
 		encoding: "utf8",
-		env: { ...process.env, ARTIFACTS_DIR: join(workflow, "artifacts") },
+		env: { ...process.env, ARTIFACTS_DIR: join(workflow, "artifacts"), ...env },
 	});
+
+/** The marker prompt keys the script printed, which a session outside a Run gets none of. */
+const markersOf = (prompts: Record<string, string>) => Object.keys(prompts).filter((key) => key.startsWith("marker_"));
+
+test("a call outside a Run prints no marker and says why, so the package leaves the session alone", () => {
+	// A Run names its artifacts folder in the environment, always as an absolute path. Without
+	// one this is not a Run's prompt, and a marker would keep a start tree in a folder outside
+	// any Run, or run a node's checks against nothing (fac-3xv).
+	const folder = makeWorkflow("nodes:\n  - id: work\n  - id: spec\n", { work: "changed-files\n", spec: "check-passes\n" });
+	try {
+		const result = runNodePrompts(folder.workflow, { ARTIFACTS_DIR: "" });
+		assert.equal(result.status, 0, result.stderr);
+		const prompts = JSON.parse(result.stdout) as Record<string, string>;
+		assert.deepEqual(markersOf(prompts), [], "no node outside a Run carries a marker");
+		assert.match(result.stderr, /no marker/, "the node says why it printed none");
+	} finally {
+		rmSync(folder.dir, { recursive: true, force: true });
+	}
+});
+
+test("a relative artifacts folder fails the prompts node, naming it, rather than print a marker naming a folder outside the Run", () => {
+	// The bug's own input: a session that read a placeholder marker took `...` for the Run's
+	// artifacts folder and kept a start tree in a folder named `...` (fac-3xv).
+	const folder = makeWorkflow("nodes:\n  - id: work\n", { work: "changed-files\n" });
+	try {
+		const result = runNodePrompts(folder.workflow, { ARTIFACTS_DIR: "..." });
+		assert.notEqual(result.status, 0, "the node fails rather than print a marker naming a folder outside the Run");
+		assert.match(result.stderr, /ARTIFACTS_DIR is \.\.\./, "the node names the folder it was given");
+	} finally {
+		rmSync(folder.dir, { recursive: true, force: true });
+	}
+});
 
 test("bin/node-prompts fails, naming the flows file, when a flows file names no node", () => {
 	const folder = makeWorkflow("nodes:\n  - id: look-a\n", { looks: "changed-files\n" });
@@ -217,8 +252,7 @@ test("every core Workflow's marker names the node Archon runs", () => {
 		const result = runNodePrompts(join(root, "workflows", "factory", name));
 		assert.equal(result.status, 0, `${name}: ${result.stderr}`);
 		const prompts = JSON.parse(result.stdout) as Record<string, string>;
-		const markers = Object.keys(prompts).filter((key) => key.startsWith("marker_"));
-		assert.deepEqual(markers.sort(), nodes.map(markerKey).sort(), `${name}'s markers`);
+		assert.deepEqual(markersOf(prompts).sort(), nodes.map(markerKey).sort(), `${name}'s markers`);
 		for (const node of nodes) {
 			assert.equal(marker(prompts, node).node, node, `${name}'s marker names the node Archon runs`);
 		}
