@@ -97,6 +97,10 @@ test("the to-spec skill creates no new Epic", () => {
 	assert.doesNotMatch(installedSkill("to-spec"), /bd create --type=epic/);
 });
 
+test("the to-spec skill creates a repo's Beads with the maintainer role, so a fork reads its own Beads", () => {
+	assert.match(lineContaining(installedSkill("to-spec"), "bd init"), /bd init --role maintainer/);
+});
+
 test("the to-spec skill puts the Spec review on the Epic as an Ask", () => {
 	assert.match(lineContaining(installedSkill("to-spec"), "factory ask"), /factory ask <epic id> spec-review/);
 });

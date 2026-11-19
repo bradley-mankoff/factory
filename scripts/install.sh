@@ -537,7 +537,13 @@ if have != want:
 setup_project() {
 	repo=$(cd "$1" && pwd)
 	name=$(basename "$repo")
-	[ -d "$repo/.git" ] && [ -d "$repo/.beads" ] || { echo "error: $repo needs git and Beads (bd init) first" >&2; exit 1; }
+	[ -d "$repo/.git" ] && [ -d "$repo/.beads" ] || { echo "error: $repo needs git and Beads (bd init --role maintainer) first" >&2; exit 1; }
+	# bd infers the contributor role in a repo that has an `upstream` remote (a fork), then
+	# reads the empty contributor planning store instead of the repo's own .beads, so bd ready
+	# shows no work (fac-3zx). Set on every setup, so the next install repairs a fork made
+	# before this. The role is the repo's own git config, never a file in a commit, so a branch
+	# cut from upstream's branch still carries none of it.
+	git -C "$repo" config beads.role maintainer
 	# The pane's herdr name, from the one rule in bin/pm-pane, so it matches the name
 	# start gives the pane.
 	pane=$("$src/bin/pm-pane" "$repo")
