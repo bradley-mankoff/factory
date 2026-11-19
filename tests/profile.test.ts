@@ -343,7 +343,7 @@ test("project setup gives the project's repo the maintainer Beads role, so a for
 		const result = mac.install();
 		assert.equal(result.status, 0, result.stderr || result.stdout);
 
-		assert.equal(gitConfig(repo, "beads.role"), "maintainer", "the fork's repo carries the role bd reads for its own planning");
+		assert.equal(gitConfig(repo, "beads.role"), "maintainer", "the fork's repo carries the role bd reads to plan from its own Beads");
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}
