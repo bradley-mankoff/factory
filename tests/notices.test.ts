@@ -197,8 +197,8 @@ function startPi(
 	return { ready, request, idle, stop, crash };
 }
 
-/** Wait until the test provider has answered `count` requests across `logs`, in the order
- * they arrived, then return them all. */
+/** Wait until the test provider has answered `count` requests across `logs`, each log's own
+ * in the order it arrived, then return them all. */
 async function waitForRequestsIn(logs: string[], count: number): Promise<Request[]> {
 	const start = Date.now();
 	for (;;) {
@@ -506,27 +506,40 @@ test("the session that was holding back takes the pane when the session holding 
 	// A second session leaves the Notices to the one holding the pane's lock, and it must not
 	// stay deaf for good: when the holder stops, the waiting session takes the pane over.
 	const machine = makeMachine();
-	const logs = [logFile(machine, "one"), logFile(machine, "two")];
-	const sessions = [startPi(machine, { log: logs[0] }), startPi(machine, { log: logs[1] })];
+	const holderLog = logFile(machine, "holder");
+	const waitingLog = logFile(machine, "waiting");
 	// The reply is held, so the Notice stays delivered and unacted on while the holder stops.
 	fs.writeFileSync(machine.replyHold, "");
+	const holder = startPi(machine, { log: holderLog });
 	try {
-		await sessions[0].ready();
-		await sessions[1].ready();
+		await holder.ready();
+		// The pane is taken by the holder's first read, a second after it starts.
+		await sleep(QUIET_MS);
 		const line = "2026-11-19 10:30 Run 83d18718 (factory-build) for Bead fac-11 ended merged.";
 		writeNotice(machine, line);
+		await waitForRequests(holderLog, 1);
 
-		await waitForRequestsIn(logs, 1);
-		const holder = logs.findIndex((log) => readRequests(log).length > 0);
-		await sessions[holder].stop();
-		fs.rmSync(machine.replyHold, { force: true });
+		// Started after the pane is taken, so it finds a live holder and has to wait.
+		const waiting = startPi(machine, { log: waitingLog });
+		try {
+			await waiting.ready();
+			await sleep(QUIET_MS);
+			assert.equal(
+				readRequests(waitingLog).length,
+				0,
+				`the session that found a live holder left the Notice to it: ${JSON.stringify(readRequests(waitingLog))}`,
+			);
 
-		const [, second] = await waitForRequestsIn(logs, 2);
+			await holder.stop();
+			fs.rmSync(machine.replyHold, { force: true });
 
-		assert.ok(conversation(second).includes(line), `the waiting session took the Notice over: ${conversation(second)}`);
+			const [taken] = await waitForRequests(waitingLog, 1);
+			assert.ok(conversation(taken).includes(line), `the waiting session took the Notice over: ${conversation(taken)}`);
+		} finally {
+			await waiting.stop();
+		}
 	} finally {
 		fs.rmSync(machine.replyHold, { force: true });
-		await sessions[0].stop();
-		await sessions[1].stop();
+		await holder.stop();
 	}
 });

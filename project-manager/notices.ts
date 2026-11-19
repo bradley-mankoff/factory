@@ -22,7 +22,7 @@
  * the line are part of it, so a node that is retried in a later minute writes a new line and
  * that Notice arrives again; the Project Manager's reading of its Bead and Run is what keeps
  * it from acting on the same ending twice (fac-c94). A session delivers every Notice that is
- * not `acted on` on its way up, so one that was written while the pane was closed is not
+ * not `acted on` as it starts, so one that was written while the pane was closed is not
  * lost, and it never sends the same id twice itself (fac-618). A Notice delivered by a
  * session that then crashed stays short of `acted on`, so the session after it delivers that
  * Notice again: at worst the Project Manager reads one twice, which its instructions already
@@ -141,7 +141,7 @@ const record = (statusFile: string, id: string, status: RecordedStatus): void =>
  * reader delivered or the status check found, and an id with no record is pending, so every
  * one of them would start a turn again (fac-618). The file is written in one call with `wx`, so
  * a session that starts at the same moment as another makes no half-recorded file: whichever
- * writes first, the lines it goes on are the whole file's.
+ * writes first records every line it read, and the other finds the file already there.
  */
 const markExistingActedOn = (statusFile: string, noticeFile: string): void => {
 	if (existsSync(statusFile)) return;
@@ -198,6 +198,15 @@ const touch = (lockFile: string): void => {
 	}
 };
 
+/** The process id a lock file names, or undefined when there is no lock file to read. */
+const holderOf = (lockFile: string): number | undefined => {
+	try {
+		return Number(readFileSync(lockFile, "utf8").trim());
+	} catch {
+		return undefined;
+	}
+};
+
 /**
  * Takes the pane's lock for this process, and says whether this process holds it: the one
  * session that takes a pane's Notices. `wx` creates the file only when it is not there, so
@@ -215,12 +224,8 @@ const takeLock = (lockFile: string): boolean => {
 		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
 		}
-		let holder: number;
-		try {
-			holder = Number(readFileSync(lockFile, "utf8").trim());
-		} catch {
-			continue; // the holder let go between the two calls
-		}
+		const holder = holderOf(lockFile);
+		if (holder === undefined) continue; // the holder let go between the two calls
 		if (holder === process.pid) {
 			touch(lockFile);
 			return true;
@@ -238,7 +243,7 @@ const takeLock = (lockFile: string): boolean => {
 /** Lets go of the pane's lock, when this process is the one holding it. */
 const releaseLock = (lockFile: string): void => {
 	try {
-		if (Number(readFileSync(lockFile, "utf8").trim()) === process.pid) unlinkSync(lockFile);
+		if (holderOf(lockFile) === process.pid) unlinkSync(lockFile);
 	} catch {
 		// Nothing is held, so there is nothing to let go.
 	}
@@ -254,7 +259,7 @@ export default function notices(pi: ExtensionAPI): void {
 	let sent = new Set<string>();
 	/** The ids this session delivered in the run that is going on, which are `acted on` when
 	 * that run settles. */
-	let inRun: string[] = [];
+	let deliveredInRun: string[] = [];
 	/** Whether the run that is ending ended in a provider error, which pi's settled event does
 	 * not say. */
 	let runFailed = false;
@@ -266,7 +271,7 @@ export default function notices(pi: ExtensionAPI): void {
 		statusFile = beside(noticeFile, ".status");
 		lockFile = beside(noticeFile, ".lock");
 		sent = new Set();
-		inRun = [];
+		deliveredInRun = [];
 		runFailed = false;
 		markExistingActedOn(statusFile, noticeFile);
 
@@ -294,7 +299,7 @@ export default function notices(pi: ExtensionAPI): void {
 					continue;
 				}
 				sent.add(id);
-				inRun.push(id);
+				deliveredInRun.push(id);
 				record(statusFile, id, "delivered");
 			}
 		};
@@ -329,9 +334,9 @@ export default function notices(pi: ExtensionAPI): void {
 	});
 
 	pi.on("agent_settled", async (event) => {
-		const delivered = inRun;
+		const delivered = deliveredInRun;
 		const failed = runFailed;
-		inRun = [];
+		deliveredInRun = [];
 		runFailed = false;
 		if (event.aborted || failed) return;
 		for (const id of delivered) {
