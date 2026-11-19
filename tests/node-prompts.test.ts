@@ -1,6 +1,8 @@
 /**
  * bin/node-prompts puts a Flows marker in each checked node's prompt (fac-qpv.3.1). The
  * marker is the line the pi-flows package reads when an agent tries to finish (fac-qpv.8.1).
+ * Its fields are the node, the folders and the optional check: nothing ever read the Bead the
+ * marker once carried, and the package's parser no longer knows it (fac-s4s).
  * The seam is the script's output for a Workflow folder; nothing here looks inside it.
  */
 import assert from "node:assert/strict";
@@ -20,7 +22,7 @@ const markerKey = (node: string) => `marker_${node.replace(/-/g, "_")}`;
 const marker = (prompts: Record<string, string>, node: string) =>
 	JSON.parse(prompts[markerKey(node)].slice("FLOWS ".length)) as Record<string, string>;
 
-test("bin/node-prompts puts a marker naming the node, Bead, folders and check in each checked node's prompt", () => {
+test("bin/node-prompts puts a marker naming the node, folders and check in each checked node's prompt, and no Bead", () => {
 	const dir = mkdtempSync(join(tmpdir(), "factory-node-prompts-"));
 	try {
 		const workflow = join(dir, "workflows", "factory", "build");
@@ -48,16 +50,16 @@ test("bin/node-prompts puts a marker naming the node, Bead, folders and check in
 				marker_spec: marker(prompts, "spec"),
 			},
 			{
+				// The Run's message names a Bead, and the marker still carries none: the parser
+				// dropped the field, and a marker is shorter for it (fac-s4s).
 				marker_work: {
 					node: "work",
-					bead: "fac-qpv.3.1",
 					flows: realpathSync(flows),
 					artifacts,
 					check: "python3 -m unittest",
 				},
 				marker_spec: {
 					node: "spec",
-					bead: "fac-qpv.3.1",
 					flows: realpathSync(flows),
 					artifacts,
 					check: "python3 -m unittest",
