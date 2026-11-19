@@ -1,8 +1,9 @@
 #!/bin/sh
 # Starts a Project Manager: the Human's own pi in the current repo's top folder, with the
 # Project Manager's instructions and the glossary appended to its system prompt, and with the
-# two extensions a Project Manager keeps loaded: the status check (fac-k10) and the blocked
-# mark a project's open Ask puts on its herdr pane (fac-3mz.5).
+# three extensions a Project Manager keeps loaded: the status check (fac-k10), the blocked
+# mark a project's open Ask puts on its herdr pane (fac-3mz.5), and the Notices that carry a
+# Run's ending into the conversation (fac-qpv.2.1).
 #
 #   project-manager/start [--status-check] [pi arguments...]
 #
@@ -89,11 +90,13 @@ export LIBRARY ARCHON_HOME WORKSPACE
 export PI_SKIP_VERSION_CHECK=1
 unset PI_CODING_AGENT_DIR
 export FACTORY_PM_AGENT="$pane"
-# pi-notices watches the file bin/tell-pm writes, named after this pane, and pi-links
-# makes each Bead id a link to the board on the port the Profile names (fac-qpv.8.1).
-PI_NOTICES_FILE=$HOME/.local/share/factory/notices/$pane.md
+# The Notices extension reads the file bin/tell-pm writes, named after this pane, and
+# pi-links makes each Bead id a link to the board on the port the Profile names (fac-qpv.2.1,
+# fac-qpv.8.1). The variable is the Factory's own, so the pi-notices package a Mac installed
+# before fac-8xl watches nothing here and cannot deliver a Notice a second time.
+FACTORY_NOTICES_FILE=$HOME/.local/share/factory/notices/$pane.md
 BEADS_BOARD_PORT=${BOARD_PORT:-3917}
-export PI_NOTICES_FILE BEADS_BOARD_PORT
+export FACTORY_NOTICES_FILE BEADS_BOARD_PORT
 
 if [ "${HERDR_ENV:-}" = 1 ] && [ -n "${HERDR_PANE_ID:-}" ]; then
 	herdr pane rename "$HERDR_PANE_ID" "$pane" >/dev/null 2>&1 || true
@@ -134,4 +137,5 @@ exec pi \
 	--append-system-prompt "$factory/GLOSSARY.md" \
 	--extension "$factory/project-manager/status-check.ts" \
 	--extension "$factory/project-manager/blocked-mark.ts" \
+	--extension "$factory/project-manager/notices.ts" \
 	"$@"

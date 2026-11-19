@@ -80,7 +80,7 @@ function makeHarness(options: { shippedSettings?: boolean; profile?: string; wor
 	printf 'env.FACTORY_PM_BRANCH=%s\\n' "\${FACTORY_PM_BRANCH-<unset>}"
 	printf 'env.FACTORY_DEMOS=%s\\n' "\${FACTORY_DEMOS-<unset>}"
 	printf 'env.FACTORY_CHECK=%s\\n' "\${FACTORY_CHECK-<unset>}"
-	printf 'env.PI_NOTICES_FILE=%s\\n' "\${PI_NOTICES_FILE-<unset>}"
+	printf 'env.FACTORY_NOTICES_FILE=%s\\n' "\${FACTORY_NOTICES_FILE-<unset>}"
 	printf 'env.BEADS_BOARD_PORT=%s\\n' "\${BEADS_BOARD_PORT-<unset>}"
 	for arg in "$@"; do printf 'arg=%s\\n' "$arg"; done
 } > "$CAPTURE"
@@ -192,6 +192,8 @@ const launcherArgs = [
 	path.join(repoRoot, "project-manager", "status-check.ts"),
 	"--extension",
 	path.join(repoRoot, "project-manager", "blocked-mark.ts"),
+	"--extension",
+	path.join(repoRoot, "project-manager", "notices.ts"),
 ];
 
 test("pm starts the Human's own pi in the repo's top folder with the role and glossary appended", () => {
@@ -301,9 +303,10 @@ test("pm run from a subfolder starts pi in the repo's top folder", () => {
 	assert.equal(h.readLaunch(result.capture).cwd, fs.realpathSync(h.repo));
 });
 
-test("start points pi-notices at the pane's Notice file and pi-links at the Profile's board port", () => {
-	// The packages read their own settings from the environment (fac-qpv.8.1): the Notice
-	// file is the one bin/tell-pm writes, and the board's port is the Profile's.
+test("start points the Notices extension at the pane's Notice file and pi-links at the Profile's board port", () => {
+	// The extension and the package read their own settings from the environment (fac-qpv.2.1,
+	// fac-qpv.8.1): the Notice file is the one bin/tell-pm writes, and the board's port is the
+	// Profile's.
 	const h = makeHarness({ profile: "PM_MODEL=test-provider/chosen-model\nBOARD_PORT=3999\n" });
 	const result = h.run(path.join(repoRoot, "project-manager", "pm"), {
 		env: { HERDR_ENV: "1", HERDR_PANE_ID: "w1:p1" },
@@ -312,7 +315,7 @@ test("start points pi-notices at the pane's Notice file and pi-links at the Prof
 	assert.equal(result.status, 0, result.stderr);
 	const launch = h.readLaunch(result.capture);
 	assert.equal(
-		launch.env.PI_NOTICES_FILE,
+		launch.env.FACTORY_NOTICES_FILE,
 		path.join(h.home, ".local", "share", "factory", "notices", "pm-repo.md"),
 	);
 	assert.equal(launch.env.BEADS_BOARD_PORT, "3999");

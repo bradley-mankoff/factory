@@ -1,6 +1,7 @@
 /**
- * The Factory depends on pi packages that live in repos of their own, and holds no pi
- * extension itself (fac-qpv.8.1). The seam is installation: scripts/install.sh runs with a
+ * The Factory depends on pi packages that live in repos of their own (fac-qpv.8.1); its own
+ * pi extensions are the three a Project Manager loads, which install copies with the rest of
+ * project-manager/ (fac-8xl). The seam is installation: scripts/install.sh runs with a
  * temporary HOME and stand-ins at the system's edges, `pi` among them, and the test reads
  * back the calls pi recorded and the files install leaves on that Mac. Nothing here looks
  * inside install.sh.
@@ -31,13 +32,12 @@ test("install installs each pi package into the pi folder that needs it", () => 
 		const calls = piCalls(logOf(mac.logs.pi));
 		const forFolder = (folder: string) =>
 			calls.filter((call) => call.folder === folder).map((call) => call.command);
-		// The Human's own pi gets the five packages Project Managers and his sessions use:
-		// Beads, Bead links, Chains, Notices and the bash timeout.
+		// The Human's own pi gets the four packages Project Managers and his sessions use:
+		// Beads, Bead links, Chains and the bash timeout.
 		assert.deepEqual(forFolder(join(mac.home, ".pi", "agent")), [
 			"install git:github.com/bradley-mankoff/pi-beads",
 			"install git:github.com/bradley-mankoff/pi-links",
 			"install git:github.com/bradley-mankoff/pi-chains",
-			"install git:github.com/bradley-mankoff/pi-notices",
 			"install git:github.com/bradley-mankoff/pi-bash-timeout",
 		]);
 		// The Factory's pi folder, which every Run node reads, gets the Chains, Flows and bash

@@ -139,11 +139,14 @@ WRAPPER
 	rsync -a --delete "$src/prompts/" "$factory/prompts/"
 	rsync -a --delete "$src/skills/" "$factory/skills/"
 	mkdir -p "$HOME/.pi/agent/extensions"
-	# The pi extensions are packages in repos of their own now, so the Factory depends on them
-	# instead of holding them (fac-qpv.8.1): Beads, Bead links, Chains, Notices and the bash
-	# timeout for Project Managers and the Human's own sessions. pi install records each in his
-	# pi folder's settings.json and fetches it from its repo.
-	pi_packages "$HOME/.pi/agent" pi-beads pi-links pi-chains pi-notices pi-bash-timeout
+	# The pi extensions are packages in repos of their own, so the Factory depends on them
+	# instead of holding them (fac-qpv.8.1): Beads, Bead links, Chains and the bash timeout for
+	# Project Managers and the Human's own sessions. pi install records each in his pi folder's
+	# settings.json and fetches it from its repo. Notices is the exception: its package watched
+	# the Notice file with the platform's change notification, which went silent and lost three
+	# Notices in one pane (fac-8xl), so project-manager/notices.ts reads the file on a timer
+	# instead and the Factory holds it like its other two extensions.
+	pi_packages "$HOME/.pi/agent" pi-beads pi-links pi-chains pi-bash-timeout
 	# Both pi folders read the Chains file the Profile names: pi-chains looks for
 	# <agent dir>/chains.json, so a link there points at the one file a person edits.
 	ln -sfn "$CHAINS" "$HOME/.pi/agent/chains.json"
