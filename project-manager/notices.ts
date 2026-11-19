@@ -14,7 +14,8 @@
  * file and never arrived, with no error to say why (fac-8xl). A timer compares the file's
  * length with the length already delivered, so a line cannot be lost that way; the cost is
  * one read of a small file each second. Each line is delivered before the length moves past
- * it, so a line whose message fails is tried again rather than skipped.
+ * it, so a line whose message fails is tried again rather than skipped, and a line already
+ * sent in that read is not sent a second time.
  *
  * Only lines written after the session started are delivered: the file's length at
  * `session_start` is the starting point, because the Project Manager's status check finds
@@ -48,42 +49,46 @@ export default function notices(pi: ExtensionAPI): void {
 	const noticeFile = takeNoticeFile();
 	let timer: NodeJS.Timeout | undefined;
 
-	/** Delivers every complete line of `file` after `offset`, returning the length now
-	 * delivered. */
-	const deliverFrom = (file: string, offset: number): number => {
-		let contents: Buffer;
-		try {
-			contents = fs.readFileSync(file);
-		} catch {
-			// The file is the Run's to write; until it exists there is nothing to deliver.
-			return offset;
-		}
-		// A replaced or emptied file is a new one: read it from the start.
-		let cursor = contents.length < offset ? 0 : offset;
-		for (;;) {
-			const newline = contents.indexOf(0x0a, cursor);
-			if (newline < 0) return cursor;
-			const line = contents.subarray(cursor, newline).toString("utf8").replace(/\r$/, "");
-			if (line.trim() !== "") {
-				pi.sendMessage(
-					{ customType: "notice", content: `Notice: ${line}`, display: true },
-					{ triggerTurn: true, deliverAs: "followUp" },
-				);
-			}
-			cursor = newline + 1;
-		}
-	};
-
 	pi.on("session_start", async () => {
 		if (timer) clearInterval(timer);
 		timer = undefined;
 		if (!noticeFile) return;
 
 		// Everything already in the file belongs to an earlier session.
-		let offset = fs.existsSync(noticeFile) ? fs.statSync(noticeFile).size : 0;
+		let delivered = fs.existsSync(noticeFile) ? fs.statSync(noticeFile).size : 0;
+
+		/** Delivers every complete line after `delivered`, moving it past a line only once
+		 * that line's message is sent, so a failed send is tried again and the lines already
+		 * sent in the same read are not sent twice. */
+		const deliverNewLines = (): void => {
+			let contents: Buffer;
+			try {
+				contents = fs.readFileSync(noticeFile);
+			} catch {
+				// The file is the Run's to write; until it exists there is nothing to deliver.
+				return;
+			}
+			// A replaced or emptied file is a new one: read it from the start.
+			let cursor = contents.length < delivered ? 0 : delivered;
+			for (;;) {
+				const newline = contents.indexOf(0x0a, cursor);
+				if (newline < 0) break;
+				const line = contents.subarray(cursor, newline).toString("utf8").replace(/\r$/, "");
+				if (line.trim() !== "") {
+					pi.sendMessage(
+						{ customType: "notice", content: `Notice: ${line}`, display: true },
+						{ triggerTurn: true, deliverAs: "followUp" },
+					);
+				}
+				cursor = newline + 1;
+				delivered = cursor;
+			}
+			delivered = cursor;
+		};
+
 		timer = setInterval(() => {
 			try {
-				offset = deliverFrom(noticeFile, offset);
+				deliverNewLines();
 			} catch {
 				// A send can fail while the session is shutting down; the next read tries the
 				// same line again, because the length only moves past a line once it is sent.

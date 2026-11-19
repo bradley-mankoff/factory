@@ -84,6 +84,7 @@ function startPi(machine: Machine, options: { deadChangeNotification?: boolean }
 		DEAD_CHANGE_LOG: machine.deadWatchLog,
 		REPLY_TEST_HOLD: machine.replyHold,
 	};
+	// The broken change notification loads only in the session a test asks for it in.
 	delete env.NODE_OPTIONS;
 	if (options.deadChangeNotification) env.NODE_OPTIONS = `--require ${deadChangeNotification}`;
 
@@ -184,6 +185,10 @@ async function waitForRequests(log: string, count: number, timeoutMs = 15000): P
 	}
 }
 
+/** How long a test waits before saying a Notice did not arrive: the file is read once a
+ * second, so two reads pass in this window. */
+const QUIET_MS = 1500;
+
 const conversation = (request: Request): string => request.messages.join("\n");
 
 test("a Notice arrives even when the platform tells the session nothing changed", async () => {
@@ -222,7 +227,7 @@ test("a Notice that arrives while a turn is running waits for that turn to end",
 
 		const line = "2026-11-19 10:05 Run 61bf65f6 (factory-build) for Bead fac-2 ended merged.";
 		writeNotice(machine, line);
-		await new Promise((resolve) => setTimeout(resolve, 1500));
+		await new Promise((resolve) => setTimeout(resolve, QUIET_MS));
 		assert.equal(readRequests(machine.log).length, 1, "the running turn never saw the Notice");
 
 		fs.rmSync(machine.replyHold);
