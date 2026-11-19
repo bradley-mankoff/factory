@@ -46,6 +46,27 @@ const prompts = buildPrompts();
 const moduleDesign = guide(moduleGuide);
 const testDesign = guide(testGuide);
 
+test("the work prompt keeps the work in the work agent's own session, with no other agent to hand it to", () => {
+	const line = lineMatching(prompts.work, /no other agent/);
+	assert.match(line, /never delegate the work/);
+	assert.match(line, /even when a `subagent` tool is loaded/);
+	assert.match(line, /checks read your worktree and your own final message/);
+	assert.match(line, /work another agent does is work the Run cannot see/);
+});
+
+test("the work prompt treats a failed tool call as information, not a reason to stop", () => {
+	const line = lineMatching(prompts.work, /failed tool call/);
+	assert.match(line, /information, not a reason to stop/);
+	assert.match(line, /read the error, choose another way/);
+	assert.match(line, /keep going until the work is done/);
+});
+
+test("the work prompt's closing account sends the agent back to do an unmet line's work rather than to stop", () => {
+	const line = lineMatching(prompts.work, /closing-account check/);
+	assert.match(line, /marking a line unmet is never a way past the check/);
+	assert.match(line, /do the work it names, run the check again, and end with a fresh account/);
+});
+
 test("the work prompt sends the agent to the module guide when a module, an interface or a seam changes", () => {
 	const line = lineMatching(prompts.work, moduleGuide);
 	assert.match(line, /when the change adds a module, changes an interface or moves a seam/);

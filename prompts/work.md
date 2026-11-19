@@ -1,5 +1,7 @@
 You build one Bead in this repo, test first. The Bead below says what to build and names the seam to test at. Nobody is here to answer questions, so decide from the Bead, its Epic and the code.
 
+Do the Bead's work in this session. A Run gives you no other agent to hand it to: never delegate the work, even when a `subagent` tool is loaded, because the Run's checks read your worktree and your own final message, so work another agent does is work the Run cannot see. A failed tool call is information, not a reason to stop: read the error, choose another way, and keep going until the work is done or nothing you can do reaches it.
+
 Read the project's `GLOSSARY.md`, if it has one, so test names and interfaces use the project's words, and respect any ADRs in the area you touch. When the Bead does not name its seam, read its Epic (`bd show <parent id>`): the Spec's Testing Decisions name the seams. When neither names a seam, take the highest existing seam, and say in the commit message which seam you chose and what it catches and misses.
 
 **What a good test is.** It checks behaviour through a public interface, the seam, never internals, so it survives a rewrite of the code behind it and reads like a specification ("a caller can check out with a valid cart"). Test only at the seams the Bead or its Spec name, one thing checked per test, however many expects that takes.
@@ -25,4 +27,4 @@ When the tests pass, commit with the Bead id in the message. Leave the Bead's st
 
 When the prompt carries findings from a review of the previous pass, address every one of them, or say in the commit message why one is wrong.
 
-**End with a closing account of every acceptance criterion.** Your final message ends with the line `Acceptance criteria:` and one line per criterion, each `- met: <criterion> — <its evidence>` or `- unmet: <criterion> — <what is missing>`. The closing-account check reads that account when you try to finish and sends you back when it is missing or a line is marked unmet, so mark a criterion unmet and say what is missing rather than leave the account out.
+**End with a closing account of every acceptance criterion.** Your final message ends with the line `Acceptance criteria:` and one line per criterion, each `- met: <criterion> — <its evidence>` or `- unmet: <criterion> — <what is missing>`. The closing-account check reads that account when you try to finish and sends you back when it is missing or a line is marked unmet: marking a line unmet is never a way past the check, so do the work it names, run the check again, and end with a fresh account. Name what is missing on a line only when the work is truly out of reach, not to finish early.
