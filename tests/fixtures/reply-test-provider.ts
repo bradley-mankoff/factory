@@ -9,7 +9,11 @@
  * REPLY_TEST_HOLD: a file the reply waits for, the way a model that takes time holds its
  * turn open; unset, or with the file gone, the reply is immediate. A test writes the file
  * before a turn it wants to hold, so the turn is still running while the test reads what
- * else happens.
+ * else happens. A turn the session aborts, as the Human's Esc does, ends at once with an
+ * aborted reply, so a held reply never outlives the abort.
+ *
+ * REPLY_TEST_FAIL: a file that makes each reply an error the session does not retry, the way
+ * a provider that rejects the request ends a turn without the model answering anything.
  */
 import { appendFileSync, existsSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -24,11 +28,17 @@ import {
 const api = "reply-test";
 const log = process.env.REPLY_TEST_LOG ?? "/dev/null";
 const hold = process.env.REPLY_TEST_HOLD;
+const fail = process.env.REPLY_TEST_FAIL;
 
-/** Waits for the hold file to go, so a turn stays open while a test watches it. */
-const released = async (): Promise<void> => {
-	if (!hold) return;
-	while (existsSync(hold)) await new Promise((resolve) => setTimeout(resolve, 20));
+/** Waits for the hold file to go, so a turn stays open while a test watches it; false when
+ * the session aborted the request instead. */
+const released = async (signal?: AbortSignal): Promise<boolean> => {
+	if (!hold) return true;
+	while (existsSync(hold)) {
+		if (signal?.aborted) return false;
+		await new Promise((resolve) => setTimeout(resolve, 20));
+	}
+	return true;
 };
 
 const replyModel = {
@@ -60,7 +70,7 @@ const message = (requested: Model<Api>, text: string): AssistantMessage => ({
 });
 
 export default function replyTestProvider(pi: ExtensionAPI): void {
-	const streamSimple = (requested: Model<Api>, context: unknown, _options?: SimpleStreamOptions) => {
+	const streamSimple = (requested: Model<Api>, context: unknown, options?: SimpleStreamOptions) => {
 		appendFileSync(
 			log,
 			`${JSON.stringify({
@@ -71,7 +81,21 @@ export default function replyTestProvider(pi: ExtensionAPI): void {
 		const text = "answered";
 		const reply = message(requested, text);
 		void (async () => {
-			await released();
+			if (!(await released(options?.signal))) {
+				stream.push({ type: "error", reason: "aborted", error: { ...reply, stopReason: "aborted" } });
+				return;
+			}
+			if (fail && existsSync(fail)) {
+				// A message pi does not retry, so the turn ends in the error and the session settles.
+				const error = {
+					...reply,
+					content: [],
+					stopReason: "error" as const,
+					errorMessage: "invalid request: the reply test provider was told to fail",
+				};
+				stream.push({ type: "error", reason: "error", error });
+				return;
+			}
 			stream.push({ type: "start", partial: reply });
 			stream.push({ type: "text_start", contentIndex: 0, partial: reply });
 			stream.push({ type: "text_delta", contentIndex: 0, delta: text, partial: reply });
