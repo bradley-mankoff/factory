@@ -337,12 +337,13 @@ Workflow's name.
 `ask-human` tells the Project Manager's pane that the Run waits at the Human's taste-and-fit check,
 naming what the landing holds and the demo video: the private tailnet link the Mac's Profile
 `DEMOS_URL` names, so any screen that shows text can play it, or else the video's path for
-FactoryClaw to attach (fac-3mz.7). It reads the video from its file, not from `$demo.output`, so a
-failed demo still lets the Human judge from what the landing holds; with no video it says so, and
-the Project Manager records one or rejects the Run. `taste` holds the Run for the answer, written as
-`wait: {attention: ..., form: approval}`; the deprecated `approval:` gate is never used. The question
-is taste and fit only: how the new piece looks and feels, and whether it fits the Idea; an error is
-never a taste question.
+FactoryClaw to attach (fac-3mz.7). It reads the video from its file, not from `$demo.output`, and
+`trigger_rule: all_done` still reaches it when the demo failed. With a video it tells the Project
+Manager the Run waits; with none it leaves the `demo-failed` note and fails, so the Run ends and no
+`taste` wait opens with nothing for the Human to judge (fac-fse). `taste` holds the Run for the
+answer, written as `wait: {attention: ..., form: approval}`; the deprecated `approval:` gate is
+never used. The question is taste and fit only: how the new piece looks and feels, and whether it
+fits the Idea; an error is never a taste question.
 
 ```yaml
   - id: ask-human
@@ -357,7 +358,10 @@ never a taste question.
       # screen that shows text can play; without it the message names the file for
       # FactoryClaw to attach (fac-3mz.7).
       link=$("$HOME/.local/share/factory/bin/demos-link" "$WORKFLOW_ID" "$FACTORY_DEMOS")
-      if [ -n "$link" ]; then video="Watch the demo video at $link and do not open a link to the change."; elif [ -s "$demo" ]; then video="Relay it through FactoryClaw with the demo video $demo and without a link to the change."; else video="There is no video: the demo node found the change broken or failed (archon workflow get $WORKFLOW_ID says which). If the change is broken, reject the Run and rework the Bead without asking the Human; otherwise record one with the record-demo skill, or relay the change instead."; fi
+      if [ -n "$link" ]; then video="Watch the demo video at $link and do not open a link to the change."; elif [ -s "$demo" ]; then video="Relay it through FactoryClaw with the demo video $demo and without a link to the change."; else
+        printf '%s\n' "the demo node failed to record a video" >"$ARTIFACTS_DIR/demo-failed"
+        exit 1
+      fi
       "$HOME/.local/share/factory/bin/tell-pm" "${ARGUMENTS%% · *}" "Run $WORKFLOW_ID (factory-build-gated) for Bead $("$HOME/.local/share/factory/bin/bead" --id "$ARGUMENTS") waits for the Human's taste-and-fit check of $held. $video Then answer with factory answer $WORKFLOW_ID approve, or factory answer $WORKFLOW_ID reject '<the Human's words>'."
 
   - id: taste

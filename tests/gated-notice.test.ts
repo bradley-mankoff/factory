@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
@@ -40,16 +40,23 @@ const nodeBash = (id: string): string => {
 type Run = {
 	/** The folder holding everything the run made, so the test can remove it. */
 	dir: string;
+	/** The status the node exited with. */
+	status: number | null;
 	/** The Notice the node left, as the Project Manager reads it. */
 	notice: () => string;
+	/** Whether the node sent the Project Manager a Notice at all. */
+	sentNotice: () => boolean;
+	/** What the node left in its artifacts folder, or nothing when it left no such note. */
+	note: (name: string) => string | undefined;
 };
 
 /**
  * One Run reaching its gate: a temporary home with the Factory's helpers where the node
- * looks for them, the Run's artifacts naming what the landing holds, and the video in the
- * Factory's demo folder. `profile` is the Mac's Profile as the node reads it.
+ * looks for them, the Run's artifacts naming what the landing holds, and, unless `video`
+ * says otherwise, the video in the Factory's demo folder. `profile` is the Mac's Profile as
+ * the node reads it.
  */
-const makeRun = (profile: string): Run => {
+const makeRun = (profile: string, video = true): Run => {
 	const dir = mkdtempSync(join(tmpdir(), "factory-gated-notice-"));
 	const home = join(dir, "home");
 	const factory = join(home, ".local", "share", "factory");
@@ -61,7 +68,7 @@ const makeRun = (profile: string): Run => {
 	symlinkSync(join(root, "bin"), join(factory, "bin"));
 	writeFileSync(join(home, ".config", "factory", "profile"), profile);
 	writeFileSync(join(artifacts, "held"), "the pull request https://github.com/example/calc/pull/7 into main\n");
-	writeFileSync(join(demos, "run-123.mp4"), "the video");
+	if (video) writeFileSync(join(demos, "run-123.mp4"), "the video");
 
 	const env = {
 		...process.env,
@@ -74,10 +81,14 @@ const makeRun = (profile: string): Run => {
 	// A DEMOS_URL the test's own shell inherited must not reach the node.
 	delete env.DEMOS_URL;
 	const result = spawnSync("bash", ["-c", nodeBash("ask-human")], { cwd: dir, encoding: "utf8", env });
-	assert.equal(result.status, 0, result.stderr);
+	if (video) assert.equal(result.status, 0, result.stderr);
+	const noticeFile = join(factory, "notices", "pm-calc.md");
 	return {
 		dir,
-		notice: () => readFileSync(join(factory, "notices", "pm-calc.md"), "utf8"),
+		status: result.status,
+		notice: () => readFileSync(noticeFile, "utf8"),
+		sentNotice: () => existsSync(noticeFile),
+		note: (name) => (existsSync(join(artifacts, name)) ? readFileSync(join(artifacts, name), "utf8") : undefined),
 	};
 };
 
@@ -96,6 +107,17 @@ test("a Profile that names no DEMOS_URL leaves the Notice naming the video's pat
 		const notice = run.notice();
 		assert.match(notice, /with the demo video .*\/demos\/run-123\.mp4/);
 		assert.doesNotMatch(notice, /https?:\/\/\S*\/demos\/run-123\.mp4/, "no link to the video is named");
+	} finally {
+		rmSync(run.dir, { recursive: true, force: true });
+	}
+});
+
+test("a gate whose demo left no video ends the Run with a demo-failed note, instead of asking the Human", () => {
+	const run = makeRun("# This Mac names no DEMOS_URL.\n", false);
+	try {
+		assert.notEqual(run.status, 0, "the gate did not open");
+		assert.equal(run.note("demo-failed"), "the demo node failed to record a video\n", "the Run leaves the note bin/finish reads");
+		assert.equal(run.sentNotice(), false, "the Project Manager was not asked to take the gate to the Human");
 	} finally {
 		rmSync(run.dir, { recursive: true, force: true });
 	}

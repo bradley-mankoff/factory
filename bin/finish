@@ -18,6 +18,8 @@
 #   withheld         a build's spec-withheld or standards-withheld node: the review that
 #                    withheld approval, such as "the spec review". The node writes it only
 #                    after its findings are commented on the Bead.
+#   demo-failed      the gated Workflow's ask-human node: the demo left no video, so the
+#                    Human gate never opened.
 #   bead-state       bin/close-bead: what became of the Bead, either "closed the Bead"
 #                    or "left the Bead open for its after-landing steps" (fac-enj).
 #   flows-failed.txt pi-flows: the checks a node finished with still failing.
@@ -64,6 +66,7 @@ landing=$(note landing)
 held=$(note held)
 rejected=$(note rejected)
 withheld=$(note withheld)
+demo_failed=$(note demo-failed)
 bead_state=$(note bead-state)
 failures=$(note flows-failed.txt)
 # Where a Project Manager reads why a Run ended as it did. The gated Workflow also ends on
@@ -97,6 +100,12 @@ else
 		# Run, so the Notice names the review and where its findings are rather than
 		# sending the Project Manager to look for a node that failed (fac-8yb).
 		how="ended at $withheld, which withheld approval; the findings are on Bead $bead"
+	elif [ -n "$demo_failed" ]; then
+		# A demo with no video ends the Run before the gate, so `landing` and `held` are the
+		# notes bin/land wrote before it and would report a landing no gate decided. The
+		# Human gate's only question is taste and fit of a video, so there was nothing to ask
+		# (fac-fse).
+		how="ended because $demo_failed, so the Human gate did not open; archon workflow get $run names the demo's failure"
 	elif [ -n "$landing" ]; then
 		how=$landing
 		# A landed build's Run closes its own Bead, or leaves it open for the steps the
