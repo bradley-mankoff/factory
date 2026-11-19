@@ -74,11 +74,11 @@ const readRequests = (log: string): Request[] =>
 		: [];
 
 /** A pi session in RPC mode with the Notices extension and the test provider, and nothing
- * else loaded: no skills, prompt templates, context files or MCP. `log` and `replyHold`
- * default to the machine's, and a test that runs two sessions gives each its own. */
+ * else loaded: no skills, prompt templates, context files or MCP. `log` defaults to the
+ * machine's, and a test that runs two sessions gives each its own. */
 function startPi(
 	machine: Machine,
-	options: { deadChangeNotification?: boolean; log?: string; replyHold?: string; replyFail?: string } = {},
+	options: { deadChangeNotification?: boolean; log?: string; replyFail?: string } = {},
 ) {
 	const env: NodeJS.ProcessEnv = {
 		...process.env,
@@ -90,7 +90,7 @@ function startPi(
 		FACTORY_NOTICES_FILE: machine.noticeFile,
 		REPLY_TEST_LOG: options.log ?? machine.log,
 		DEAD_CHANGE_LOG: machine.deadWatchLog,
-		REPLY_TEST_HOLD: options.replyHold ?? machine.replyHold,
+		REPLY_TEST_HOLD: machine.replyHold,
 		REPLY_TEST_FAIL: options.replyFail ?? "",
 	};
 	// The broken change notification loads only in the session a test asks for it in.
@@ -161,7 +161,7 @@ function startPi(
 		});
 	};
 
-	/** The session is up and the extension has taken its starting point in the file. */
+	/** The session is up, so the extension has started on the file it reads. */
 	const ready = (): Promise<Record<string, unknown>> => request({ type: "get_state" });
 
 	/** Waits for the session to exit, the way a pane closing ends it. */
@@ -197,19 +197,6 @@ function startPi(
 	return { ready, request, idle, stop, crash };
 }
 
-/** Wait until the test provider has answered `count` requests, then return them all. */
-async function waitForRequests(log: string, count: number): Promise<Request[]> {
-	const start = Date.now();
-	for (;;) {
-		const requests = readRequests(log);
-		if (requests.length >= count) return requests;
-		if (Date.now() - start > 15000) {
-			throw new Error(`the test provider saw ${requests.length} requests, not ${count}`);
-		}
-		await new Promise((resolve) => setTimeout(resolve, 20));
-	}
-}
-
 /** Wait until the test provider has answered `count` requests across `logs`, in the order
  * they arrived, then return them all. */
 async function waitForRequestsIn(logs: string[], count: number): Promise<Request[]> {
@@ -218,10 +205,15 @@ async function waitForRequestsIn(logs: string[], count: number): Promise<Request
 		const requests = logs.flatMap(readRequests);
 		if (requests.length >= count) return requests;
 		if (Date.now() - start > 15000) {
-			throw new Error(`the test provider saw ${requests.length} requests across ${logs.length} sessions, not ${count}`);
+			throw new Error(`the test provider saw ${requests.length} requests in ${logs.join(", ")}, not ${count}`);
 		}
 		await new Promise((resolve) => setTimeout(resolve, 20));
 	}
+}
+
+/** Wait until the test provider has answered `count` requests, then return them all. */
+async function waitForRequests(log: string, count: number): Promise<Request[]> {
+	return waitForRequestsIn([log], count);
 }
 
 /** How long a test waits before saying a Notice did not arrive: the file is read once a
@@ -301,7 +293,7 @@ test("Notices already in the file when the Factory first takes a pane are not de
 		assert.equal(readRequests(machine.log).length, 0, "no Notice already in the file was delivered");
 
 		// A Notice written once the pane is taken arrives, so the session is reading the file
-		// and the quiet above is the seed rather than a reader that never ran.
+		// and the quiet above is the recording rather than a reader that never ran.
 		const fresh = "2026-11-19 10:00 Run 72c07607 (factory-build) for Bead fac-14 ended merged.";
 		writeNotice(machine, fresh);
 		const [request] = await waitForRequests(machine.log, 1);
@@ -365,7 +357,7 @@ test("a Notice a session acted on is not delivered again to the next session", a
 		const [request] = await waitForRequests(nextLog, 1);
 		assert.ok(conversation(request).includes(pending), "the next session delivers the pending Notice, so it is reading the file");
 		await sleep(QUIET_MS);
-		assert.equal(readRequests(nextLog).length, 1, `the Notice already acted on was not sent again: ${conversation(readRequests(nextLog)[0])}`);
+		assert.equal(readRequests(nextLog).length, 1, `the Notice already acted on was not sent again: ${JSON.stringify(readRequests(nextLog))}`);
 	} finally {
 		await next.stop();
 	}
@@ -445,7 +437,7 @@ test("the same Notice line written twice reaches the Project Manager once", asyn
 		const [request] = await waitForRequests(machine.log, 1);
 		assert.ok(conversation(request).includes(line), `the Notice arrives: ${conversation(request)}`);
 		await sleep(QUIET_MS);
-		assert.equal(readRequests(machine.log).length, 1, `the second copy of the Notice was not sent: ${conversation(readRequests(machine.log)[0])}`);
+		assert.equal(readRequests(machine.log).length, 1, `the second copy of the Notice was not sent: ${JSON.stringify(readRequests(machine.log))}`);
 	} finally {
 		await pi.stop();
 	}

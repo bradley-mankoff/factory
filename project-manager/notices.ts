@@ -76,14 +76,17 @@ const takeNoticeFile = (): string | undefined => {
 	return processWide[noticeFileKey];
 };
 
-/** What became of a Notice: `delivered` once it is in a turn, `acted on` once the turn that
- * carried it has ended. An id with no record is pending, so a pending Notice needs no line. */
-type Status = "delivered" | "acted on";
+/** What a record beside the Notice file can say became of a Notice: `delivered` once the
+ * Notice is in a turn, `acted on` once the turn that carried it has ended. The third status
+ * the glossary names, pending, is an id with no record, so nothing needs to write it
+ * (GLOSSARY.md, `Notice`). */
+type RecordedStatus = "delivered" | "acted on";
 
 /** A Notice's id, the event's name in the list: the hash of its line, so the same line written
  * twice is one event. The line's date and minute are part of it, so a retry that lands in a
  * later minute is a second event. */
-const idOf = (line: string): string => createHash("sha256").update(line).digest("hex").slice(0, 16);
+const idOf = (line: string): string =>
+	createHash("sha256").update(line).digest("hex").slice(0, 16);
 
 /** A file kept beside the Notice file: `pm-calc.md` has `pm-calc.status` and `pm-calc.lock`. */
 const beside = (noticeFile: string, suffix: string): string => {
@@ -91,9 +94,18 @@ const beside = (noticeFile: string, suffix: string): string => {
 	return join(dir, `${name}${suffix}`);
 };
 
+/** The whole lines of the Notice file's contents: a line with no newline after it is one still
+ * being written, not a Notice, and a blank line is nothing. The first reading of the file and
+ * every read after it go by this one rule. */
+const wholeLines = (contents: string): string[] => {
+	const lines = contents.split("\n");
+	lines.pop();
+	return lines.map((line) => line.replace(/\r$/, "")).filter((text) => text.trim() !== "");
+};
+
 /** The statuses recorded beside the Notice file, by id: the last record for an id wins. */
-const readStatuses = (statusFile: string): Map<string, Status> => {
-	const statuses = new Map<string, Status>();
+const readStatuses = (statusFile: string): Map<string, RecordedStatus> => {
+	const statuses = new Map<string, RecordedStatus>();
 	let contents: string;
 	try {
 		contents = readFileSync(statusFile, "utf8");
@@ -103,7 +115,7 @@ const readStatuses = (statusFile: string): Map<string, Status> => {
 	for (const line of contents.split("\n")) {
 		if (!line.trim()) continue;
 		try {
-			const { id, status } = JSON.parse(line) as { id?: string; status?: Status };
+			const { id, status } = JSON.parse(line) as { id?: string; status?: RecordedStatus };
 			if (id && (status === "delivered" || status === "acted on")) statuses.set(id, status);
 		} catch {
 			// A record half written is no record; the Notice reads as it did before it.
@@ -113,11 +125,12 @@ const readStatuses = (statusFile: string): Map<string, Status> => {
 };
 
 /** One record's line in the status file: an id and its status. */
-const recordLine = (id: string, status: Status): string => `${JSON.stringify({ id, status })}\n`;
+const recordLine = (id: string, status: RecordedStatus): string =>
+	`${JSON.stringify({ id, status })}\n`;
 
 /** Appends one record to the status file, so a status is never rewritten over one a reader
  * may be halfway through. */
-const record = (statusFile: string, id: string, status: Status): void => {
+const record = (statusFile: string, id: string, status: RecordedStatus): void => {
 	appendFileSync(statusFile, recordLine(id, status));
 };
 
@@ -127,10 +140,10 @@ const record = (statusFile: string, id: string, status: Status): void => {
  * the Factory is installed otherwise finds a pane's file holding months of Notices the earlier
  * reader delivered or the status check found, and an id with no record is pending, so every
  * one of them would start a turn again (fac-618). The file is written in one call with `wx`, so
- * a session that starts at the same moment as another makes no half-seeded file: whichever
+ * a session that starts at the same moment as another makes no half-recorded file: whichever
  * writes first, the lines it goes on are the whole file's.
  */
-const seed = (statusFile: string, noticeFile: string): void => {
+const markExistingActedOn = (statusFile: string, noticeFile: string): void => {
 	if (existsSync(statusFile)) return;
 	let contents = "";
 	try {
@@ -138,12 +151,7 @@ const seed = (statusFile: string, noticeFile: string): void => {
 	} catch {
 		// No Notice file yet: the empty status file still says the pane has been taken.
 	}
-	const lines = contents.split("\n");
-	// Whatever follows the last newline is a line still being written, not a Notice.
-	lines.pop();
-	const records = lines
-		.map((line) => line.replace(/\r$/, ""))
-		.filter((text) => text.trim() !== "")
+	const records = wholeLines(contents)
 		.map((text) => recordLine(idOf(text), "acted on"))
 		.join("");
 	try {
@@ -170,7 +178,8 @@ const alive = (pid: number): boolean => {
  * busy with a turn keeps its lock, and short enough that a reused id leaves no pane unread. */
 const lockStaleMs = 60 * readEveryMs;
 
-/** Whether the lock was touched within the last few reads. */
+/** Whether the lock was touched within the minute `lockStaleMs` names, the window in which a
+ * holder keeps it without reading the file. */
 const fresh = (lockFile: string): boolean => {
 	try {
 		return Date.now() - statSync(lockFile).mtimeMs < lockStaleMs;
@@ -259,7 +268,7 @@ export default function notices(pi: ExtensionAPI): void {
 		sent = new Set();
 		inRun = [];
 		runFailed = false;
-		seed(statusFile, noticeFile);
+		markExistingActedOn(statusFile, noticeFile);
 
 		/** Delivers every whole line whose Notice is not yet `acted on`. */
 		const deliver = (): void => {
@@ -271,12 +280,7 @@ export default function notices(pi: ExtensionAPI): void {
 				// The file is the Run's to write; until it exists there is nothing to deliver.
 				return;
 			}
-			const lines = contents.split("\n");
-			// Whatever follows the last newline is a line still being written, not a Notice.
-			lines.pop();
-			for (const line of lines) {
-				const text = line.replace(/\r$/, "");
-				if (text.trim() === "") continue;
+			for (const text of wholeLines(contents)) {
 				const id = idOf(text);
 				if (sent.has(id) || statuses.get(id) === "acted on") continue;
 				try {
