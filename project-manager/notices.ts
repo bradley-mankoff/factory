@@ -22,12 +22,12 @@
  * the Runs that ended while no session was open, and replaying the file as well would have
  * it record those Runs twice (fac-qpv.2.2).
  */
-import * as fs from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 /** How long between reads of the file, in milliseconds: a Notice reaches an idle Project
  * Manager within the second. */
-const readEvery = 1000;
+const readEveryMs = 1000;
 
 /**
  * The key the file is kept under, on the process rather than this load, so the load after a
@@ -55,7 +55,7 @@ export default function notices(pi: ExtensionAPI): void {
 		if (!noticeFile) return;
 
 		// Everything already in the file belongs to an earlier session.
-		let delivered = fs.existsSync(noticeFile) ? fs.statSync(noticeFile).size : 0;
+		let delivered = existsSync(noticeFile) ? statSync(noticeFile).size : 0;
 
 		/** Delivers every complete line after `delivered`, moving it past a line only once
 		 * that line's message is sent, so a failed send is tried again and the lines already
@@ -63,13 +63,14 @@ export default function notices(pi: ExtensionAPI): void {
 		const deliverNewLines = (): void => {
 			let contents: Buffer;
 			try {
-				contents = fs.readFileSync(noticeFile);
+				contents = readFileSync(noticeFile);
 			} catch {
 				// The file is the Run's to write; until it exists there is nothing to deliver.
 				return;
 			}
 			// A replaced or emptied file is a new one: read it from the start.
-			let cursor = contents.length < delivered ? 0 : delivered;
+			if (contents.length < delivered) delivered = 0;
+			let cursor = delivered;
 			for (;;) {
 				const newline = contents.indexOf(0x0a, cursor);
 				if (newline < 0) break;
@@ -83,7 +84,6 @@ export default function notices(pi: ExtensionAPI): void {
 				cursor = newline + 1;
 				delivered = cursor;
 			}
-			delivered = cursor;
 		};
 
 		timer = setInterval(() => {
@@ -93,7 +93,7 @@ export default function notices(pi: ExtensionAPI): void {
 				// A send can fail while the session is shutting down; the next read tries the
 				// same line again, because the length only moves past a line once it is sent.
 			}
-		}, readEvery);
+		}, readEveryMs);
 	});
 
 	pi.on("session_shutdown", async () => {

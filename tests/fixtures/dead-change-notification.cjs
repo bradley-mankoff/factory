@@ -18,8 +18,9 @@ fs.appendFileSync(process.env.DEAD_CHANGE_LOG, "loaded\n");
 
 /** Whether the target is a Notice folder, or a file in one: the folder pi-notices watched,
  * and the file a reader that went back to watching would name. */
+const noticeFolder = "notices";
 const isNoticePath = (target) =>
-	path.basename(target) === "notices" || path.basename(path.dirname(target)) === "notices";
+	path.basename(target) === noticeFolder || path.basename(path.dirname(target)) === noticeFolder;
 
 fs.watch = function (target, ...rest) {
 	const name = String(target);

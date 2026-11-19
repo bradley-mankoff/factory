@@ -137,9 +137,6 @@ function startPi(machine: Machine, options: { deadChangeNotification?: boolean }
 		stderr += chunk;
 	});
 
-	/** The session is up and the extension has taken its starting point in the file. */
-	const ready = (): Promise<Record<string, unknown>> => request({ type: "get_state" });
-
 	const request = (command: Record<string, unknown>): Promise<Record<string, unknown>> => {
 		const id = `req-${++nextId}`;
 		return new Promise((resolve, reject) => {
@@ -154,6 +151,9 @@ function startPi(machine: Machine, options: { deadChangeNotification?: boolean }
 			child.stdin!.write(`${JSON.stringify({ ...command, id })}\n`);
 		});
 	};
+
+	/** The session is up and the extension has taken its starting point in the file. */
+	const ready = (): Promise<Record<string, unknown>> => request({ type: "get_state" });
 
 	const stop = async (): Promise<void> => {
 		child.stdin!.end();
@@ -173,12 +173,12 @@ function startPi(machine: Machine, options: { deadChangeNotification?: boolean }
 }
 
 /** Wait until the test provider has answered `count` requests, then return them all. */
-async function waitForRequests(log: string, count: number, timeoutMs = 15000): Promise<Request[]> {
+async function waitForRequests(log: string, count: number): Promise<Request[]> {
 	const start = Date.now();
 	for (;;) {
 		const requests = readRequests(log);
 		if (requests.length >= count) return requests;
-		if (Date.now() - start > timeoutMs) {
+		if (Date.now() - start > 15000) {
 			throw new Error(`the test provider saw ${requests.length} requests, not ${count}`);
 		}
 		await new Promise((resolve) => setTimeout(resolve, 20));
