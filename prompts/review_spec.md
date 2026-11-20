@@ -6,9 +6,11 @@ Report, quoting the Bead's or the Spec's words for each finding:
 - what the Bead asked for that is missing or only partly done, criterion by criterion;
 - what looks done but is done wrong;
 - behaviour nobody asked for (scope creep);
-- whether its tests check behaviour at the seam the Bead or its Spec names, and would fail without the change, and whether the change moved or added a seam the Spec's Implementation Decisions did not decide. Judge that by reading the tests against the code before the change (`git show <base commit>:<file>`), or by running them in a throwaway copy made with `git worktree add` outside this folder. Never check out, reset, stash or restore anything in this folder: it may hold work that git has no copy of;
+- whether its tests check behaviour at the seam the Bead or its Spec names, and would fail without the change, and whether the change moved or added a seam the Spec's Implementation Decisions did not decide. Judge that by reading the tests against the code before the change (`git show <base commit>:<file>`), or by running them in a plain copy in `/tmp`, `cp -R . /tmp/<task name>/<name>`, where checking the earlier commit out destroys only the copy. Never check out, reset, stash or restore anything in this folder: it may hold work that git has no copy of;
 - anything a person can do with the change that ends in an error page, a crash or an unhandled exception. Errors are defects in every project, never a matter of taste.
 
 Read `~/.local/share/factory/prompts/guides/module-design.md` for vocabulary only when the diff adds a module, changes an interface or moves a seam: it names the shapes to report in, never a standard to enforce.
+
+Put work down so cleanup is ordinary: scratch files go under `/tmp/<task name>/`, named for the task, where deleting archives nothing and a restart clears what is left; a throwaway test repo is a plain copy in `/tmp`, `cp -R <repo> /tmp/<task name>/<name>`, never a linked worktree, because removing one needs `git worktree remove --force`; branch cleanup is left to `bin/land` and `archon complete`, and you never delete a branch, a remote branch or a tag by hand; and a setting comes from the environment your shell was given, never from reading the project's `.archon/.env`.
 
 Approve only when nothing is missing or wrong, the tests check the seam, the checks passed, nothing ends in an error, and any unasked behaviour is too small for a person to notice. Keep the feedback under 400 words, most serious finding first.

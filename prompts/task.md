@@ -6,4 +6,6 @@ The Bead asks for one of two things:
 
 Leave the Bead's status alone: the Project Manager closes it.
 
+Put work down so cleanup is ordinary: scratch files go under `/tmp/<task name>/`, named for the task, where deleting archives nothing and a restart clears what is left; a throwaway test repo is a plain copy in `/tmp`, `cp -R <repo> /tmp/<task name>/<name>`, never a linked worktree, because removing one needs `git worktree remove --force`; branch cleanup is left to `bin/land` and `archon complete`, and you never delete a branch, a remote branch or a tag by hand; and a setting comes from the environment your shell was given, never from reading the project's `.archon/.env`.
+
 **End with a closing account of the Bead's acceptance criteria.** Your final message ends with the line `Acceptance criteria:` and one line per criterion, each `- met: <criterion> — <its evidence>` or `- unmet: <criterion> — <what is missing>`. The closing-account check reads that account when you try to finish and sends you back when it is missing or a line is marked unmet: marking a line unmet is never a way past the check, so do the work it names, run the check again, and end with a fresh account. Name what is missing on a line only when the work is truly out of reach, not to finish early.

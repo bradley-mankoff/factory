@@ -32,22 +32,25 @@ test("install installs each pi package into the pi folder that needs it", () => 
 		const calls = piCalls(logOf(mac.logs.pi));
 		const forFolder = (folder: string) =>
 			calls.filter((call) => call.folder === folder).map((call) => call.command);
-		// The Human's own pi gets the five packages Project Managers and his sessions use:
-		// Beads, Bead links, Chains, the bash timeout and the ding that sounds a herdr
-		// pane's turn (fac-o2r.1).
+		// The Human's own pi gets the six packages Project Managers and his sessions use:
+		// Beads, Bead links, Chains, the bash timeout, the ding that sounds a herdr pane's turn
+		// and soft delete, so a command that throws work away leaves a copy (fac-o2r.1,
+		// fac-iaw.1).
 		assert.deepEqual(forFolder(join(mac.home, ".pi", "agent")), [
 			"install git:github.com/bradley-mankoff/pi-beads",
 			"install git:github.com/bradley-mankoff/pi-links",
 			"install git:github.com/bradley-mankoff/pi-chains",
 			"install git:github.com/bradley-mankoff/pi-bash-timeout",
 			"install git:github.com/bradley-mankoff/pi-herdr-ding",
+			"install git:github.com/bradley-mankoff/pi-soft-delete",
 		]);
-		// The Factory's pi folder, which every Run node reads, gets the Chains, Flows and bash
-		// timeout.
+		// The Factory's pi folder, which every Run node reads, gets the Chains, Flows, bash
+		// timeout and soft delete.
 		assert.deepEqual(forFolder(join(mac.home, ".local", "share", "factory", "pi-agent")), [
 			"install git:github.com/bradley-mankoff/pi-chains",
 			"install git:github.com/bradley-mankoff/pi-flows",
 			"install git:github.com/bradley-mankoff/pi-bash-timeout",
+			"install git:github.com/bradley-mankoff/pi-soft-delete",
 		]);
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
@@ -86,6 +89,26 @@ test("a Run's pi folder keeps the bash timeout in the settings pi reads", () => 
 		assert.ok(
 			settings.packages.includes("git:github.com/bradley-mankoff/pi-bash-timeout"),
 			`the merged settings list the bash timeout, so a hung bash call ends: ${JSON.stringify(settings.packages)}`,
+		);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("a Run's pi folder keeps soft delete in the settings pi reads", () => {
+	// The merged settings, not the pi install call alone, decide what a Run loads, so a
+	// package fetched but missing from the Factory's own settings.json never archives
+	// anything for a Run's agent (fac-iaw.1).
+	const mac = makeMac();
+	try {
+		const result = mac.install();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		const settingsFile = join(mac.home, ".local", "share", "factory", "pi-agent", "settings.json");
+		const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
+		assert.ok(
+			settings.packages.includes("git:github.com/bradley-mankoff/pi-soft-delete"),
+			`the merged settings list soft delete, so a Run's agent keeps what it destroys: ${JSON.stringify(settings.packages)}`,
 		);
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });

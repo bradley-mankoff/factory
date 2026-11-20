@@ -87,6 +87,30 @@ test("the work and task prompts carry the closing-account rule word for word, so
 	assert.equal(closingAccount(taskPrompts.task), closingAccount(buildPrompts.work));
 });
 
+/** The paragraph every node prompt carries so its agent puts work down before it destroys anything. */
+const putWorkDown = (prompt: string): string => lineMatching(prompt, "Put work down so cleanup is ordinary");
+
+test("every Run node prompt carries the same put-work-down conventions", () => {
+	const copies = [buildPrompts.work, buildPrompts.review_spec, buildPrompts.review_standards, taskPrompts.task].map(putWorkDown);
+	assert.equal(new Set(copies).size, 1, `one paragraph in every prompt:\n${copies.join("\n\n")}`);
+});
+
+test("the Run node prompts say where scratch and throwaway repos go, who cleans up branches, and where a setting comes from", () => {
+	const paragraph = putWorkDown(buildPrompts.work);
+	assert.match(paragraph, /`\/tmp\/<task name>\/`/);
+	assert.match(paragraph, /plain copy in `\/tmp`/);
+	assert.match(paragraph, /never a linked worktree/);
+	assert.match(paragraph, /git worktree remove --force/);
+	assert.match(paragraph, /`bin\/land` and `archon complete`/);
+	assert.match(paragraph, /never from reading the project's `\.archon\/\.env`/);
+});
+
+test("the spec review's before-and-after check copies the repo into /tmp rather than a linked worktree", () => {
+	const line = lineMatching(buildPrompts.review_spec, /before the change/);
+	assert.match(line, /plain copy in `\/tmp`/);
+	assert.doesNotMatch(line, /worktree add/);
+});
+
 test("the work prompt sends the agent to the module guide when a module, an interface or a seam changes", () => {
 	const line = lineMatching(buildPrompts.work, moduleGuide);
 	assert.match(line, /when the change adds a module, changes an interface or moves a seam/);
@@ -428,4 +452,31 @@ test("the instructions' status check lists the project's answered Asks not yet a
 test("the instructions' Idea to Beads steps put the Spec review on the Epic grilling opened", () => {
 	const line = lineMatching(part("## From Idea to Beads"), "factory ask <epic id> spec-review");
 	assert.match(line, /Spec/);
+});
+
+test("the Project Manager puts work down so cleanup is ordinary", () => {
+	// Every archive is a copy an agent can lose nothing to, and scratch work that needs no
+	// copy keeps the archives small (fac-iaw.1). The instructions say where scratch and
+	// throwaway repos go, that landing and archon complete own branch cleanup, and that a
+	// setting comes from the shell rather than from the project's .env file.
+	const section = part("## Putting work down");
+	assert.match(lineMatching(section, "scratch files go under"), /`\/tmp\/<task name>\/`/);
+	const copies = lineMatching(section, "plain copy");
+	assert.match(copies, /`\/tmp`/);
+	assert.match(copies, /never a linked worktree/);
+	assert.match(copies, /git worktree remove --force/);
+	const branches = lineMatching(section, "branch cleanup");
+	assert.match(branches, /bin\/land/);
+	assert.match(branches, /archon complete/);
+	const settings = lineMatching(section, "\.archon/\.env");
+	assert.match(settings, /environment/);
+	assert.match(settings, /`start` has already exported/);
+	assert.match(settings, /`FACTORY_CHECK`/);
+});
+
+test("the Project Manager restores an archive by reading its note.md", () => {
+	const section = part("## Putting work down");
+	assert.match(lineMatching(section, "soft-delete"), /Nothing is refused/);
+	assert.match(lineMatching(section, "~/.local/share/soft-delete/"), /one folder/);
+	assert.match(lineMatching(section, "restore"), /note\.md/);
 });

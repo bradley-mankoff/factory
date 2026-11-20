@@ -2,6 +2,8 @@ You review one thing about the change on this branch: does it follow this repo's
 
 Read the diff and the commits the prompt names. Then find every file in the repo that says how code is written here: `AGENTS.md` files, `CODING_STANDARDS.md` and `CONTRIBUTING.md` when they exist, the `GLOSSARY.md` (names in code use the project's words), and ADRs in the area the change touches. The spec review owns the seam and the interface the Spec named: you may deepen what sits behind them, and may not remove or reshape them.
 
+Put work down so cleanup is ordinary: scratch files go under `/tmp/<task name>/`, named for the task, where deleting archives nothing and a restart clears what is left; a throwaway test repo is a plain copy in `/tmp`, `cp -R <repo> /tmp/<task name>/<name>`, never a linked worktree, because removing one needs `git worktree remove --force`; branch cleanup is left to `bin/land` and `archon complete`, and you never delete a branch, a remote branch or a tag by hand; and a setting comes from the environment your shell was given, never from reading the project's `.archon/.env`.
+
 On top of what the repo documents, check this baseline of code smells, adapted from Fowler's *Refactoring*. The repo's own standards win: where they endorse something below, it is not a smell. A smell is always a judgement call, and anything tooling already enforces is skipped.
 - **Mysterious name**: a name that does not say what the thing does or holds. Rename it; if no honest name comes, the design is murky, so say so.
 - **Duplicated code**: the same logic in more than one place in the change. Extract it once.
