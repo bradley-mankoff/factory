@@ -5,11 +5,14 @@
  * (fac-h73), and the closing-account rule both checked nodes state, since the same
  * closing-account check reads each node's final message (fac-h73). The seam is what a Run's
  * node prompt says: bin/node-prompts' output for a Workflow, and the guide files under
- * prompts/guides/ that output sends an agent to read on a named condition.
+ * prompts/guides/ that output sends an agent to read on a named condition. One test also
+ * runs the put-work-down copy command a prompt hands an agent against a real linked worktree,
+ * so a convention that would damage the Run's folder cannot pass by reading right (fac-iaw.1).
  */
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -98,17 +101,66 @@ test("every Run node prompt carries the same put-work-down conventions", () => {
 test("the Run node prompts say where scratch and throwaway repos go, who cleans up branches, and where a setting comes from", () => {
 	const paragraph = putWorkDown(buildPrompts.work);
 	assert.match(paragraph, /`\/tmp\/<task name>\/`/);
-	assert.match(paragraph, /plain copy in `\/tmp`/);
+	assert.match(paragraph, /`git clone <repo> \/tmp\/<task name>\/<name>`/);
 	assert.match(paragraph, /never a linked worktree/);
 	assert.match(paragraph, /git worktree remove --force/);
+	assert.doesNotMatch(paragraph, /cp -R <repo>/);
 	assert.match(paragraph, /`bin\/land` and `archon complete`/);
 	assert.match(paragraph, /never from reading the project's `\.archon\/\.env`/);
 });
 
-test("the spec review's before-and-after check copies the repo into /tmp rather than a linked worktree", () => {
+test("the spec review's before-and-after check clones the repo into /tmp rather than a linked worktree", () => {
 	const line = lineMatching(buildPrompts.review_spec, /before the change/);
-	assert.match(line, /plain copy in `\/tmp`/);
+	assert.match(line, /`git clone \. \/tmp\/<task name>\/<name>`/);
+	assert.doesNotMatch(line, /cp -R/);
 	assert.doesNotMatch(line, /worktree add/);
+});
+
+/** The copy command the prompts hand an agent for a throwaway repo, with its placeholders filled. */
+const throwawayCopy = (paragraph: string, repo: string, copy: string): string => {
+	const [, command = ""] = paragraph.match(/`(git clone <repo> \/tmp\/<task name>\/<name>)`/) ?? [];
+	assert.ok(command, "the paragraph hands the agent a git clone of the repo into /tmp/<task name>");
+	return command.replace("<repo>", repo).replace("/tmp/<task name>/<name>", copy);
+};
+
+const git = (repo: string, args: string[]): string => execFileSync("git", ["-C", repo, ...args], { encoding: "utf8" });
+
+const commit = (repo: string, message: string): void => {
+	git(repo, ["add", "-A"]);
+	execFileSync(
+		"git",
+		["-C", repo, "-c", "user.name=Factory", "-c", "user.email=factory@example.invalid", "commit", "-q", "-m", message],
+		{ encoding: "utf8" },
+	);
+};
+
+test("a checkout in the throwaway copy the prompts hand an agent leaves the worktree it cloned from on its branch", () => {
+	// The Run's folder is a linked worktree, whose .git is a file pointing at the repo that
+	// owns it. A cp -R of it copies that file, so a checkout in the copy moves the original's
+	// HEAD; a clone has a .git of its own (fac-iaw.1 review).
+	const dir = realpathSync(mkdtempSync(join(tmpdir(), "factory-put-work-down-")));
+	try {
+		const repo = join(dir, "repo");
+		const worktree = join(dir, "worktree");
+		const copy = join(dir, "copy");
+		git(dir, ["init", "-q", repo]);
+		writeFileSync(join(repo, "file"), "one\n");
+		git(repo, ["add", "file"]);
+		commit(repo, "one");
+		writeFileSync(join(repo, "file"), "two\n");
+		commit(repo, "two");
+		git(repo, ["branch", "br"]);
+		git(repo, ["worktree", "add", "-q", worktree, "br"]);
+		// The command the paragraph hands an agent, run where its agent runs it: in the worktree.
+		const command = throwawayCopy(putWorkDown(buildPrompts.review_spec), ".", copy);
+		const result = spawnSync("sh", ["-c", command], { cwd: worktree, encoding: "utf8" });
+		assert.equal(result.status, 0, result.stderr);
+		git(copy, ["checkout", "-q", "HEAD~1"]);
+		assert.equal(git(worktree, ["branch", "--show-current"]).trim(), "br", "the worktree stays on its branch");
+		assert.equal(git(worktree, ["status", "--porcelain"]), "", "and keeps an index, a HEAD and a work tree of its own");
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
 });
 
 test("the work prompt sends the agent to the module guide when a module, an interface or a seam changes", () => {
@@ -461,10 +513,11 @@ test("the Project Manager puts work down so cleanup is ordinary", () => {
 	// setting comes from the shell rather than from the project's .env file.
 	const section = part("## Putting work down");
 	assert.match(lineMatching(section, "scratch files go under"), /`\/tmp\/<task name>\/`/);
-	const copies = lineMatching(section, "plain copy");
-	assert.match(copies, /`\/tmp`/);
+	const copies = lineMatching(section, "throwaway test repo");
+	assert.match(copies, /`git clone <repo> \/tmp\/<task name>\/<name>`/);
 	assert.match(copies, /never a linked worktree/);
 	assert.match(copies, /git worktree remove --force/);
+	assert.doesNotMatch(copies, /cp -R <repo>/);
 	const branches = lineMatching(section, "branch cleanup");
 	assert.match(branches, /bin\/land/);
 	assert.match(branches, /archon complete/);
