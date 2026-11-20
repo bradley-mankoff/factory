@@ -3,7 +3,8 @@
     "npm:pi-claude-bridge@0.9.3",
     "git:github.com/bradley-mankoff/pi-chains",
     "git:github.com/bradley-mankoff/pi-flows",
-    "git:github.com/bradley-mankoff/pi-bash-timeout"
+    "git:github.com/bradley-mankoff/pi-bash-timeout",
+    "git:github.com/bradley-mankoff/pi-soft-delete"
   ],
   "defaultThinkingLevel": "high",
   "modelThinkingLevels": {

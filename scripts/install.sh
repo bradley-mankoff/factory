@@ -142,14 +142,16 @@ WRAPPER
 	# The pi extensions are packages in repos of their own, so the Factory depends on them
 	# instead of holding them (fac-qpv.8.1): Beads, Bead links, Chains and the bash timeout for
 	# Project Managers and the Human's own sessions, and pi-herdr-ding, which sounds a herdr
-	# pane's settled turn and whose hold a Project Manager's pane uses (fac-o2r.1). pi install
+	# pane's settled turn and whose hold a Project Manager's pane uses (fac-o2r.1). pi-soft-delete
+	# copies what a shell command is about to destroy and then lets the command run, so nothing
+	# is refused but nothing is lost for good either (fac-iaw.1). pi install
 	# records each in his pi folder's settings.json and fetches it from its repo. Notices is the
 	# exception: its package watched the Notice file with the platform's change notification,
 	# which went silent and lost three Notices in one pane (fac-8xl), so project-manager/
 	# notices.ts reads the file on a timer instead and the Factory holds it like its other
 	# three extensions. The ding stays out of the Factory's pi folder: a Run node has no screen,
 	# and the package plays nothing there.
-	pi_packages "$HOME/.pi/agent" pi-beads pi-links pi-chains pi-bash-timeout pi-herdr-ding
+	pi_packages "$HOME/.pi/agent" pi-beads pi-links pi-chains pi-bash-timeout pi-herdr-ding pi-soft-delete
 	# Both pi folders read the Chains file the Profile names: pi-chains looks for
 	# <agent dir>/chains.json, so a link there points at the one file a person edits.
 	ln -sfn "$CHAINS" "$HOME/.pi/agent/chains.json"
@@ -197,12 +199,13 @@ WRAPPER
 	# The Factory's pi folder. Both files are merged, not copied: pi adds its own
 	# settings as it runs, and project setup adds each project's repo to trust.json.
 	mkdir -p "$pi_dir"
-	# The Chains, Flows and bash timeout, so an AI node of a Run registers a model per role
-	# (fac-qpv.1.1) and is sent back before it stops short (fac-qpv.3.1), and a command that
-	# never returns cannot hold a Run open past Archon's idle timeout (fac-rh9). pi install
+	# The Chains, Flows, bash timeout and soft delete, so an AI node of a Run registers a model
+	# per role (fac-qpv.1.1), is sent back before it stops short (fac-qpv.3.1), a command that
+	# never returns cannot hold a Run open past Archon's idle timeout (fac-rh9), and a command
+	# that would destroy work leaves a copy behind before it runs (fac-iaw.1). pi install
 	# records them in this folder's settings.json, and every session here loads them.
 	ln -sfn "$CHAINS" "$pi_dir/chains.json"
-	pi_packages "$pi_dir" pi-chains pi-flows pi-bash-timeout
+	pi_packages "$pi_dir" pi-chains pi-flows pi-bash-timeout pi-soft-delete
 	merge_json "$pi_dir/settings.json" "$src/pi-agent/settings.json"
 	merge_json "$pi_dir/trust.json" "$src/pi-agent/trust.json"
 	merge_json "$pi_dir/claude-bridge.json" "$src/pi-agent/claude-bridge.json"

@@ -1,5 +1,5 @@
 ## Source repo
-> Everything the Factory is made of, edited by hand. install.sh copies or links it to where it is read; nothing runs from here. The Factory depends on six pi packages from repos of their own, github.com/bradley-mankoff/pi-beads, pi-links, pi-chains, pi-flows, pi-bash-timeout and pi-herdr-ding, which `pi install` puts in the pi folders; its four pi extensions of its own, project-manager/status-check.ts, project-manager/blocked-mark.ts, project-manager/notices.ts and project-manager/ding-hold.ts, are loaded only by a Project Manager (fac-k10, fac-3mz.5, fac-8xl, fac-qpv.8.1, fac-o2r.1).
+> Everything the Factory is made of, edited by hand. install.sh copies or links it to where it is read; nothing runs from here. The Factory depends on seven pi packages from repos of their own, github.com/bradley-mankoff/pi-beads, pi-links, pi-chains, pi-flows, pi-bash-timeout, pi-herdr-ding and pi-soft-delete, which `pi install` puts in the pi folders; its four pi extensions of its own, project-manager/status-check.ts, project-manager/blocked-mark.ts, project-manager/notices.ts and project-manager/ding-hold.ts, are loaded only by a Project Manager (fac-k10, fac-3mz.5, fac-8xl, fac-qpv.8.1, fac-o2r.1, fac-iaw.1). pi-soft-delete keeps what a destructive shell command would throw away in ~/.local/share/soft-delete/ (fac-iaw.1).
 ~/Developer/personal_code/factory  — The Factory's source, git, github.com/bradley-mankoff/factory  [source]
   2026-10-16-factory-stack.md  — The spec, the source of truth
   AGENTS.md  — Rules for working on the Factory
@@ -32,7 +32,7 @@
     tell-pm.test.ts  — tell-pm: one dated line in the pane's Notice file, named by the pane the Run's message names first, with nothing typed into any pane (fac-qpv.2.1)
     finish.test.ts  — bin/finish against a temporary home and a Run's artifacts: landed, held, no-commits, failed-checks and failed-node endings leave the Notice the Workflows left before, and a research Run keeps its own shape; a landed, withheld or research Run's Notice ends with the branch whose worktree is removed (fac-3fy, fac-2jm)
     worktrees.test.ts  — bin/worktrees against scratch repos, a bare remote and a stand-in Archon on PATH: a squash landing into the Run's recorded base reads DEAD with its removal command, an unlanded branch and uncommitted work read REVIEW with none, ignored files are printed and never counted, the main, locked, detached, prunable, bare and other Runs' base branches read LANE, a running Run reads KEEP and a paused one reads KEEP waiting on the Human's gate or attention answer, and a failed one names abandon, a conflict still reads landed through the patch-id, unpushed commits add --force, the text and JSON reports agree, a folder that is not a repo exits 0, and the repo's objects are left as they were (fac-2jm)
-    install-packages.test.ts  — install with a temporary HOME and a stand-in pi: each package goes into the pi folder that needs it, a Run's merged settings list the bash timeout, both pi folders link chains.json to the Profile's Chains, and install repairs nothing an earlier install left (fac-qpv.8.1)
+    install-packages.test.ts  — install with a temporary HOME and a stand-in pi: each package goes into the pi folder that needs it, soft delete among them in both, and a Run's merged settings list the bash timeout and soft delete, both pi folders link chains.json to the Profile's Chains, and install repairs nothing an earlier install left (fac-qpv.8.1, fac-iaw.1)
     install-run-extensions.test.ts  — install with a temporary HOME: an extension the Profile's RUN_EXTENSIONS names is linked into the Factory's pi folder, a link there to a path dropped from the list is removed, and an unset or empty key leaves the folder as it is (fac-pbg)
     install-status-bar.test.ts  — install on a temporary Mac that already has the status bar app and its login job: the binary, the app's Info.plist and the job plist are left as they were, and install builds and signs no app (fac-2na)
     install-herdr-job.test.ts  — install on a temporary Mac: the launchd job factory.herdr it writes runs herdr's default server with no session named, and the PATH in that job finds glow, so herdr-sidebar draws Markdown (fac-0se, fac-6l8)
@@ -125,7 +125,7 @@
       report-state/
   openclaw-plugins/workshop-catch/  — OpenClaw plugin: archives FactoryClaw's learned skills and files each as a Bead
   pi-agent/  — Source of the Factory's pi folder, for Runs
-    settings.json  — The packages every Run loads: pi-claude-bridge 0.9.3, pi-chains, pi-flows and pi-bash-timeout; default thinking
+    settings.json  — The packages every Run loads: pi-claude-bridge 0.9.3, pi-chains, pi-flows, pi-bash-timeout and pi-soft-delete; default thinking
     trust.json
     claude-bridge.json
     README.md
@@ -161,14 +161,14 @@
   map.html  — The Factory map, built by map/render from map/paths.txt
   archon/  — Archon's home; see "Archon and the Workflow library"
   pi-agent/  — The Factory's pi folder for Runs (PI_CODING_AGENT_DIR)
-    settings.json  — Merged from the repo; lists pi-claude-bridge, pi-chains, pi-flows and pi-bash-timeout, and pi adds its own keys
+    settings.json  — Merged from the repo; lists pi-claude-bridge, pi-chains, pi-flows, pi-bash-timeout and pi-soft-delete, and pi adds its own keys
     trust.json  — Trusted folders: the three projects and Archon's workspaces
     claude-bridge.json
     extensions/  — A link to each extension file the Profile's RUN_EXTENSIONS names, and empty when it names none (fac-pbg, fac-qpv.8.1)
     chains.json  — Link to the Chains file the Profile names; the pi-chains package reads it here, so every Run node runs on its Chain (fac-qpv.8.1)
     agents/scout.md  — The Scout, copied from the repo; the subagent tool reads agents/
     npm/node_modules/pi-claude-bridge  — v0.9.3, the Factory's own copy; Run nodes load it through settings.json
-    git/github.com/bradley-mankoff/  — The pi-chains, pi-flows and pi-bash-timeout packages, installed with pi install (fac-qpv.8.1, fac-rh9)
+    git/github.com/bradley-mankoff/  — The pi-chains, pi-flows, pi-bash-timeout and pi-soft-delete packages, installed with pi install (fac-qpv.8.1, fac-rh9, fac-iaw.1)
     auth.json  — Link to ~/.pi/agent/auth.json, so one login serves both  [secret]
     sessions/  — Run sessions  [runtime]
     models-store.json  — Written by pi  [runtime]
@@ -184,6 +184,7 @@
 ## State
 > What the tools write as they run, outside the folders they install into.
 ~/.local/state/pi-chains  — pi-chains' own folder, created on first use: accounts.json marks each account used up and when it resets, which every agent on the Mac reads, and pi-chains writes it only when an account is marked used up, so its absence is expected (fac-qpv.1.2, fac-qpv.8.1)  [runtime]
+~/.local/share/soft-delete/  — pi-soft-delete's archives, one folder per destructive command named for its date, time and rule id, holding the copies under files/ or the commits as a git bundle under bundles/ and a note.md with the command, the folder it ran in, the session file and the restore steps; a folder older than the keep-days, a week unless a Mac sets another, is purged on the next write and at session start (fac-iaw.1)  [runtime]
 
 ## Archon and the Workflow library
 > Archon 0.14.0 runs Workflows on pi. Its home is the Profile's ARCHON_HOME, wherever that Mac's Profile names it, and holds the Workflow library: the core group that install writes from this repo, and the person's own groups beside it.
@@ -233,11 +234,11 @@
 ## pi
 > Your personal pi folder, where Project Managers run. Runs use the Factory's own pi folder instead (Installed Factory files).
 ~/.pi/agent  — Your personal pi
-  settings.json  — Default model Opus 5.5 at high on claude-bridge; packages: plain-voice, draft-stash, image-paste, pi-stretchtext, the bridge, and the Factory's pi-beads, pi-links, pi-chains, pi-bash-timeout and pi-herdr-ding (fac-qpv.8.1, fac-rh9, fac-o2r.1)
+  settings.json  — Default model Opus 5.5 at high on claude-bridge; packages: plain-voice, draft-stash, image-paste, pi-stretchtext, the bridge, and the Factory's pi-beads, pi-links, pi-chains, pi-bash-timeout, pi-herdr-ding and pi-soft-delete (fac-qpv.8.1, fac-rh9, fac-o2r.1, fac-iaw.1)
   mcp.json  — MCP servers: gitnexus
   auth.json  — pi logins; the Factory's pi folder links here  [secret]
   npm/node_modules/pi-claude-bridge  — v0.9.3: Claude through your Claude Code login, for your own sessions
-  git/github.com/bradley-mankoff/  — The pi-beads, pi-links, pi-chains, pi-bash-timeout and pi-herdr-ding packages, installed with pi install (fac-qpv.8.1, fac-rh9, fac-o2r.1)
+  git/github.com/bradley-mankoff/  — The pi-beads, pi-links, pi-chains, pi-bash-timeout, pi-herdr-ding and pi-soft-delete packages, installed with pi install (fac-qpv.8.1, fac-rh9, fac-o2r.1, fac-iaw.1)
   extensions/  — herdr-agent-state.ts, file-links.ts, quote-clipboard.ts
     hide-tool-calls.ts  — Your own extension: tool calls drawn as nothing; not part of the Factory
     subagent  — Link to pi's sample subagent extension; Project Managers send Scouts with it  [installed]
