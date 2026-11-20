@@ -32,13 +32,15 @@ test("install installs each pi package into the pi folder that needs it", () => 
 		const calls = piCalls(logOf(mac.logs.pi));
 		const forFolder = (folder: string) =>
 			calls.filter((call) => call.folder === folder).map((call) => call.command);
-		// The Human's own pi gets the four packages Project Managers and his sessions use:
-		// Beads, Bead links, Chains and the bash timeout.
+		// The Human's own pi gets the five packages Project Managers and his sessions use:
+		// Beads, Bead links, Chains, the bash timeout and the ding that sounds a herdr
+		// pane's turn (fac-o2r.1).
 		assert.deepEqual(forFolder(join(mac.home, ".pi", "agent")), [
 			"install git:github.com/bradley-mankoff/pi-beads",
 			"install git:github.com/bradley-mankoff/pi-links",
 			"install git:github.com/bradley-mankoff/pi-chains",
 			"install git:github.com/bradley-mankoff/pi-bash-timeout",
+			"install git:github.com/bradley-mankoff/pi-herdr-ding",
 		]);
 		// The Factory's pi folder, which every Run node reads, gets the Chains, Flows and bash
 		// timeout.
@@ -47,6 +49,24 @@ test("install installs each pi package into the pi folder that needs it", () => 
 			"install git:github.com/bradley-mankoff/pi-flows",
 			"install git:github.com/bradley-mankoff/pi-bash-timeout",
 		]);
+	} finally {
+		rmSync(dirname(mac.home), { recursive: true, force: true });
+	}
+});
+
+test("the ding goes into the Human's pi folder alone, where a Project Manager loads it", () => {
+	// pi-herdr-ding plays a herdr pane's turn sound, so it belongs in the Human's pi, which
+	// every Project Manager and his own sessions read. A Run node has no screen and needs
+	// no sound, and the package plays nothing there anyway (fac-o2r, fac-o2r.1).
+	const mac = makeMac();
+	try {
+		const result = mac.install();
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+
+		const folders = piCalls(logOf(mac.logs.pi))
+			.filter((call) => call.command === "install git:github.com/bradley-mankoff/pi-herdr-ding")
+			.map((call) => call.folder);
+		assert.deepEqual(folders, [join(mac.home, ".pi", "agent")]);
 	} finally {
 		rmSync(dirname(mac.home), { recursive: true, force: true });
 	}

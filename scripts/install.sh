@@ -141,12 +141,15 @@ WRAPPER
 	mkdir -p "$HOME/.pi/agent/extensions"
 	# The pi extensions are packages in repos of their own, so the Factory depends on them
 	# instead of holding them (fac-qpv.8.1): Beads, Bead links, Chains and the bash timeout for
-	# Project Managers and the Human's own sessions. pi install records each in his pi folder's
-	# settings.json and fetches it from its repo. Notices is the exception: its package watched
-	# the Notice file with the platform's change notification, which went silent and lost three
-	# Notices in one pane (fac-8xl), so project-manager/notices.ts reads the file on a timer
-	# instead and the Factory holds it like its other two extensions.
-	pi_packages "$HOME/.pi/agent" pi-beads pi-links pi-chains pi-bash-timeout
+	# Project Managers and the Human's own sessions, and pi-herdr-ding, which sounds a herdr
+	# pane's settled turn and whose hold a Project Manager's pane uses (fac-o2r.1). pi install
+	# records each in his pi folder's settings.json and fetches it from its repo. Notices is the
+	# exception: its package watched the Notice file with the platform's change notification,
+	# which went silent and lost three Notices in one pane (fac-8xl), so project-manager/
+	# notices.ts reads the file on a timer instead and the Factory holds it like its other
+	# three extensions. The ding stays out of the Factory's pi folder: a Run node has no screen,
+	# and the package plays nothing there.
+	pi_packages "$HOME/.pi/agent" pi-beads pi-links pi-chains pi-bash-timeout pi-herdr-ding
 	# Both pi folders read the Chains file the Profile names: pi-chains looks for
 	# <agent dir>/chains.json, so a link there points at the one file a person edits.
 	ln -sfn "$CHAINS" "$HOME/.pi/agent/chains.json"
@@ -247,6 +250,7 @@ WRAPPER
 	if [ "$OUTER_LAYER" = factoryclaw ]; then
 		install_factoryclaw
 	fi
+	herdr_settings
 	herdr_job
 	board_job
 	# The Factory map, a page of every Factory path, built from map/paths.txt; it names
@@ -415,6 +419,56 @@ login_job() {
 # Homebrew's on an Intel Mac, then the standard ones launchd's bare PATH leaves out. One
 # copy, so no job's PATH can drift from another's.
 standard_path=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+
+# herdr's own pi sound and its pop-ups off, so the only thing a pi turn's ending sounds
+# like is pi-herdr-ding, which install puts in the Human's pi folder (fac-o2r.1). Its
+# [ui.sound.agents] table takes pi's sound alone, so every other agent keeps herdr's; its
+# [ui.toast] table has no per-agent key, so turning delivery off removes the pop-up of every
+# kind of agent, which the Human accepted (Q3, Q6). herdr's check marks for unseen idle
+# panes are untouched. Only those two keys are written: every other line of the file is the
+# person's, and a key already set to the value wanted is left as the line it is, so a second
+# install writes nothing. A file herdr has never made (a Mac that installed the Factory
+# before starting herdr) is created with the two tables, and a Mac with no herdr command
+# gets no file, because nothing there would read it.
+herdr_settings() {
+	command -v herdr >/dev/null 2>&1 || return 0
+	python3 - "$HOME/.config/herdr/config.toml" <<'EOF'
+import os, sys
+
+path = sys.argv[1]
+lines = open(path).read().splitlines() if os.path.exists(path) else []
+
+
+def set_setting(lines, table, key, value):
+    """Sets key = "value" inside [table], adding the table at the end when it is missing,
+    and leaves every other line where it is."""
+    wanted = f'{key} = "{value}"'
+    header = f"[{table}]"
+    start = next((i for i, line in enumerate(lines) if line.strip() == header), None)
+    if start is None:
+        if lines and lines[-1].strip():
+            lines.append("")
+        lines += [header, wanted]
+        return lines
+    # A table ends at the next table header, whether [key] or [[array of tables]].
+    end = next((j for j in range(start + 1, len(lines)) if lines[j].lstrip().startswith("[")), len(lines))
+    for j in range(start + 1, end):
+        stripped = lines[j].strip()
+        if not stripped.startswith("#") and stripped.split("=", 1)[0].strip() == key:
+            lines[j] = wanted
+            return lines
+    lines.insert(end, wanted)
+    return lines
+
+
+lines = set_setting(lines, "ui.sound.agents", "pi", "off")
+lines = set_setting(lines, "ui.toast", "delivery", "off")
+new = "\n".join(lines) + "\n"
+if not os.path.exists(path) or open(path).read() != new:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path, "w").write(new)
+EOF
+}
 
 # The herdr server where Project Managers run, as its own launchd job started at login.
 # It runs the default server, the one the Human's own terminals attach to, so he and
