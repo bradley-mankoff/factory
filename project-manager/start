@@ -1,9 +1,10 @@
 #!/bin/sh
 # Starts a Project Manager: the Human's own pi in the current repo's top folder, with the
 # Project Manager's instructions and the glossary appended to its system prompt, and with the
-# three extensions a Project Manager keeps loaded: the status check (fac-k10), the blocked
-# mark a project's open Ask puts on its herdr pane (fac-3mz.5), and the Notices that carry a
-# Run's ending into the conversation (fac-qpv.2.1).
+# four extensions a Project Manager keeps loaded: the status check (fac-k10), the blocked
+# mark a project's open Ask puts on its herdr pane (fac-3mz.5), the Notices that carry a
+# Run's ending into the conversation (fac-qpv.2.1), and the hold that keeps the pane's ding
+# silent while a Run of the project is moving and nothing waits on the Human (fac-o2r.1).
 #
 #   project-manager/start [--status-check] [pi arguments...]
 #
@@ -138,4 +139,5 @@ exec pi \
 	--extension "$factory/project-manager/status-check.ts" \
 	--extension "$factory/project-manager/blocked-mark.ts" \
 	--extension "$factory/project-manager/notices.ts" \
+	--extension "$factory/project-manager/ding-hold.ts" \
 	"$@"
