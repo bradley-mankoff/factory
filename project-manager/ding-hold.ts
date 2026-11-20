@@ -10,9 +10,9 @@
  *
  * The state is three quick script reads, never a model call: `factory asks` for this
  * project's open Asks, which carries a Human gate as well; `archon workflow attention` for
- * every paused Run, which adds the waits `factory asks` does not list; and
- * `archon workflow runs --status running` for whether a Run is still moving. A read that
- * cannot answer, because the command is missing, fails, answers with something else or
+ * this project's paused Runs, which adds the waits `factory asks` does not list; and
+ * `archon workflow runs --status running` for whether a Run of it is still moving. A read
+ * that cannot answer, because the command is missing, fails, answers with something else or
  * takes too long, plays the sound: a ding too many costs a moment, and a ding missed may
  * leave the Human away from a pane that needs him, so only a complete answer that says
  * "moving, nothing waited" holds it.
@@ -77,12 +77,14 @@ async function openAsks(repo: string): Promise<unknown[] | undefined> {
 
 /** The Runs of this project paused at an attention wait, or undefined when `archon` could
  * not answer. It adds the waits `factory asks` leaves out, a wait for a plain answer among
- * them; every one of them waits on the Human. */
+ * them; every one of them waits on the Human. Archon names the project it answers for by the
+ * folder its command runs in, so this one runs in the session's own. */
 async function pausedRuns(repo: string): Promise<unknown[] | undefined> {
 	return listed(await readJson("archon", ["workflow", "attention", "--json"], repo), "items");
 }
 
-/** The Runs of this project still moving, or undefined when `archon` could not answer. */
+/** The Runs of this project still moving, or undefined when `archon` could not answer. It
+ * takes its project from the folder it runs in, as the paused Runs' read does. */
 async function runningRuns(repo: string): Promise<unknown[] | undefined> {
 	return listed(await readJson("archon", ["workflow", "runs", "--status", "running", "--json"], repo), "runs");
 }
@@ -98,8 +100,9 @@ export default function dingHold(pi: ExtensionAPI): void {
 			runningRuns(ctx.cwd),
 		]);
 		// A read that could not answer says nothing about whether the Human is needed, so the
-		// turn plays rather than being held on a guess.
-		if (!asks || !paused || !moving) return;
+		// turn plays rather than being held on a guess. Only undefined is no answer: `listed`
+		// gives it for a read that returned no list, while an empty list is an answer.
+		if (asks === undefined || paused === undefined || moving === undefined) return;
 		if (asks.length > 0 || paused.length > 0) return;
 		if (moving.length === 0) return;
 		pi.events.emit(HOLD_EVENT, {
