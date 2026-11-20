@@ -63,12 +63,9 @@ function readJson(command: string, args: string[], repo: string): Promise<unknow
  * `items` and `runs`). An empty list is an answer, so it comes back as one.
  */
 function listed(answer: unknown, key?: string): unknown[] | undefined {
-	const list =
-		key === undefined
-			? answer
-			: answer !== null && typeof answer === "object"
-				? (answer as Record<string, unknown>)[key]
-				: undefined;
+	if (key === undefined) return Array.isArray(answer) ? answer : undefined;
+	if (answer === null || typeof answer !== "object") return undefined;
+	const list = (answer as Record<string, unknown>)[key];
 	return Array.isArray(list) ? list : undefined;
 }
 
