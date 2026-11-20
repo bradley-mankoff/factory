@@ -1,7 +1,7 @@
 /**
  * The Factory depends on pi packages that live in repos of their own (fac-qpv.8.1); its own
- * pi extensions are the three a Project Manager loads, which install copies with the rest of
- * project-manager/ (fac-8xl). The seam is installation: scripts/install.sh runs with a
+ * pi extensions are the four a Project Manager loads, which install copies with the rest of
+ * project-manager/ (fac-8xl, fac-o2r.1). The seam is installation: scripts/install.sh runs with a
  * temporary HOME and stand-ins at the system's edges, `pi` among them, and the test reads
  * back the calls pi recorded and the files install leaves on that Mac. Nothing here looks
  * inside install.sh.

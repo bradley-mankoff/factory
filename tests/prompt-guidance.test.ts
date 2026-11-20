@@ -98,15 +98,20 @@ test("every Run node prompt carries the same put-work-down conventions", () => {
 	assert.equal(new Set(copies).size, 1, `one paragraph in every prompt:\n${copies.join("\n\n")}`);
 });
 
-test("the Run node prompts say where scratch and throwaway repos go, who cleans up branches, and where a setting comes from", () => {
-	const paragraph = putWorkDown(buildPrompts.work);
+/** The conventions a put-work-down paragraph states, whichever document carries the copy. */
+const assertPutWorkDownConventions = (paragraph: string): void => {
 	assert.match(paragraph, /`\/tmp\/<task name>\/`/);
 	assert.match(paragraph, /`git clone <repo> \/tmp\/<task name>\/<name>`/);
 	assert.match(paragraph, /never a linked worktree/);
 	assert.match(paragraph, /git worktree remove --force/);
 	assert.doesNotMatch(paragraph, /cp -R <repo>/);
 	assert.match(paragraph, /`bin\/land` and `archon complete`/);
+	assert.match(paragraph, /a setting comes from the environment your shell was given/);
 	assert.match(paragraph, /never from reading the project's `\.archon\/\.env`/);
+};
+
+test("the Run node prompts say where scratch and throwaway repos go, who cleans up branches, and where a setting comes from", () => {
+	assertPutWorkDownConventions(putWorkDown(buildPrompts.work));
 });
 
 test("the spec review's before-and-after check clones the repo into /tmp rather than a linked worktree", () => {
@@ -127,11 +132,7 @@ const git = (repo: string, args: string[]): string => execFileSync("git", ["-C",
 
 const commit = (repo: string, message: string): void => {
 	git(repo, ["add", "-A"]);
-	execFileSync(
-		"git",
-		["-C", repo, "-c", "user.name=Factory", "-c", "user.email=factory@example.invalid", "commit", "-q", "-m", message],
-		{ encoding: "utf8" },
-	);
+	git(repo, ["-c", "user.name=Factory", "-c", "user.email=factory@example.invalid", "commit", "-q", "-m", message]);
 };
 
 test("a checkout in the throwaway copy the prompts hand an agent leaves the worktree it cloned from on its branch", () => {
@@ -506,30 +507,24 @@ test("the instructions' Idea to Beads steps put the Spec review on the Epic gril
 	assert.match(line, /Spec/);
 });
 
-test("the Project Manager puts work down so cleanup is ordinary", () => {
+test("the Project Manager's instructions say where scratch and throwaway repos go, who cleans up branches, and where a setting comes from", () => {
 	// Every archive is a copy an agent can lose nothing to, and scratch work that needs no
-	// copy keeps the archives small (fac-iaw.1). The instructions say where scratch and
-	// throwaway repos go, that landing and archon complete own branch cleanup, and that a
-	// setting comes from the shell rather than from the project's .env file.
+	// copy keeps the archives small (fac-iaw.1). The same conventions as the node prompts,
+	// plus the exported values the instructions name so the Project Manager never opens the
+	// project's .env file.
 	const section = part("## Putting work down");
-	assert.match(lineMatching(section, "scratch files go under"), /`\/tmp\/<task name>\/`/);
-	const copies = lineMatching(section, "throwaway test repo");
-	assert.match(copies, /`git clone <repo> \/tmp\/<task name>\/<name>`/);
-	assert.match(copies, /never a linked worktree/);
-	assert.match(copies, /git worktree remove --force/);
-	assert.doesNotMatch(copies, /cp -R <repo>/);
-	const branches = lineMatching(section, "branch cleanup");
-	assert.match(branches, /bin\/land/);
-	assert.match(branches, /archon complete/);
-	const settings = lineMatching(section, "\.archon/\.env");
-	assert.match(settings, /environment/);
-	assert.match(settings, /`start` has already exported/);
+	assertPutWorkDownConventions(section);
+	const settings = lineMatching(section, "`start` has already exported");
 	assert.match(settings, /`FACTORY_CHECK`/);
 });
 
-test("the Project Manager restores an archive by reading its note.md", () => {
-	const section = part("## Putting work down");
-	assert.match(lineMatching(section, "soft-delete"), /Nothing is refused/);
-	assert.match(lineMatching(section, "~/.local/share/soft-delete/"), /one folder/);
-	assert.match(lineMatching(section, "restore"), /note\.md/);
+test("the Project Manager's instructions name soft delete's archive root, one folder per command", () => {
+	const archives = lineMatching(part("## Putting work down"), "~/.local/share/soft-delete/");
+	assert.match(archives, /Nothing is refused/);
+	assert.match(archives, /one folder per command/);
+});
+
+test("the Project Manager restores an archive by reading its note.md and following its restore steps", () => {
+	const restores = lineMatching(part("## Putting work down"), "read that `note.md`");
+	assert.match(restores, /follow its restore steps/);
 });
